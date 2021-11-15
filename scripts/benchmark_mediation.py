@@ -1,5 +1,5 @@
 import time
-from src.benchmark_mediation.src.benchmark_mediation import *
+from src.benchmark_mediation import *
 from rpy2.rinterface import RRuntimeError
 
 
@@ -231,201 +231,201 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = ols_mediation(y, t, m, x)
     if estimator == 'huber_ipw_noreg':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='none', forest=False, crossfit=0,
+                            regularization=False, forest=False, crossfit=0,
                             clip=0.0, calibration=False)
     if estimator == 'huber_ipw_noreg_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='none', forest=False, crossfit=2,
+                            regularization=False, forest=False, crossfit=2,
                             clip=0.0, calibration=False)
     if estimator == 'huber_ipw_reg':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=False, crossfit=0,
+                            regularization=True, forest=False, crossfit=0,
                             clip=0.01, calibration=False)
     if estimator == 'huber_ipw_reg_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=False, crossfit=2,
+                            regularization=True, forest=False, crossfit=2,
                             clip=0.01, calibration=False)
     if estimator == 'huber_ipw_reg_calibration':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=False, crossfit=0,
+                            regularization=True, forest=False, crossfit=0,
                             clip=0.01, calibration=True)
     if estimator == 'huber_ipw_reg_calibration_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=False, crossfit=2,
+                            regularization=True, forest=False, crossfit=2,
                             clip=0.01, calibration=True)
     if estimator == 'huber_ipw_forest':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=True, crossfit=0,
+                            regularization=True, forest=True, crossfit=0,
                             clip=0.01, calibration=False)
     if estimator == 'huber_ipw_forest_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=True, crossfit=2,
+                            regularization=True, forest=True, crossfit=2,
                             clip=0.01, calibration=False)
     if estimator == 'huber_ipw_forest_calibration':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=True, crossfit=0,
+                            regularization=True, forest=True, crossfit=0,
                             clip=0.01, calibration=True)
     if estimator == 'huber_ipw_forest_calibration_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
-                            penalty='l2', forest=True, crossfit=2,
+                            regularization=True, forest=True, crossfit=2,
                             clip=0.01, calibration=True)
     if estimator == 'g_computation_noreg':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='none',
-                                    forest=False, crossfit=0, alpha_ridge=0.0,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False, 
+                                    forest=False, crossfit=0,
+                                    regularization=False, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_noreg_cf':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='none',
-                                    forest=False, crossfit=2, alpha_ridge=0.0,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=2,
+                                    regularization=False, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_reg':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=False, crossfit=0, alpha_ridge=0.00001,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=0,
+                                    regularization=True, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_reg_cf':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=False, crossfit=2, alpha_ridge=0.00001,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=2,
+                                    regularization=True, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_reg_calibration':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=False, crossfit=0, alpha_ridge=0.00001,
-                                    calibration=True)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=0,
+                                    regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_reg_calibration_cf':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=False, crossfit=2, alpha_ridge=0.00001,
-                                    calibration=True)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=2,
+                                    regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_forest':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=True, crossfit=0, alpha_ridge=0.00001,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=0,
+                                    regularization=True, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_forest_cf':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=True, crossfit=2, alpha_ridge=0.00001,
-                                    calibration=False)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=2,
+                                    regularization=True, calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_forest_calibration':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=True, crossfit=0, alpha_ridge=0.00001,
-                                    calibration=True)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=0,
+                                    regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_forest_calibration_cf':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, penalty='l2',
-                                    forest=True, crossfit=2, alpha_ridge=0.00001,
-                                    calibration=True)
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=2,
+                                    regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_noreg':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='none', forest=False,
+                                                forest=False,
                                                 crossfit=0, clip=0.0,
-                                                alpha_ridge=0.0,
+                                                regularization=False,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_noreg_cf':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='none', forest=False,
+                                                forest=False,
                                                 crossfit=2, clip=0.0,
-                                                alpha_ridge=0.0,
+                                                regularization=False,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=False,
+                                                forest=False,
                                                 crossfit=0, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_cf':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=False,
+                                                forest=False,
                                                 crossfit=2, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_calibration':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=False,
+                                                forest=False,
                                                 crossfit=0, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_calibration_cf':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=False,
+                                                forest=False,
                                                 crossfit=2, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=True,
+                                                forest=True,
                                                 crossfit=0, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_cf':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=True,
+                                                forest=True,
                                                 crossfit=2, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=False)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_calibration':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=True,
+                                                forest=True,
                                                 crossfit=0, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_calibration_cf':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m, x, interaction=False,
-                                                penalty='l2', forest=True,
+                                                forest=True,
                                                 crossfit=2, clip=0.01,
-                                                alpha_ridge=0.00001,
+                                                regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
@@ -445,7 +445,6 @@ def get_estimation(x, t, m, y, estimator, config):
         else:
             effects = [np.nan] * 5
     return effects
-
 
 
 dim_x_observed_list = [1, 5, 20, 5, 20, 20]
@@ -478,13 +477,14 @@ estimator_list = ['coefficient_product', 'huber_ipw_noreg', 'huber_ipw_reg',
                   'multiply_robust_noreg_cf', 'multiply_robust_reg_cf',
                   'multiply_robust_reg_calibration_cf', 'multiply_robust_forest_cf',
                   'multiply_robust_forest_calibration_cf']
-rep_nb = 10
+rep_nb = 30
 res_list = list()
-for config in range(6):
-    for setting in setting_list:
-        for n in (500, 1000, 10000):
-            for beta_t_factor in (0.1, 1, 5):
-                for ii in range(rep_nb):
+for ii in range(rep_nb):
+    print("iteration", ii)
+    for config in range(6):
+        for setting in setting_list:
+            for n in (500, 1000, 10000):
+                for beta_t_factor in (0.1, 1, 5):
                     rg = default_rng(config * (setting_list.index(setting)+1) + n * (ii+1) * int(beta_t_factor+1))
                     x, t, m, y, truth = simulate_data(
                         n, rg, setting,
@@ -508,10 +508,10 @@ for config in range(6):
                         val_list += list(effects)
                         val_list.append(duration)
                         res_list.append(val_list)
-columns = ['configuration', 'setting', 'n', 'beta_t_factor', 'true_total_effect',
-           'true_direct_effect', 'true_indirect_effect', 'estimator',
-           'total_effect', 'direct_treated_effect', 'direct_control_effect',
-           'indirect_treated_effect', 'indirect_control_effect', 'n_non_trimmed', 'duration']
-res_df = pd.DataFrame(res_list, columns=columns)
-res_df.to_csv('results/simulations/20211016_simulations.csv', index=False, sep='\t')
+    columns = ['configuration', 'setting', 'n', 'beta_t_factor', 'true_total_effect',
+               'true_direct_effect', 'true_indirect_effect', 'estimator',
+               'total_effect', 'direct_treated_effect', 'direct_control_effect',
+               'indirect_treated_effect', 'indirect_control_effect', 'n_non_trimmed', 'duration']
+    res_df = pd.DataFrame(res_list, columns=columns)
+    res_df.to_csv('results/simulations/20211110_simulations.csv', index=False, sep='\t')
 

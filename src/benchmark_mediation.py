@@ -9,7 +9,7 @@ causal inference, simulate data, and evaluate and compare estimators
 import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri, numpy2ri
-from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
+from sklearn.linear_model import LogisticRegressionCV, LinearRegression, RidgeCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.calibration import CalibratedClassifierCV
@@ -36,6 +36,9 @@ base = rpackages.importr('base')
 brc = rpackages.importr('bartCause')
 grf = rpackages.importr('grf')
 plmed = rpackages.importr('plmed')
+
+ALPHAS = np.logspace(-5, 5, 8)
+CV_FOLDS = 5
 
 
 def get_interactions(interaction, *args):
@@ -82,13 +85,17 @@ def get_interactions(interaction, *args):
         return result
 
 
-def plain_IPW(y, t, x, trim=0.01):
+def plain_IPW(y, t, x, trim=0.01, regularization=True):
     """
     plain IPW estimator without mediation
     """
+    if regularization:
+        cs = ALPHAS
+    else:
+        cs = [np.inf]
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
-    p_x_clf = LogisticRegression().fit(x, t)
+    p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(x, t)
     p_x = p_x_clf.predict_proba(x)[:, 1]
     # trimming
     p_x[p_x < trim] = trim
@@ -100,10 +107,16 @@ def plain_IPW(y, t, x, trim=0.01):
 
 
 def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
-         alpha_ridge=0.00001, penalty='l2'):
+         regularization=True):
     """
     AIPW estimator
     """
+    if regularization:
+        alphas = ALPHAS
+        cs = ALPHAS
+    else:
+        alphas = [0.0]
+        cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
@@ -124,11 +137,11 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
             control_train_index = np.array(
                 list(set(train_index).intersection(np.where(t == 0)[0])))
             if not forest:
-                y_reg_treated = Ridge(alpha=alpha_ridge)\
+                y_reg_treated = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
                     .fit(x[treated_train_index, :], y[treated_train_index])
-                y_reg_control = Ridge(alpha=alpha_ridge)\
+                y_reg_control = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
                     .fit(x[control_train_index, :], y[control_train_index])
-                t_prob = LogisticRegression(penalty=penalty)\
+                t_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                     .fit(x[train_index, :], t[train_index])
             else:
                 y_reg_treated = RandomForestRegressor(max_depth=3,
@@ -153,7 +166,7 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
     return [total_effect] + [None] * 5
 
 
-def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
+def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
               crossfit=0, clip=0.01, calibration=True):
     """
     IPW estimator presented in
@@ -202,10 +215,11 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
             whether logit or pobit regression is used for propensity score
             legacy from the R package, here only logit is implemented
 
-    penalty string {‘l1’, ‘l2’, ‘elasticnet’, ‘none’}, default=’l2’
-            passed to the scikit learn sklearn.linear_model.LogisticRegression
-            model. Was used to mimick the R implementation without penalty in
-            some cases, to evaluate regularization bias
+    regularization boolean, default True
+                   whether to use regularized models (logistic or 
+                   linear regression). If True, cross-validation is used
+                   to chose among 8 potential log-spaced values between
+                   1e-5 and 1e5
 
     forest  boolean, default False
             whether to use a random forest model to estimate the propensity
@@ -217,6 +231,10 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
     clip    float
             limit to clip for numerical stability (min=clip, max=1-clip)
     """
+    if regularization:
+        cs = ALPHAS
+    else:
+        cs = [np.inf]
     n = len(t)
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
@@ -237,9 +255,9 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
                 m = m.reshape(-1, 1)
             for train_index, test_index in train_test_list:
                 if not forest:
-                    rf_x_clf = LogisticRegression(penalty=penalty)\
+                    rf_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                         .fit(x[train_index, :], t[train_index])
-                    rf_xm_clf = LogisticRegression(penalty=penalty)\
+                    rf_xm_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                         .fit(np.hstack((x, m))[train_index, :], t[train_index])
                 else:
                     rf_x_clf = RandomForestClassifier(n_estimators=100,
@@ -299,11 +317,11 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
                 w = w.reshape(-1, 1)
             for train_index, test_index in train_test_list:
                 if not forest:
-                    rf_x_clf = LogisticRegression(penalty=penalty)\
+                    rf_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                         .fit(x[train_index, :], t[train_index])
-                    rf_xw_clf = LogisticRegression(penalty=penalty)\
+                    rf_xw_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                         .fit(np.hstack((x, w))[train_index, :], t[train_index])
-                    rf_xmw_clf = LogisticRegression(penalty=penalty)\
+                    rf_xmw_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                         .fit(np.hstack((x, m, w))[train_index, :],
                              t[train_index])
                 else:
@@ -362,7 +380,7 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, penalty='l2', forest=False,
                    len(y) - np.sum(ind))
 
 
-def ols_mediation(y, t, m, x, interaction=False, alpha_ridge=0.00001):
+def ols_mediation(y, t, m, x, interaction=False, regularization=True):
     """
     found an R implementation https://cran.r-project.org/package=regmedint
 
@@ -386,9 +404,20 @@ def ols_mediation(y, t, m, x, interaction=False, alpha_ridge=0.00001):
 
     interaction boolean, default=False
                 whether to include interaction terms in the model
-                not implemented here, just for compatbility of signature function
+                not implemented here, just for compatbility of signature
+                function
+
+    regularization boolean, default True
+                   whether to use regularized models (logistic or
+                   linear regression). If True, cross-validation is used
+                   to chose among 8 potential log-spaced values between
+                   1e-5 and 1e5
 
     """
+    if regularization:
+        alphas = ALPHAS
+    else:
+        alphas = [0.0]
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
     if len(m.shape) == 1:
@@ -397,9 +426,11 @@ def ols_mediation(y, t, m, x, interaction=False, alpha_ridge=0.00001):
         t = t.reshape(-1, 1)
     coef_t_m = np.zeros(m.shape[1])
     for i in range(m.shape[1]):
-        m_reg = Ridge(alpha=alpha_ridge).fit(np.hstack((x, t)), m[:, i])
+        m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
+            .fit(np.hstack((x, t)), m[:, i])
         coef_t_m[i] = m_reg.coef_[-1]
-    y_reg = Ridge(alpha=alpha_ridge).fit(np.hstack((x, t, m)), y.ravel())
+    y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
+        .fit(np.hstack((x, t, m)), y.ravel())
 
     # return total, direct and indirect effect
     direct_effect = y_reg.coef_[x.shape[1]]
@@ -412,8 +443,8 @@ def ols_mediation(y, t, m, x, interaction=False, alpha_ridge=0.00001):
             None]
 
 
-def g_computation(y, t, m, x, interaction=False, penalty='l2', forest=False,
-                  crossfit=0, alpha_ridge=0.00001, calibration=True):
+def g_computation(y, t, m, x, interaction=False, forest=False,
+                  crossfit=0, calibration=True, regularization=True):
     """
     m is binary !!!
 
@@ -436,11 +467,6 @@ def g_computation(y, t, m, x, interaction=False, penalty='l2', forest=False,
                 whether to include interaction terms in the model
                 interactions are terms XT, TM, MX
 
-    penalty string {‘l1’, ‘l2’, ‘elasticnet’, ‘none’}, default=’l2’
-            passed to the scikit learn sklearn.linear_model.LogisticRegression
-            model. Was used to mimick the R implementation without penalty in
-            some cases, to evaluate regularization bias
-
     forest  boolean, default False
             whether to use a random forest model to estimate the propensity
             scores instead of logistic regression, and outcome model instead
@@ -449,7 +475,18 @@ def g_computation(y, t, m, x, interaction=False, penalty='l2', forest=False,
     crossfit integer, default 0
              number of folds for cross-fitting
 
+    regularization boolean, default True
+                   whether to use regularized models (logistic or
+                   linear regression). If True, cross-validation is used
+                   to chose among 8 potential log-spaced values between
+                   1e-5 and 1e5
     """
+    if regularization:
+        alphas = ALPHAS
+        cs = ALPHAS
+    else:
+        alphas = [0.0]
+        cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
@@ -476,8 +513,10 @@ def g_computation(y, t, m, x, interaction=False, penalty='l2', forest=False,
 
     for train_index, test_index in train_test_list:
         if not forest:
-            y_reg = Ridge(alpha=alpha_ridge).fit(get_interactions(interaction, x, t, mr)[train_index, :], y[train_index])
-            pre_m_prob = LogisticRegression(penalty=penalty).fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
+            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
+                .fit(get_interactions(interaction, x, t, mr)[train_index, :], y[train_index])
+            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
+                .fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
         else:
             y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)\
                 .fit(get_interactions(interaction, x, t, mr)[train_index, :], y[train_index])
@@ -514,7 +553,7 @@ def g_computation(y, t, m, x, interaction=False, penalty='l2', forest=False,
             None]
 
 
-def alternative_estimator(y, t, m, x, alpha_ridge=0.00001):
+def alternative_estimator(y, t, m, x, regularization=True):
     """
     presented in
     HUBER, Martin, LECHNER, Michael, et MELLACE, Giovanni.
@@ -536,7 +575,16 @@ def alternative_estimator(y, t, m, x, alpha_ridge=0.00001):
     x       array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
 
+    regularization boolean, default True
+                   whether to use regularized models (logistic or
+                   linear regression). If True, cross-validation is used
+                   to chose among 8 potential log-spaced values between
+                   1e-5 and 1e5
     """
+    if regularization:
+        alphas = ALPHAS
+    else:
+        alphas = [0.0]
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
     if len(m.shape) == 1:
@@ -544,13 +592,13 @@ def alternative_estimator(y, t, m, x, alpha_ridge=0.00001):
     treated = (t == 1)
 
     # computation of direct effect
-    y_treated_reg_m = Ridge(alpha=alpha_ridge).fit(np.hstack((x[treated], m[treated])), y[treated])
-    y_ctrl_reg_m = Ridge(alpha=alpha_ridge).fit(np.hstack((x[~treated], m[~treated])), y[~treated])
+    y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[treated], m[treated])), y[treated])
+    y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[~treated], m[~treated])), y[~treated])
     direct_effect = np.sum(y_treated_reg_m.predict(np.hstack((x, m))) - y_ctrl_reg_m.predict(np.hstack((x, m)))) / len(y)
 
     # computation of total effect
-    y_treated_reg = Ridge(alpha=alpha_ridge).fit(x[treated], y[treated])
-    y_ctrl_reg = Ridge(alpha=alpha_ridge).fit(x[~treated], y[~treated])
+    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[treated], y[treated])
+    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[~treated], y[~treated])
     total_effect = np.sum(y_treated_reg.predict(x) - y_ctrl_reg.predict(x)) / len(y)
 
     # computation of indirect effect
@@ -564,9 +612,9 @@ def alternative_estimator(y, t, m, x, alpha_ridge=0.00001):
             None]
 
 
-def multiply_robust_efficient(y, t, m, x, interaction=False, penalty='l2',
+def multiply_robust_efficient(y, t, m, x, interaction=False,
                               forest=False, crossfit=0, clip=0.01,
-                              alpha_ridge=0.00001, calibration=True):
+                              regularization=True, calibration=True):
     """
     presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
@@ -609,7 +657,19 @@ def multiply_robust_efficient(y, t, m, x, interaction=False, penalty='l2',
     clip    float
             limit to clip for numerical stability (min=clip, max=1-clip)
 
+    regularization boolean, default True
+                   whether to use regularized models (logistic or
+                   linear regression). If True, cross-validation is used
+                   to chose among 8 potential log-spaced values between
+                   1e-5 and 1e5
+
     """
+    if regularization:
+        alphas = ALPHAS
+        cs = ALPHAS
+    else:
+        alphas = [0.0]
+        cs = [np.inf]
     n = len(y)
     ind = np.arange(n)
     if len(x.shape) == 1:
@@ -639,13 +699,13 @@ def multiply_robust_efficient(y, t, m, x, interaction=False, penalty='l2',
     for train_index, test_index in train_test_list:
         test_ind = np.arange(len(test_index))
         if not forest:
-            y_reg = Ridge(alpha=alpha_ridge)\
+            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
                 .fit(get_interactions(interaction, x, tr, mr)[train_index, :],
                      y[train_index])
-            pre_m_prob = LogisticRegression(penalty=penalty)\
+            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                 .fit(get_interactions(interaction, tr, x)[train_index, :],
                      m[train_index])
-            pre_p_x_clf = LogisticRegression(penalty=penalty)\
+            pre_p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
                 .fit(x[train_index, :], t[train_index])
         else:
             y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)\
@@ -670,8 +730,8 @@ def multiply_robust_efficient(y, t, m, x, interaction=False, penalty='l2',
             y_reg.predict(get_interactions(interaction, x, t0, m0)[test_index, :])
         diff_mu_m1[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :]) -\
             y_reg.predict(get_interactions(interaction, x, t0, m1)[test_index, :])
-        diff_mu_m0_reg = Ridge(alpha=alpha_ridge).fit(x[test_index, :][ind_t0, :], diff_mu_m0[test_index][ind_t0])
-        diff_mu_m1_reg = Ridge(alpha=alpha_ridge).fit(x[test_index, :][ind_t0, :], diff_mu_m1[test_index][ind_t0])
+        diff_mu_m0_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], diff_mu_m0[test_index][ind_t0])
+        diff_mu_m1_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], diff_mu_m1[test_index][ind_t0])
         f_00x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 0]
         f_01x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 1]
         theta_0x[test_index] = diff_mu_m0_reg.predict(x[test_index, :]) * f_00x[test_index] +\
@@ -686,17 +746,19 @@ def multiply_robust_efficient(y, t, m, x, interaction=False, penalty='l2',
 
         mu_t1m1[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :])
         mu_t1m0[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m0)[test_index, :])
-        reg_y_t1m1_t0 = Ridge(alpha=alpha_ridge).fit(x[test_index, :][ind_t0, :], mu_t1m1[test_index][ind_t0])
-        reg_y_t1m0_t0 = Ridge(alpha=alpha_ridge).fit(x[test_index, :][ind_t0, :], mu_t1m0[test_index][ind_t0])
-        reg_y_t1m1_t1 = Ridge(alpha=alpha_ridge).fit(x[test_index, :][~ind_t0, :], mu_t1m1[test_index][~ind_t0])
-        reg_y_t1m0_t1 = Ridge(alpha=alpha_ridge).fit(x[test_index, :][~ind_t0, :], mu_t1m0[test_index][~ind_t0])
+        reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], mu_t1m1[test_index][ind_t0])
+        reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], mu_t1m0[test_index][ind_t0])
+        reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][~ind_t0, :], mu_t1m1[test_index][~ind_t0])
+        reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][~ind_t0, :], mu_t1m0[test_index][~ind_t0])
         f_10x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 0]
         f_11x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 1]
 
-        psi_0x[test_index] = reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index] +\
-            reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
-        psi_1x[test_index] = reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index] +\
-            reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
+        psi_0x[test_index] = reg_y_t1m0_t0.predict(x[test_index, :]) *\
+            f_00x[test_index] + reg_y_t1m1_t0.predict(x[test_index, :]) *\
+            f_01x[test_index]
+        psi_1x[test_index] = reg_y_t1m0_t1.predict(x[test_index, :]) *\
+            f_10x[test_index] + reg_y_t1m1_t1.predict(x[test_index, :]) *\
+            f_11x[test_index]
 
     p_x = np.clip(p_x, clip, 1 - clip)
     f_m0x = np.clip(f_m0x, clip, 1 - clip)
