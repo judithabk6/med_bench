@@ -6,7 +6,7 @@ from rpy2.rinterface import RRuntimeError
 def simulate_data(n, rg, setting, dim_x_observed=1,
                   dim_m_observed=1,
                   seed=None, dim_x=1, dim_m=1, type_m='binary', sigma_y=0.5,
-                  sigma_m=0.5, beta_t_factor=1):
+                  sigma_m=0.5, beta_t_factor=1, strict=False):
     """
     """
     rg_coef = default_rng(seed)
@@ -37,6 +37,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 1
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = x_observed.dot(beta_x) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -64,7 +66,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
-
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = 1/(1+np.exp(-x_observed.dot(beta_x))) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -92,7 +95,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
-
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = 3*np.sin(3*x_observed.dot(beta_x)) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -120,6 +124,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = x_observed.dot(beta_x) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -147,6 +153,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = x_observed.dot(beta_x) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -174,6 +182,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = 1/(1+np.exp(-x_observed.dot(beta_x))) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -201,6 +211,8 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            if strict:
+                beta_t[0,dim_m:] = 0
             m = 3*np.sin(3*x_observed.dot(beta_x)) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -249,10 +261,20 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=False, crossfit=0,
                             clip=0.01, calibration=True)
-    if estimator == 'huber_ipw_reg_calibration_cf':
+    if estimator == 'huber_ipw_reg_calibration_iso':
+        effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
+                            regularization=True, forest=False, crossfit=0,
+                            clip=0.01, calibration=True,
+                            calib_method='isotonic')
+    if estimator == 'huber_ipw_reg_calibration_iso_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=False, crossfit=2,
                             clip=0.01, calibration=True)
+    if estimator == 'huber_ipw_reg_calibration_iso_cf':
+        effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
+                            regularization=True, forest=False, crossfit=2,
+                            clip=0.01, calibration=True,
+                            calib_method='isotonic')
     if estimator == 'huber_ipw_forest':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=True, crossfit=0,
@@ -265,10 +287,20 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=True, crossfit=0,
                             clip=0.01, calibration=True)
+    if estimator == 'huber_ipw_forest_calibration_iso':
+        effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
+                            regularization=True, forest=True, crossfit=0,
+                            clip=0.01, calibration=True,
+                            calib_method='isotonic')
     if estimator == 'huber_ipw_forest_calibration_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=True, crossfit=2,
                             clip=0.01, calibration=True)
+    if estimator == 'huber_ipw_forest_calibration_iso_cf':
+        effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
+                            regularization=True, forest=True, crossfit=2,
+                            clip=0.01, calibration=True,
+                            calib_method='isotonic')
     if estimator == 'g_computation_noreg':
         if config in (0, 1, 2):
             effects = g_computation(y, t, m, x, interaction=False, 
@@ -304,11 +336,27 @@ def get_estimation(x, t, m, y, estimator, config):
                                     regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'g_computation_reg_calibration_iso':
+        if config in (0, 1, 2):
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=0,
+                                    regularization=True, calibration=True,
+                                    calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'g_computation_reg_calibration_cf':
         if config in (0, 1, 2):
             effects = g_computation(y, t, m, x, interaction=False,
                                     forest=False, crossfit=2,
                                     regularization=True, calibration=True)
+        else:
+            effects = [np.nan] * 5
+    if estimator == 'g_computation_reg_calibration_iso_cf':
+        if config in (0, 1, 2):
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=False, crossfit=2,
+                                    regularization=True, calibration=True,
+                                    calib_method='isotonic')
         else:
             effects = [np.nan] * 5
     if estimator == 'g_computation_forest':
@@ -332,6 +380,14 @@ def get_estimation(x, t, m, y, estimator, config):
                                     regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'g_computation_forest_calibration_iso':
+        if config in (0, 1, 2):
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=0,
+                                    regularization=True, calibration=True,
+                                    calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'g_computation_forest_calibration_cf':
         if config in (0, 1, 2):
             effects = g_computation(y, t, m, x, interaction=False,
@@ -339,9 +395,17 @@ def get_estimation(x, t, m, y, estimator, config):
                                     regularization=True, calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'g_computation_forest_calibration_iso_cf':
+        if config in (0, 1, 2):
+            effects = g_computation(y, t, m, x, interaction=False,
+                                    forest=True, crossfit=2,
+                                    regularization=True, calibration=True,
+                                    calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'multiply_robust_noreg':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=0, clip=0.0,
                                                 regularization=False,
@@ -350,7 +414,7 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_noreg_cf':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=2, clip=0.0,
                                                 regularization=False,
@@ -359,7 +423,7 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=0, clip=0.01,
                                                 regularization=True,
@@ -368,7 +432,7 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_cf':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=2, clip=0.01,
                                                 regularization=True,
@@ -377,25 +441,45 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_calibration':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=0, clip=0.01,
                                                 regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'multiply_robust_reg_calibration_sio':
+        if config in (0, 1, 2):
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
+                                                forest=False,
+                                                crossfit=0, clip=0.01,
+                                                regularization=True,
+                                                calibration=True,
+                                                calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'multiply_robust_reg_calibration_cf':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
                                                 crossfit=2, clip=0.01,
                                                 regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'multiply_robust_reg_calibration_iso_cf':
+        if config in (0, 1, 2):
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
+                                                forest=False,
+                                                crossfit=2, clip=0.01,
+                                                regularization=True,
+                                                calibration=True,
+                                                calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=True,
                                                 crossfit=0, clip=0.01,
                                                 regularization=True,
@@ -404,7 +488,7 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_cf':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=True,
                                                 crossfit=2, clip=0.01,
                                                 regularization=True,
@@ -413,20 +497,40 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_calibration':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=True,
                                                 crossfit=0, clip=0.01,
                                                 regularization=True,
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
+    if estimator == 'multiply_robust_forest_calibration_iso':
+        if config in (0, 1, 2):
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
+                                                forest=True,
+                                                crossfit=0, clip=0.01,
+                                                regularization=True,
+                                                calibration=True,
+                                                calib_method='isotonic')
+        else:
+            effects = [np.nan] * 5
     if estimator == 'multiply_robust_forest_calibration_cf':
         if config in (0, 1, 2):
-            effects = multiply_robust_efficient(y, t, m, x, interaction=False,
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=True,
                                                 crossfit=2, clip=0.01,
                                                 regularization=True,
                                                 calibration=True)
+        else:
+            effects = [np.nan] * 5
+    if estimator == 'multiply_robust_forest_calibration_iso_cf':
+        if config in (0, 1, 2):
+            effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
+                                                forest=True,
+                                                crossfit=2, clip=0.01,
+                                                regularization=True,
+                                                calibration=True,
+                                                calib_method='isotonic')
         else:
             effects = [np.nan] * 5
     if estimator == 'simulation_based':
@@ -447,12 +551,13 @@ def get_estimation(x, t, m, y, estimator, config):
     return effects
 
 
-dim_x_observed_list = [1, 5, 20, 5, 20, 20]
-dim_x_list = [1, 5, 5, 5, 5, 5]
-dim_m_observed_list = [1, 1, 1, 5, 5, 20]
-dim_m_list = [1, 1, 1, 5, 5, 5]
+dim_x_observed_list = [1, 5, 20, 5, 20, 20, 20]
+dim_x_list = [1, 5, 5, 5, 5, 5, 5]
+dim_m_observed_list = [1, 1, 1, 5, 5, 20, 20]
+dim_m_list = [1, 1, 1, 5, 5, 5, 5]
+strict_list = [False, False, False, False, False, False, True]
 type_m_list = ['binary', 'binary', 'binary',
-               'continuous', 'continuous', 'continuous']
+               'continuous', 'continuous', 'continuous', 'continuous']
 setting_list = ['linear', 'mis_specification_M',
                 'mis_specification_Y', 'mis_specification_MY',
                 'severe_mis_specification_M',
@@ -481,7 +586,7 @@ rep_nb = 30
 res_list = list()
 for ii in range(rep_nb):
     print("iteration", ii)
-    for config in range(6):
+    for config in range(7):
         for setting in setting_list:
             for n in (500, 1000, 10000):
                 for beta_t_factor in (0.1, 1, 5):
@@ -494,7 +599,8 @@ for ii in range(rep_nb):
                         dim_x=dim_x_list[config],
                         dim_m=dim_m_list[config],
                         type_m=type_m_list[config],
-                        sigma_y=0.5, sigma_m=0.5, beta_t_factor=beta_t_factor)
+                        sigma_y=0.5, sigma_m=0.5, beta_t_factor=beta_t_factor,
+                        strict=strict_list[config])
                     for estimator in estimator_list:
                         val_list = [config, setting, n, beta_t_factor]
                         val_list += list(truth)
@@ -515,3 +621,93 @@ for ii in range(rep_nb):
     res_df = pd.DataFrame(res_list, columns=columns)
     res_df.to_csv('results/simulations/20211110_simulations.csv', index=False, sep='\t')
 
+
+rep_nb = 30
+res_list = list()
+for ii in range(rep_nb):
+    print("iteration", ii)
+    for config in [6]:
+        for setting in setting_list:
+            for n in (500, 1000, 10000):
+                for beta_t_factor in (0.1, 1, 5):
+                    rg = default_rng(config * (setting_list.index(setting)+1) + n * (ii+1) * int(beta_t_factor+1))
+                    x, t, m, y, truth = simulate_data(
+                        n, rg, setting,
+                        dim_x_observed=dim_x_observed_list[config],
+                        dim_m_observed=dim_m_observed_list[config],
+                        seed=123 * (ii + 1),
+                        dim_x=dim_x_list[config],
+                        dim_m=dim_m_list[config],
+                        type_m=type_m_list[config],
+                        sigma_y=0.5, sigma_m=0.5, beta_t_factor=beta_t_factor,
+                        strict=strict_list[config])
+                    for estimator in estimator_list:
+                        val_list = [config, setting, n, beta_t_factor]
+                        val_list += list(truth)
+                        val_list.append(estimator)
+                        start = time.time()
+                        try:
+                            effects = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
+                        except RRuntimeError:
+                            effects = [np.nan*6]
+                        duration = time.time() - start
+                        val_list += list(effects)
+                        val_list.append(duration)
+                        res_list.append(val_list)
+    columns = ['configuration', 'setting', 'n', 'beta_t_factor', 'true_total_effect',
+               'true_direct_effect', 'true_indirect_effect', 'estimator',
+               'total_effect', 'direct_treated_effect', 'direct_control_effect',
+               'indirect_treated_effect', 'indirect_control_effect', 'n_non_trimmed', 'duration']
+    res_df = pd.DataFrame(res_list, columns=columns)
+    res_df.to_csv('results/simulations/20211123_simulations.csv', index=False, sep='\t')
+
+estimator_list = ['huber_ipw_reg_calibration_iso',
+                  'huber_ipw_forest_calibration_iso',
+                  'g_computation_reg_calibration_iso',
+                  'g_computation_forest_calibration_iso',
+                  'multiply_robust_reg_calibration_iso',
+                  'multiply_robust_forest_calibration_iso',
+                  'huber_ipw_reg_calibration_iso_cf',
+                  'huber_ipw_forest_calibration_iso_cf',
+                  'g_computation_reg_calibration_iso_cf',
+                  'g_computation_forest_calibration_iso_cf',
+                  'multiply_robust_reg_calibration_iso_cf',
+                  'multiply_robust_forest_calibration_iso_cf']
+rep_nb = 30
+res_list = list()
+for ii in range(rep_nb):
+    print("iteration", ii)
+    for config in range(7):
+        for setting in setting_list:
+            for n in (500, 1000, 10000):
+                for beta_t_factor in (0.1, 1, 5):
+                    rg = default_rng(config * (setting_list.index(setting)+1) + n * (ii+1) * int(beta_t_factor+1))
+                    x, t, m, y, truth = simulate_data(
+                        n, rg, setting,
+                        dim_x_observed=dim_x_observed_list[config],
+                        dim_m_observed=dim_m_observed_list[config],
+                        seed=123 * (ii + 1),
+                        dim_x=dim_x_list[config],
+                        dim_m=dim_m_list[config],
+                        type_m=type_m_list[config],
+                        sigma_y=0.5, sigma_m=0.5, beta_t_factor=beta_t_factor,
+                        strict=strict_list[config])
+                    for estimator in estimator_list:
+                        val_list = [config, setting, n, beta_t_factor]
+                        val_list += list(truth)
+                        val_list.append(estimator)
+                        start = time.time()
+                        try:
+                            effects = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
+                        except RRuntimeError:
+                            effects = [np.nan*6]
+                        duration = time.time() - start
+                        val_list += list(effects)
+                        val_list.append(duration)
+                        res_list.append(val_list)
+    columns = ['configuration', 'setting', 'n', 'beta_t_factor', 'true_total_effect',
+               'true_direct_effect', 'true_indirect_effect', 'estimator',
+               'total_effect', 'direct_treated_effect', 'direct_control_effect',
+               'indirect_treated_effect', 'indirect_control_effect', 'n_non_trimmed', 'duration']
+    res_df = pd.DataFrame(res_list, columns=columns)
+    res_df.to_csv('results/simulations/20220118_simulations_isotonic.csv', index=False, sep='\t')

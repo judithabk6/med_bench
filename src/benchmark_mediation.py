@@ -17,8 +17,6 @@ import numpy as np
 from numpy.random import default_rng
 from scipy import stats
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.stats import bernoulli
 from scipy.special import expit
@@ -167,7 +165,7 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
 
 
 def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
-              crossfit=0, clip=0.01, calibration=True):
+              crossfit=0, clip=0.01, calibration=True, calib_method='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -267,9 +265,11 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
                                                        min_samples_leaf=10)\
                         .fit(np.hstack((x, m))[train_index, :], t[train_index])
                 if calibration:
-                    p_x_clf = CalibratedClassifierCV(rf_x_clf)\
+                    p_x_clf = CalibratedClassifierCV(rf_x_clf,
+                                                     method=calib_method)\
                         .fit(x[train_index, :], t[train_index])
-                    p_xm_clf = CalibratedClassifierCV(rf_xm_clf)\
+                    p_xm_clf = CalibratedClassifierCV(rf_xm_clf,
+                                                      method=calib_method)\
                         .fit(np.hstack((x, m))[train_index, :], t[train_index])
                 else:
                     p_x_clf = rf_x_clf
@@ -332,11 +332,14 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
                     rf_xmw_clf = RandomForestClassifier(n_estimators=100,
                                                         min_samples_leaf=10)
                 if calibration:
-                    p_x_clf = CalibratedClassifierCV(rf_x_clf)\
+                    p_x_clf = CalibratedClassifierCV(rf_x_clf,
+                                                     method=calib_method)\
                         .fit(x[train_index, :], t[train_index])
-                    p_wx_clf = CalibratedClassifierCV(rf_xw_clf)\
+                    p_wx_clf = CalibratedClassifierCV(rf_xw_clf,
+                                                      method=calib_method)\
                         .fit(np.hstack((x, w))[train_index, :], t[train_index])
-                    p_xmw_clf = CalibratedClassifierCV(rf_xmw_clf)\
+                    p_xmw_clf = CalibratedClassifierCV(rf_xmw_clf,
+                                                       method=calib_method)\
                         .fit(np.hstack((x, m, w))[train_index, :],
                              t[train_index])
                 else:
@@ -444,7 +447,8 @@ def ols_mediation(y, t, m, x, interaction=False, regularization=True):
 
 
 def g_computation(y, t, m, x, interaction=False, forest=False,
-                  crossfit=0, calibration=True, regularization=True):
+                  crossfit=0, calibration=True, regularization=True,
+                  calib_method='sigmoid'):
     """
     m is binary !!!
 
@@ -523,7 +527,9 @@ def g_computation(y, t, m, x, interaction=False, forest=False,
             pre_m_prob = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)\
                 .fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
         if calibration:
-            m_prob = CalibratedClassifierCV(pre_m_prob).fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
+            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method)\
+                .fit(get_interactions(
+                    interaction, t, x)[train_index, :], m.ravel()[train_index])
         else:
             m_prob = pre_m_prob
         mu_11x[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :])
@@ -614,7 +620,8 @@ def alternative_estimator(y, t, m, x, regularization=True):
 
 def multiply_robust_efficient(y, t, m, x, interaction=False,
                               forest=False, crossfit=0, clip=0.01,
-                              regularization=True, calibration=True):
+                              regularization=True, calibration=True,
+                              calib_method='sigmoid'):
     """
     presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
@@ -715,9 +722,9 @@ def multiply_robust_efficient(y, t, m, x, interaction=False,
             pre_p_x_clf = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)\
                 .fit(x[train_index, :], t[train_index])
         if calibration:
-            m_prob = CalibratedClassifierCV(pre_m_prob)\
+            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method)\
                 .fit(get_interactions(interaction, tr, x)[train_index, :], m[train_index])
-            p_x_clf = CalibratedClassifierCV(pre_p_x_clf)\
+            p_x_clf = CalibratedClassifierCV(pre_p_x_clf, method=calib_method)\
                 .fit(x[train_index, :], t[train_index])
         else:
             m_prob = pre_m_prob
