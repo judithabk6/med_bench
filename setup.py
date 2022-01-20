@@ -11,7 +11,6 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     packages=setuptools.find_packages('.'),
-    package_dir={"": "src"},
     install_requires=[
         'pandas>=1.2.1',
         'scikit-learn>=0.22.1',
