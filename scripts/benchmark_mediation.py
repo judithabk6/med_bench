@@ -36,9 +36,9 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
             for i in range(dim_m_observed):
                 idx = rg_coef.choice(dim_x, min(2, dim_x), replace=False)
                 beta_x[idx, i] = 1
-            beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
+            beta_t = (np.array([[i % 3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
             if strict:
-                beta_t[0,dim_m:] = 0
+                beta_t[0, dim_m:] = 0
             m = x_observed.dot(beta_x) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -96,7 +96,7 @@ def simulate_data(n, rg, setting, dim_x_observed=1,
                 beta_x[idx, i] = 0.25
             beta_t = (np.array([[i%3 for i in range(0, dim_m_observed)]]) + 1) * beta_t_factor
             if strict:
-                beta_t[0,dim_m:] = 0
+                beta_t[0, dim_m:] = 0
             m = 3*np.sin(3*x_observed.dot(beta_x)) + t.dot(beta_t) + sigma_m * rg.standard_normal((n, dim_m_observed))
             gamma_m = np.zeros((dim_m_observed, 1))
             gamma_m[0:dim_m] = 0.5 / dim_m
@@ -266,7 +266,7 @@ def get_estimation(x, t, m, y, estimator, config):
                             regularization=True, forest=False, crossfit=0,
                             clip=0.01, calibration=True,
                             calib_method='isotonic')
-    if estimator == 'huber_ipw_reg_calibration_iso_cf':
+    if estimator == 'huber_ipw_reg_calibration_cf':
         effects = huber_IPW(y, t, m, x, None, None, trim=0, logit=True,
                             regularization=True, forest=False, crossfit=2,
                             clip=0.01, calibration=True)
@@ -303,7 +303,7 @@ def get_estimation(x, t, m, y, estimator, config):
                             calib_method='isotonic')
     if estimator == 'g_computation_noreg':
         if config in (0, 1, 2):
-            effects = g_computation(y, t, m, x, interaction=False, 
+            effects = g_computation(y, t, m, x, interaction=False,
                                     forest=False, crossfit=0,
                                     regularization=False, calibration=False)
         else:
@@ -448,7 +448,7 @@ def get_estimation(x, t, m, y, estimator, config):
                                                 calibration=True)
         else:
             effects = [np.nan] * 5
-    if estimator == 'multiply_robust_reg_calibration_sio':
+    if estimator == 'multiply_robust_reg_calibration_iso':
         if config in (0, 1, 2):
             effects = multiply_robust_efficient(y, t, m.astype(int), x, interaction=False,
                                                 forest=False,
