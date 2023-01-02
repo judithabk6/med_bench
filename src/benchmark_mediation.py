@@ -31,7 +31,6 @@ causalweight = rpackages.importr('causalweight')
 mediation = rpackages.importr('mediation')
 Rstats = rpackages.importr('stats')
 base = rpackages.importr('base')
-brc = rpackages.importr('bartCause')
 grf = rpackages.importr('grf')
 plmed = rpackages.importr('plmed')
 
