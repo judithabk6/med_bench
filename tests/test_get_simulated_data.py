@@ -5,67 +5,34 @@ p_t = P(T=1|X)
 th_p_t_mx = P(T=1|X,M)
 """
 
-import pytest
-
-from judith_abecassis.src.get_simulated_data_new import simulate_data
-
 from pprint import pprint
-from numpy.random import default_rng
+import pytest
 import numpy as np
-from judith_abecassis.src.get_simulated_data_new import simulate_data
-from judith_abecassis.src.test_simulation_settings_new import get_estimation
+from numpy.random import default_rng
+from ..src.get_simulated_data import simulate_data
 
 
-data = simulate_data(
-    n=1,
-    rg=default_rng(42),
-    mis_spec_m=False,
-    mis_spec_y=False,
-    dim_x=1,
-    dim_m=1,
-    seed=1,
-    type_m="continuous",
-    sigma_y=0.5,
-    sigma_m=0.5,
-    beta_t_factor=1,
-    beta_m_factor=10000,
-)
-print(data)
+@pytest.fixture(autouse=True)
+def data():
+    return simulate_data(10, default_rng(7))
 
-# effects = np.array(data[4:9])
-# print(effects)
+@pytest.fixture(autouse=True)
+def effects():
+    return np.array(data[4:9])
 
 
-# base data
-(
-    array([[0.30471708]]),
-    array([[1]]),
-    array([[0]]),
-    array([[1.97499944]]),
-    1.3124754041240658,
-    1.2,
-    1.2,
-    0.11247540412406576,
-    0.11247540412406576,
-    array([0.57559524]),
-    array([0.41595136]),
-)
+
+@pytest.mark.parametrize(["n","rg","mis_spec_m","mis_spec_y","dim_x","dim_m","seed","type_m"])
+
+def test_total_is_direct_plus_indirect():
+    assert effects[0] == effects[1] + effects[4]  # total = theta_1 + delta_0
+    assert effects[0] == effects[2] + effects[3]  # total = theta_0 + delta_1
 
 
-# "continuous"
-(
-    array([[0.30471708]]),
-    array([[1]]),
-    array([[1.480531]]),
-    array([[2.71526494]]),
-    2.180531003718505,
-    1.2,
-    1.2,
-    0.9805310037185047,
-    0.9805310037185047,
-    array([0.57559524]),
-    array([0.7649375]),
-)
+def test_effects_are_equals_if_y_well_specified():
+    assert not 
+
+
 
 
 # TESTS
@@ -80,28 +47,6 @@ print(data)
 
 # Egalité de chaque paramètre pour petits exemples tant qu'à faire (robuste mais moche?)
 # (sinon juste pour nous, ça garantit qu'on a rien changé à la fonction)
-
-
-# QUI FAIT VARIER QUOI
-# n : taille des données
-# n : 4 7 8 ; mis_spec_y=False ; 5=6=gamma_t
-# n : 4 5 6 7 8 ; mis_spec_y=True ; 5!=6!=gamma_t
-# rg : all (modifie les données ET les effets)
-# seed : 4 5 6 7 8 10 (modifie les effets, pas les données)
-# mis_spec_m : 4 (5) 7 8 (y=True)
-# mis_spec_y : 4 5 6 7 8 (??)
-# mis_spec_m=False, mis_spec_y=False : 5=6=gamma_t ;  7=8
-# mis_spec_m=True, mis_spec_y=False : 5=6=gamma_t ;  7=8
-# mis_spec_m=False, mis_spec_y=True : 5!=6!=gamma_t ;  7!=8
-# dim_x : x[0] idem (sinon rg)
-# dim_x : 4 5 8 9 10
-# "continuous" : 3 4 7 8 10
-# "continuous" : 3 4 (5) (6) 7 8 10 (y=True)
-# sigma_y : 3
-# sigma_m : _ (binary)
-# sigma_m : 2 3 4 7 8 10 (continuous)
-# beta_t_factor : 3 4 7 8 10
-# beta_m_factor : 3 4 7 8
 
 
 # CORRECTIONS OU IMPLEMENTATIONS
@@ -234,8 +179,6 @@ data = simulate_data(
     beta_m_factor=1,
 )
 print(data)
-
-
 
 
 # Brouillon de la fonction :
