@@ -9,26 +9,26 @@ simulate data : La graine a peu d'effet sur l'ordre de grandeur des effets
 """
 
 from pprint import pprint
-from numpy.random import default_rng
 import numpy as np
+from numpy.random import default_rng
 
 
 # environment variable to import judith functions
 # export PYTHONPATH="/home/sboumaiz/Bureau/stage_mediation"
-from judith_abecassis.src.get_simulated_data_new import simulate_data
+from med_bench.src.get_simulated_data import simulate_data
 
 # Errors from test_simulation_settings_new :
 # from rpy2.rinterface_lib.embedded import RRuntimeError
 # installed twangMediation
 # commented estimator test part because of "folderpath"
-from judith_abecassis.src.test_simulation_settings_new import get_estimation
+from med_bench.src.get_estimation import get_estimation
 
 # from judith_abecassis.src.benchmark_mediation.src.benchmark_mediation import huber_IPW
 
 
 # simulate data & estimator application
 estimator_list = ["coefficient_product", "huber_ipw_reg", "DML_huber"]
-SAMPLE_SIZE = 1000
+SAMPLE_SIZE = 1
 CONFIG = 1
 
 data = simulate_data(
