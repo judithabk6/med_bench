@@ -14,7 +14,14 @@ def get_estimation(x, t, m, y, estimator, config):
     if estimator == "huber_IPW_R":
         x_r, t_r, m_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, m, y)]
         output_w = causalweight.medweight(
-            y=y_r, d=t_r, m=m_r, x=x_r, trim=0.0, ATET="FALSE", logit="TRUE", boot=2
+            y=y_r, 
+            d=t_r, 
+            m=m_r, 
+            x=x_r, 
+            trim=0.0, 
+            ATET="FALSE", 
+            logit="TRUE", 
+            boot=2
         )
         raw_res_R = np.array(output_w.rx2("results"))
         effects = raw_res_R[0, :]
