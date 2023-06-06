@@ -1,12 +1,17 @@
 """
 get_estimation.py::get_estimation
 
-We test :
--
+We test all the benchmark_mediation estimators for a certain tolerance.
+The test is skipped if estimator has not been implemented yet,
+i.e. all outputs are NaN or NotImplementedError is raised.
+The test xfails for any other wierd behavior.
 
-We pinpoint _
-
-
+We pinpoint that :
+- DML_huber is not working, RRuntimeError is raised
+- multiply_robust methods return some NaN
+- A few methods get a relative error of more than 100%,
+even in the linear framework
+- t.ravel() and y.ravel() are necessary to get IPW proper behavior
 """
 
 from pprint import pprint
@@ -17,41 +22,28 @@ from med_bench.src.get_simulated_data import simulate_data
 from med_bench.src.get_estimation import get_estimation
 
 
-@pytest.fixture(autouse=True)
-def data():
-    n = 3
-    rg = default_rng(42)
-    mis_spec_m = False
-    mis_spec_y = False
-    dim_x = 1
-    dim_m = 1
-    seed = 1
-    type_m = "binary"
-    sigma_y = 0.5
-    sigma_m = 0.5
-    beta_t_factor = 10
-    beta_m_factor = 1
-
-    return simulate_data(
-        n,
-        rg,
-        mis_spec_m,
-        mis_spec_y,
-        dim_x,
-        dim_m,
-        seed,
-        type_m,
-        sigma_y,
-        sigma_m,
-        beta_t_factor,
-        beta_m_factor,
-    )
+TOLERANCE = 0.5
 
 
-@pytest.fixture(autouse=True)
-def effects():
-    return np.array(data[4:9])
-
+data = simulate_data(
+    n=1000,
+    rg=default_rng(42),
+    mis_spec_m=False,
+    mis_spec_y=False,
+    dim_x=1,
+    dim_m=1,
+    seed=1,
+    type_m="binary",
+    sigma_y=0.5,
+    sigma_m=0.5,
+    beta_t_factor=1,
+    beta_m_factor=1,
+)
+x = data[0]
+t = data[1]
+m = data[2]
+y = data[3]
+effects = np.array(data[4:9])
 
 estimator_list = [
     "coefficient_product",
@@ -89,3 +81,29 @@ estimator_list = [
     "multiply_robust_forest_cf",
     "multiply_robust_forest_calibration_cf",
 ]
+
+
+@pytest.mark.parametrize("estimator", estimator_list)
+@pytest.mark.parametrize("config", [1, 5])
+@pytest.mark.parametrize("error_tolerance", [TOLERANCE])
+def test_error(estimator, config, error_tolerance):
+    try:
+        effects_chap = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
+        effects_chap = effects_chap[0:5]
+    except Exception as get_estimation_error:
+        if get_estimation_error != NotImplementedError:
+            pytest.xfail("Missing NotImplementedError")
+        else:
+            pytest.mark.skip("Not implemented")
+    else:
+        if np.all(np.isnan(effects_chap)):
+            pytest.skip(f"all effects are NaN : {effects_chap}")
+        elif np.any(np.isnan(effects_chap)):
+            pytest.xfail(f"NaN found : {effects_chap}")
+        else:
+            error = abs((effects - effects_chap) / effects)
+            assert np.all(error <= error_tolerance)
+            # pprint(
+            #     f"Relative error estimate = {error}. Error tolerance = {error_tolerance}%."
+            # )
+            # pprint(f"Estimated = {effects_chap}. True = {effects}.")
