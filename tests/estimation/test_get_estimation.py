@@ -100,6 +100,7 @@ estimator_list = [
 def test_tolerance(estimator, config, error_tolerance):
     try:
         effects_chap = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
+        # effects_chap = get_estimation(x, t, m, y, estimator, config)
         effects_chap = effects_chap[0:5]
     except Exception as get_estimation_error:
         if get_estimation_error != NotImplementedError:
