@@ -82,8 +82,7 @@ class ParametrizedTest:
         assert effects[0] == effects[1] + effects[4]  # total = theta_1 + delta_0
         assert effects[0] == effects[2] + effects[3]  # total = theta_0 + delta_1
 
-    def test_dimension_x(n, dim_x):
-        assert (data[0]).shape == (n, dim_x)
-
-
-
+    # # What I would like to do, but I can't make data as a fixture,
+    # # the whole thing inside @pytest.mark.parametrize
+    # def test_dimension_x(self, n, dim_x):
+    #     assert (data[0]).shape == (n, dim_x)
