@@ -1,17 +1,13 @@
 """
-test_simulated_data_new::simulate_data
+get_simulated_data::simulate_data
 
 We test :
 - The dimensions of the outputs
 - Whether they should be binary or not
-- Whether the effects are coherent
-- Whether forbidden inputs return an error
+- Whether total effect = direct + indirect
+- Whether forbidden inputs raise an error
 
 We pinpoint aberrant behavior reguarding some input combinaisons
-
-Reminder :
-p_t = P(T=1|X)
-th_p_t_mx = P(T=1|X,M)
 """
 
 from pprint import pprint
