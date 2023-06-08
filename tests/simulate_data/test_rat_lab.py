@@ -72,48 +72,5 @@ for param in pamarameter_list:
             assert (data[0]).shape == (param[0], param[4])  # (n, dim_x)
 
 
-# CONCLUSION : Je peux m'en sortir avec une boucle for et *param, mais c'est pas hyper élégant
-
-
-# # GET HERE SOME SIMULATE_DATA OUTPUT
-
-# data = simulate_data(
-#     n=1,
-#     rg=default_rng(42),
-#     mis_spec_m=False,
-#     mis_spec_y=False,
-#     dim_x=1,
-#     dim_m=1,
-#     seed=1,
-#     type_m="continuous",
-#     sigma_y=0.5,
-#     sigma_m=0.5,
-#     beta_t_factor=1,
-#     beta_m_factor=10000,
-# )
-# print(data)
-
-# # effects = np.array(data[4:9])
-# # print(effects)
-
-
-# data = []
-# try:
-#     data = simulate_data(
-#         n=3,
-#         rg=default_rng(42),
-#         mis_spec_m=False,
-#         mis_spec_y=False,
-#         dim_x=1,
-#         dim_m=1,
-#         seed=1,
-#         type_m="binary",
-#         sigma_y=0.5,
-#         sigma_m=0.5,
-#         beta_t_factor=10,
-#         beta_m_factor=1,
-#     )
-# except ValueError as err:
-#     print(err)
-# else:
-#     print(data)
+# CONCLUSION : I can achieve parametrization thanks to a loop and *param,
+# yet I'm not sure this is the most elegant solution
