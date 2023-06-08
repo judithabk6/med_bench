@@ -97,7 +97,7 @@ estimator_list = [
 @pytest.mark.parametrize("estimator", estimator_list)
 @pytest.mark.parametrize("config", [1, 5])
 @pytest.mark.parametrize("error_tolerance", [TOLERANCE])
-def test_error(estimator, config, error_tolerance):
+def test_tolerance(estimator, config, error_tolerance):
     try:
         effects_chap = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
         effects_chap = effects_chap[0:5]
