@@ -22,7 +22,18 @@ from med_bench.src.get_simulated_data import simulate_data
 from med_bench.src.get_estimation import get_estimation
 
 
-TOLERANCE = 0.5
+ATE_TOLERANCE = 0.2
+DIRECT_TOELERANCE = 0.2
+INDIRECT_TOLERANCE = 0.2
+TOLERANCE = np.array(
+    [
+        ATE_TOLERANCE,
+        DIRECT_TOELERANCE,
+        DIRECT_TOELERANCE,
+        INDIRECT_TOLERANCE,
+        INDIRECT_TOLERANCE,
+    ]
+)
 
 
 data = simulate_data(
