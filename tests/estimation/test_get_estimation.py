@@ -107,12 +107,13 @@ def test_tolerance(estimator, config, error_tolerance):
         else:
             pytest.mark.skip("Not implemented")
     else:
+        error = abs((effects_chap - effects) / effects)
         if np.all(np.isnan(effects_chap)):
-            pytest.skip(f"all effects are NaN : {effects_chap}")
+            pytest.skip("all effects are NaN")
         elif np.any(np.isnan(effects_chap)):
-            pytest.xfail(f"NaN found : {effects_chap}")
+            pprint("NaN found")
+            assert np.all(error[~np.isnan(error)] <= error_tolerance[~np.isnan(error)])
         else:
-            error = abs((effects - effects_chap) / effects)
             assert np.all(error <= error_tolerance)
             # pprint(
             #     f"Relative error estimate = {error}. Error tolerance = {error_tolerance}%."
