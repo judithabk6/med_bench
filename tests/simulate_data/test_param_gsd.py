@@ -56,26 +56,3 @@ def effects(
 def test_total_is_direct_plus_indirect():
     assert effects[0] == effects[1] + effects[4]  # total = theta_1 + delta_0
     assert effects[0] == effects[2] + effects[3]  # total = theta_0 + delta_1
-
-
-# Tester ce qui devrait être modifié et ce qui ne le devrait pas :
-# QUI FAIT VARIER QUOI
-# n : taille des données
-# n : 4 7 8 ; mis_spec_y=False ; 5=6=gamma_t
-# n : 4 5 6 7 8 ; mis_spec_y=True ; 5!=6!=gamma_t
-# rg : all (modifie les données ET les effets)
-# seed : 4 5 6 7 8 10 (modifie les effets, pas les données)
-# mis_spec_m : 4 (5) 7 8 (y=True)
-# mis_spec_y : 4 5 6 7 8 (??)
-# mis_spec_m=False, mis_spec_y=False : 5=6=gamma_t ;  7=8
-# mis_spec_m=True, mis_spec_y=False : 5=6=gamma_t ;  7=8
-# mis_spec_m=False, mis_spec_y=True : 5!=6!=gamma_t ;  7!=8
-# dim_x : x[0] idem (sinon rg)
-# dim_x : 4 5 8 9 10
-# "continuous" : 3 4 7 8 10
-# "continuous" : 3 4 (5) (6) 7 8 10 (y=True)
-# sigma_y : 3
-# sigma_m : _ (binary)
-# sigma_m : 2 3 4 7 8 10 (continuous)
-# beta_t_factor : 3 4 7 8 10
-# beta_m_factor : 3 4 7 8
