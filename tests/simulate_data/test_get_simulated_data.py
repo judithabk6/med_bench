@@ -99,7 +99,7 @@ def test_effects_are_equals_if_y_well_specified(mis_spec_y):
 # n=0 : Warnings
 @pytest.mark.xfail
 def test_n_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=0,
             rg=default_rng(42),
@@ -119,7 +119,7 @@ def test_n_null_should_fail():
 # n<0 : l19 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_n_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=-1,
             rg=default_rng(42),
@@ -139,7 +139,7 @@ def test_n_negative_should_fail():
 # dim_x=0 : No Warning
 @pytest.mark.xfail
 def test_dim_x_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -159,7 +159,7 @@ def test_dim_x_null_should_fail():
 # dim_m=0 ; l134 : ValueError
 @pytest.mark.xfail
 def test_dim_m_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -179,7 +179,7 @@ def test_dim_m_null_should_fail():
 # dim_x<0 : l115 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_dim_x_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -199,7 +199,7 @@ def test_dim_x_negative_should_fail():
 # dim_m<0 : l123 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_dim_m_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -266,7 +266,7 @@ def test_m_multidimensional_binary_works1():
         pass
 
 
-# sigma_m grand ; "continuous" ; P(T=1|X,M) = NaN
+# sigma_m large ; "continuous" ; P(T=1|X,M) = NaN
 @pytest.mark.xfail
 def test_huge_sigma_m_makes_nan():
     with pytest.raises(Warning):
@@ -278,7 +278,7 @@ def test_huge_sigma_m_makes_nan():
             dim_x=1,
             dim_m=1,
             seed=1,
-            type_m="fds",
+            type_m="continuous",
             sigma_y=0.5,
             sigma_m=5351,
             beta_t_factor=1,
@@ -290,7 +290,7 @@ def test_huge_sigma_m_makes_nan():
 # sigma_m=0 ; "continuous" ; P(T=1|X,M) = NaN
 @pytest.mark.xfail
 def test_null_sigma_m_makes_nan():
-    with pytest.raises(Exception):
+    with pytest.raises(Warning):
         data_temp = simulate_data(
             n=1,
             rg=default_rng(42),
