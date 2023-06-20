@@ -406,7 +406,7 @@ def ols_mediation(y, t, m, x, interaction=False, regularization=True):
 
     interaction boolean, default=False
                 whether to include interaction terms in the model
-                not implemented here, just for compatbility of signature
+                not implemented here, just for compatibility of signature
                 function
 
     regularization boolean, default True
