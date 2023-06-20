@@ -115,7 +115,3 @@ def test_tolerance(estimator, config, error_tolerance):
             assert np.all(error[~np.isnan(error)] <= error_tolerance[~np.isnan(error)])
         else:
             assert np.all(error <= error_tolerance)
-            # pprint(
-            #     f"Relative error estimate = {error}. Error tolerance = {error_tolerance}%."
-            # )
-            # pprint(f"Estimated = {effects_chap}. True = {effects}.")
