@@ -7,10 +7,8 @@ i.e. all outputs are NaN or NotImplementedError is raised.
 The test xfails for any other wierd behavior.
 
 We pinpoint that :
-- DML_huber is not working, RRuntimeError is raised
-- multiply_robust methods return some NaN
-- A few methods get a relative error of more than 100%,
-even in the linear framework
+- DML_huber is not working for dim_x=1, RRuntimeError is raised
+- multiply_robust methods return some NaN effects (half not implemented)
 - t.ravel() and y.ravel() are necessary to get IPW proper behavior
 """
 
@@ -20,8 +18,6 @@ import numpy as np
 from numpy.random import default_rng
 from med_bench.src.get_simulated_data import simulate_data
 from med_bench.src.get_estimation import get_estimation
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 
 ATE_TOLERANCE = 0.2
