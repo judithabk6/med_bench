@@ -20,11 +20,13 @@ import numpy as np
 from numpy.random import default_rng
 from med_bench.src.get_simulated_data import simulate_data
 from med_bench.src.get_estimation import get_estimation
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 ATE_TOLERANCE = 0.2
 DIRECT_TOELERANCE = 0.2
-INDIRECT_TOLERANCE = 0.2
+INDIRECT_TOLERANCE = 0.6  # indirect effect is weak leading to a huge relative error
 TOLERANCE = np.array(
     [
         ATE_TOLERANCE,
@@ -41,15 +43,16 @@ data = simulate_data(
     rg=default_rng(42),
     mis_spec_m=False,
     mis_spec_y=False,
-    dim_x=1,
+    dim_x=5,
     dim_m=1,
     seed=1,
     type_m="binary",
     sigma_y=0.5,
     sigma_m=0.5,
-    beta_t_factor=1,
-    beta_m_factor=1,
+    beta_t_factor=0.5,
+    beta_m_factor=0.5,
 )
+
 x = data[0]
 t = data[1]
 m = data[2]
