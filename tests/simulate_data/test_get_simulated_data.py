@@ -99,7 +99,7 @@ def test_effects_are_equals_if_y_well_specified(mis_spec_y):
 # n=0 : Warnings
 @pytest.mark.xfail
 def test_n_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=0,
             rg=default_rng(42),
@@ -119,7 +119,7 @@ def test_n_null_should_fail():
 # n<0 : l19 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_n_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=-1,
             rg=default_rng(42),
@@ -139,7 +139,7 @@ def test_n_negative_should_fail():
 # dim_x=0 : No Warning
 @pytest.mark.xfail
 def test_dim_x_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -159,7 +159,7 @@ def test_dim_x_null_should_fail():
 # dim_m=0 ; l134 : ValueError
 @pytest.mark.xfail
 def test_dim_m_null_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -179,7 +179,7 @@ def test_dim_m_null_should_fail():
 # dim_x<0 : l115 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_dim_x_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -199,7 +199,7 @@ def test_dim_x_negative_should_fail():
 # dim_m<0 : l123 ; ValueError: negative dimensions are not allowed
 @pytest.mark.xfail
 def test_dim_m_negative_should_fail():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         simulate_data(
             n=10,
             rg=default_rng(42),
@@ -266,7 +266,7 @@ def test_m_multidimensional_binary_works1():
         pass
 
 
-# sigma_m grand ; "continuous" ; P(T=1|X,M) = NaN
+# sigma_m large ; "continuous" ; P(T=1|X,M) = NaN
 @pytest.mark.xfail
 def test_huge_sigma_m_makes_nan():
     with pytest.raises(Warning):
@@ -278,7 +278,7 @@ def test_huge_sigma_m_makes_nan():
             dim_x=1,
             dim_m=1,
             seed=1,
-            type_m="fds",
+            type_m="continuous",
             sigma_y=0.5,
             sigma_m=5351,
             beta_t_factor=1,
@@ -290,7 +290,7 @@ def test_huge_sigma_m_makes_nan():
 # sigma_m=0 ; "continuous" ; P(T=1|X,M) = NaN
 @pytest.mark.xfail
 def test_null_sigma_m_makes_nan():
-    with pytest.raises(Exception):
+    with pytest.raises(Warning):
         data_temp = simulate_data(
             n=1,
             rg=default_rng(42),
@@ -306,49 +306,3 @@ def test_null_sigma_m_makes_nan():
             beta_m_factor=1,
         )
     assert data_temp[10] != np.nan
-
-
-# TESTS IMPLEMENTES
-# total = indirect + direct (direct 0 et indirect 1)
-# mis_spec_y=False : 5=6=gamma_t ;  7=8
-# mis_spec_y=True : 5!=6!=gamma_t ;  7!=8
-# vérifier la binarité, la continuité, la dimension de x,t,m,y
-
-# RENVOI D'ERREUR
-# n<0 ou dim<0 ; ValueError: negative dimensions are not allowed
-
-# A CORRIGER
-# dim_x=0 : No Warning
-# dim_m=0 ; l134 : ValueError [Mais pas pour les bonnes raisons]
-# dim_m>1 ; n>1 ; "binary" ; l39 [cas non implémenté]
-# dim_m>1 ; n=1 ; l58 [cas non implémenté]
-# n=0 : Warnings [on pourrait l'interdire à l'utilisateur]
-# sigma_m grand ; "continuous" ; P(T=1|X,M) = NaN
-# sigma_m=0 ; "continuous" ; P(T=1|X,M) = NaN
-
-# CORRECTIONS ADDITIONNELLES
-# Donner des arguments invalides, on s'en préoccupe? Si oui comment? (n, dim_x, dim_m <1)
-# n=1, ne pas avoir une liste de liste?
-# Forcer l'argument "continuous"? Poser un warning si c'est une autre lettre que "c"?
-# Retirer le main?
-# Pourquoi beta_t_factor et pas omega_t? ou carrément beta_t?
-# Les omega existent pas l'article mais pas dans la fonction
-
-
-# TESTS RESTANTS
-# Tester qu'avec deux seeds différentes, les données sont différentes? (rigoureux? utile?)
-# Histoire d'être un vecteur ou une matrix? (huber_no_reg plutôt?)
-# Tester les sorties qui devraient être modifiées et celles qui ne le devraient pas
-# au vu du modèle posé dans l'article? (trop long? utile?)
-
-
-# FEATURES DE SECOND ORDRE
-# Pouvoir fixer gamma_t = 1.2?
-# Pas de sigma_x?
-# Si l'utilisateur a le papier devant lui, on peut énumérer en entrée
-# tous les paramètres alpha, beta, gamma?
-
-# FEATURES DE TROISIEME ORDRE
-# Donner les bornes dans lesquelles sont générées les données ou les effets?
-# Tout générer entre 0 et 1, et puis l'utilisateur se débrouille?
-# Normaliser les effets? Poser l'ATE=1?
