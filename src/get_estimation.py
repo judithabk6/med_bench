@@ -12,6 +12,42 @@ from .benchmark_mediation import *
 
 
 def get_estimation(x, t, m, y, estimator, config):
+    """Wrapper estimator fonction ; calls an estimator given mediation data
+    in order to estimate total, direct, and indirect effects.
+
+    Parameters
+    ----------
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit
+    t : array-like, shape (n_samples)
+        Treatment value for each unit
+    m : array-like, shape (n_samples, n_features_mediator)
+        Mediator value for each unit
+    y : array-like, shape (n_samples)
+        Outcome value for each unit
+    estimator : str
+        Name of the estimator
+    config : int
+        Indicates whether the estimator is suited to the data.
+        Should be 1 if dim_m=1 and type_m="binary", 5 otherwise.
+        This is a legacy parameter, will be removed in future updates.
+
+    Returns
+    -------
+    list
+        A list of estimated effects :
+        [total effect,
+        direct effect on the exposed,
+        direct effect on the unexposed,
+        indirect effect on the exposed,
+        indirect effect on the unexposed,
+        number of discarded samples OR non-discarded samples]
+
+    Raises
+    ------
+    UserWarning
+        If estimator name is misspelled.
+    """
     effects = [np.nan] * 5
     if estimator == "huber_IPW_R":
         x_r, t_r, m_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, m, y)]
