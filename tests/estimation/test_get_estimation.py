@@ -40,7 +40,7 @@ TOLERANCE = np.array(
 )
 
 
-estimator_list = [
+ESTIMATOR_LIST = [
     "coefficient_product",
     "huber_ipw_noreg",
     "huber_ipw_reg",
@@ -78,7 +78,7 @@ estimator_list = [
 ]
 
 
-parameter_name = [
+PARAMETER_NAME = [
     "n",
     "rg",
     "mis_spec_m",
@@ -94,7 +94,7 @@ parameter_name = [
 ]
 
 
-parameter_list = list(
+PARAMETER_LIST = list(
     itertools.product(
         [1000],
         [default_rng(321)],
@@ -111,7 +111,7 @@ parameter_list = list(
     )
 )
 
-parameter_list.extend(
+PARAMETER_LIST.extend(
     list(
         itertools.product(
             [1000],
@@ -131,24 +131,43 @@ parameter_list.extend(
 )
 
 
-@pytest.fixture(params=parameter_list)
+@pytest.fixture(params=PARAMETER_LIST)
 def dict_param(request):
-    return dict(zip(parameter_name, request.param))
+    return dict(zip(PARAMETER_NAME, request.param))
 
 
-@pytest.fixture(autouse=True)
-def data_simulation(dict_param):
-    res = simulate_data(**dict_param)
-    global x, t, m, y, effects
-    x = res[0]
-    t = res[1].ravel()
-    m = res[2]
-    y = res[3].ravel()
-    effects = np.array(res[4:9])
+@pytest.fixture
+def data(dict_param):
+    return simulate_data(**dict_param)
 
 
-@pytest.fixture(params=estimator_list, autouse=True)
-def skip_if_not_implemented(request, dict_param):
+@pytest.fixture
+def x(data):
+    return data[0]
+
+
+@pytest.fixture
+def t(data):
+    return data[1].ravel()
+
+
+@pytest.fixture
+def m(data):
+    return data[2]
+
+
+@pytest.fixture
+def y(data):
+    return data[3].ravel()
+
+
+@pytest.fixture
+def effects(data):
+    return np.array(data[4:9])
+
+
+@pytest.fixture(params=ESTIMATOR_LIST)
+def effects_chap(x, t, m, y, dict_param, request):
     # config determination
     if dict_param["dim_m"] == 1 and dict_param["type_m"] == "binary":
         config = 0
@@ -157,8 +176,7 @@ def skip_if_not_implemented(request, dict_param):
 
     # try whether estimator is implemented or not
     try:
-        global effects_chap
-        effects_chap = get_estimation(x, t, m, y, request.param, config)[0:5]
+        res = get_estimation(x, t, m, y, request.param, config)[0:5]
     except Exception as message_error:
         if message_error != NotImplementedError:
             pytest.xfail("Missing NotImplementedError")
@@ -166,18 +184,20 @@ def skip_if_not_implemented(request, dict_param):
             pytest.mark.skip("Not implemented")
 
     # NaN situations
-    if np.all(np.isnan(effects_chap)):
+    if np.all(np.isnan(res)):
         pytest.skip("all effects are NaN")
-    elif np.any(np.isnan(effects_chap)):
+    elif np.any(np.isnan(res)):
         pprint("NaN found")
 
+    return res
 
-def test_tolerance():
+
+def test_tolerance(effects, effects_chap):
     error = abs((effects_chap - effects) / effects)
     assert np.all(error[~np.isnan(error)] <= TOLERANCE[~np.isnan(error)])
 
 
-def test_total_is_direct_plus_indirect():
+def test_total_is_direct_plus_indirect(effects_chap):
     if not np.isnan(effects_chap[1]):
         assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
     if not np.isnan(effects_chap[2]):
