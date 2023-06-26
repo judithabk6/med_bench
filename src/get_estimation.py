@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 
 
-import warnings
 import time
 import sys
 from rpy2.rinterface_lib.embedded import RRuntimeError
@@ -48,7 +47,7 @@ def get_estimation(x, t, m, y, estimator, config):
     UserWarning
         If estimator name is misspelled.
     """
-    effects = [np.nan] * 5
+    effects = None
     if estimator == "huber_IPW_R":
         x_r, t_r, m_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, m, y)]
         output_w = causalweight.medweight(
@@ -683,4 +682,8 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = g_estimator(y, t, m, x)
     else:
         raise NotImplementedError("Unrecognized estimator name.")
+    if effects is None:
+        if config in (0, 1, 2):
+            raise ValueError("Estimator does not support 1D binary mediator.")
+        raise ValueError("Estimator is not suitable to the data.")
     return effects
