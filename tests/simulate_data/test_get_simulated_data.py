@@ -1,13 +1,12 @@
 """
-test_simulated_data_new::simulate_data
+Pytest file for get_simulated_data.py
 
-We test :
+It tests :
 - The dimensions of the outputs
 - Whether they should be binary or not
 - Whether the effects are coherent
 - Whether forbidden inputs return an error
-
-We pinpoint aberrant behavior reguarding some input combinaisons
+- Whether aberrant behaviors happen (NaN, unexpected error...)
 
 Reminder :
 p_t = P(T=1|X)
