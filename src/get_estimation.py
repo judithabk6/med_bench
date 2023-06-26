@@ -682,5 +682,5 @@ def get_estimation(x, t, m, y, estimator, config):
         if config in (0, 1, 2):
             effects = g_estimator(y, t, m, x)
     else:
-        warnings.warn("Unrecognized estimator.")
+        raise NotImplementedError("Unrecognized estimator name.")
     return effects
