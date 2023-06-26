@@ -170,7 +170,7 @@ def effects_chap(x, t, m, y, dict_param, request):
     except ValueError as message_error:
         if message_error in (
             "Estimator only supports 1D binary mediator.",
-            "Estimator is not suitable to the data.",
+            "Estimator does not supports this kind of data.",
         ):
             pytest.skip(f"{message_error}")
         else:
