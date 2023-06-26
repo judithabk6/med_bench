@@ -167,11 +167,14 @@ def effects_chap(x, t, m, y, dict_param, request):
     # try whether estimator is implemented or not
     try:
         res = get_estimation(x, t, m, y, request.param, config)[0:5]
-    except Exception as message_error:
-        if message_error != NotImplementedError:
-            pytest.xfail("Missing NotImplementedError")
+    except ValueError as message_error:
+        if message_error in (
+            "Estimator only supports 1D binary mediator.",
+            "Estimator is not suitable to the data.",
+        ):
+            pytest.skip(f"{message_error}")
         else:
-            pytest.skip("Not implemented")
+            pytest.xfail("Unknown error")
 
     # NaN situations
     if np.all(np.isnan(res)):
