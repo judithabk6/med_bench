@@ -1,20 +1,10 @@
 """
 get_estimation.py::get_estimation
 
-We test all the benchmark_mediation estimators for a certain tolerance.
+It tests all the benchmark_mediation estimators for a certain tolerance.
 The test is skipped if estimator has not been implemented yet,
 i.e. all outputs are NaN or NotImplementedError is raised.
 The test xfails for any other wierd behavior.
-
-We pinpoint that :
-- DML_huber is not working for dim_x=1, RRuntimeError is raised (#15)
-- t.ravel() and y.ravel() are necessary to get IPW proper behavior (#16)
-- multiply_robust methods return some NaN effects (#17)
-
-Some estimators exeed tolerance levels :
-- Mainly IPW and forest estimators, particularly for indirect effects
-- DML_huber fails to estimate indirect effects (>85% relative error)
-- coefficient_product annecdotally fails to estimate indirect effects (70% relative error)
 """
 
 from pprint import pprint
