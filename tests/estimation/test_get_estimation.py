@@ -171,11 +171,11 @@ def effects_chap(x, t, m, y, dict_param, request):
         if message_error != NotImplementedError:
             pytest.xfail("Missing NotImplementedError")
         else:
-            pytest.mark.skip("Not implemented")
+            pytest.skip("Not implemented")
 
     # NaN situations
     if np.all(np.isnan(res)):
-        pytest.skip("all effects are NaN")
+        pytest.xfail("all effects are NaN")
     elif np.any(np.isnan(res)):
         pprint("NaN found")
 
