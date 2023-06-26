@@ -25,7 +25,7 @@ def get_estimation(x, t, m, y, estimator, config):
     y : array-like, shape (n_samples)
         Outcome value for each unit
     estimator : str
-        Name of the estimator
+        Label of the estimator
     config : int
         Indicates whether the estimator is suited to the data.
         Should be 1 if dim_m=1 and type_m="binary", 5 otherwise.
@@ -681,9 +681,9 @@ def get_estimation(x, t, m, y, estimator, config):
         if config in (0, 1, 2):
             effects = g_estimator(y, t, m, x)
     else:
-        raise NotImplementedError("Unrecognized estimator name.")
+        raise NotImplementedError("Unrecognized estimator label.")
     if effects is None:
         if config in (0, 1, 2):
-            raise ValueError("Estimator does not support 1D binary mediator.")
-        raise ValueError("Estimator is not suitable to the data.")
+            raise ValueError("Estimator only supports 1D binary mediator.")
+        raise ValueError("Estimator does not supports this kind of data.")
     return effects
