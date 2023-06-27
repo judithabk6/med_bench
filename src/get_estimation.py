@@ -681,7 +681,7 @@ def get_estimation(x, t, m, y, estimator, config):
         if config in (0, 1, 2):
             effects = g_estimator(y, t, m, x)
     else:
-        raise NotImplementedError("Unrecognized estimator label.")
+        raise ValueError("Unrecognized estimator label.")
     if effects is None:
         if config in (0, 1, 2):
             raise ValueError("Estimator only supports 1D binary mediator.")
