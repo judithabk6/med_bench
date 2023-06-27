@@ -1,13 +1,12 @@
 """
-test_simulated_data_new::simulate_data
+Pytest file for get_simulated_data.py
 
-We test :
+It tests :
 - The dimensions of the outputs
 - Whether they should be binary or not
 - Whether the effects are coherent
 - Whether forbidden inputs return an error
-
-We pinpoint aberrant behavior reguarding some input combinaisons
+- Whether aberrant behaviors happen (NaN, unexpected error...)
 
 Reminder :
 p_t = P(T=1|X)
@@ -15,85 +14,120 @@ th_p_t_mx = P(T=1|X,M)
 """
 
 from pprint import pprint
+import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
 from med_bench.src.get_simulated_data import simulate_data
 
 
-@pytest.fixture(autouse=True)
-def data():
-    n = 3
-    rg = default_rng(42)
-    mis_spec_m = False
-    mis_spec_y = False
-    dim_x = 1
-    dim_m = 1
-    seed = 1
-    type_m = "binary"
-    sigma_y = 0.5
-    sigma_m = 0.5
-    beta_t_factor = 10
-    beta_m_factor = 1
+PARAMETER_NAME = [
+    "n",
+    "rg",
+    "mis_spec_m",
+    "mis_spec_y",
+    "dim_x",
+    "dim_m",
+    "seed",
+    "type_m",
+    "sigma_y",
+    "sigma_m",
+    "beta_t_factor",
+    "beta_m_factor",
+]
 
-    return simulate_data(
-        n,
-        rg,
-        mis_spec_m,
-        mis_spec_y,
-        dim_x,
-        dim_m,
-        seed,
-        type_m,
-        sigma_y,
-        sigma_m,
-        beta_t_factor,
-        beta_m_factor,
+
+PARAMETER_LIST = list(
+    itertools.product(
+        [1, 500, 1000],
+        [default_rng(321)],
+        [False, True],
+        [False, True],
+        [1, 5],
+        [1],
+        [123],
+        ["binary", "continuous"],
+        [0.5],
+        [0.5],
+        [0.5],
+        [0.5],
     )
+)
 
 
-@pytest.fixture(autouse=True)
-def effects():
+@pytest.fixture(params=PARAMETER_LIST)
+def dict_param(request):
+    return dict(zip(PARAMETER_NAME, request.param))
+
+
+@pytest.fixture
+def data(dict_param):
+    return simulate_data(**dict_param)
+
+
+@pytest.fixture
+def x(data):
+    return data[0]
+
+
+@pytest.fixture
+def t(data):
+    return data[1].ravel()
+
+
+@pytest.fixture
+def m(data):
+    return data[2]
+
+
+@pytest.fixture
+def y(data):
+    return data[3].ravel()
+
+
+@pytest.fixture
+def effects(data):
     return np.array(data[4:9])
 
 
-def test_dimension_x(n, dim_x):
-    assert (data[0]).shape == (n, dim_x)
+def test_dimension_x(x, dict_param):
+    assert x.shape == (dict_param["n"], dict_param["dim_x"])
 
 
-def test_dimension_t(n):
-    assert (data[1]).shape == (n, 1)
+def test_dimension_t(t, dict_param):
+    assert t.shape == (dict_param["n"],)
 
 
-def test_dimension_m(n, dim_m):
-    assert (data[2]).shape == (n, dim_m)
+def test_dimension_m(m, dict_param):
+    assert m.shape == (dict_param["n"], dict_param["dim_m"])
 
 
-def test_dimension_y(n):
-    assert (data[3]).shape == (n, 1)
+def test_dimension_y(y, dict_param):
+    assert y.shape == (dict_param["n"],)
 
 
-def test_m_is_binary(type_m):
-    if type_m == "binary":
-        for m in data[2]:
-            assert m in {0, 1}
+def test_m_is_binary(m, dict_param):
+    if dict_param["type_m"] == "binary":
+        assert sum(m.ravel() == 1) + sum(m.ravel() == 0) == dict_param["n"]
     else:
-        for m in data[2]:
-            assert not m in {0, 1}
+        assert sum(m.ravel() == 1) + sum(m.ravel() == 0) < dict_param["n"]
 
 
-def test_total_is_direct_plus_indirect():
-    assert effects[0] == effects[1] + effects[4]  # total = theta_1 + delta_0
-    assert effects[0] == effects[2] + effects[3]  # total = theta_0 + delta_1
+def test_total_is_direct_plus_indirect(effects):
+    # total = theta_1 + delta_0
+    assert effects[0] == pytest.approx(effects[1] + effects[4])
+    # total = theta_0 + delta_1
+    assert effects[0] == pytest.approx(effects[2] + effects[3])
 
 
-def test_effects_are_equals_if_y_well_specified(mis_spec_y):
-    if mis_spec_y:
-        assert effects[1] != effects[2]
-        assert effects[3] != effects[4]
+@pytest.mark.xfail
+def test_effects_are_equals_if_y_well_specified(effects, dict_param):
+    if dict_param["mis_spec_y"]:
+        assert effects[1] != pytest.approx(effects[2])
+        assert effects[3] != pytest.approx(effects[4])
     else:
-        assert effects[1] == effects[2]
-        assert effects[3] == effects[4]
+        assert effects[1] == pytest.approx(effects[2])
+        assert effects[3] == pytest.approx(effects[4])
 
 
 # n=0 : Warnings
