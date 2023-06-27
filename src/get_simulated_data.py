@@ -161,8 +161,8 @@ def simulate_data(n,
     else:
         theta_1 = gamma_t + gamma_t_m.T.dot(np.mean(m1, axis=0)) # to do mean(m1) pour avoir un vecteur de taille dim_m
         theta_0 = gamma_t + gamma_t_m.T.dot(np.mean(m0, axis=0))
-        delta_1 = (gamma_t * t1 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t1 - gamma_t * t1 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t1).mean()
-        delta_0 = (gamma_t * t0 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t0 - gamma_t * t0 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t0).mean()
+        delta_1 = (gamma_t * t1 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t1 - (gamma_t * t1 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t1)).mean()
+        delta_0 = (gamma_t * t0 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t0 - (gamma_t * t0 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t0)).mean()
 
     if type_m == 'binary':
         pre_pm = np.hstack((p_m0.reshape(-1, 1), p_m1.reshape(-1, 1)))
