@@ -120,7 +120,6 @@ def test_total_is_direct_plus_indirect(effects):
     assert effects[0] == pytest.approx(effects[2] + effects[3])
 
 
-@pytest.mark.xfail
 def test_effects_are_equals_if_y_well_specified(effects, dict_param):
     if dict_param["mis_spec_y"]:
         assert effects[1] != pytest.approx(effects[2])
