@@ -1,18 +1,17 @@
 """
-get_estimation.py::get_estimation
+Pytest file for get_estimation.py
 
-We test all the benchmark_mediation estimators for a certain tolerance.
-The test is skipped if estimator has not been implemented yet,
-i.e. all outputs are NaN or NotImplementedError is raised.
-The test xfails for any other wierd behavior.
+It tests all the benchmark_mediation estimators :
+- for a certain tolerance
+- whether their effects satisfy "total = direct + indirect"
+- whether they support (n,1) and (n,) inputs
 
-We pinpoint that :
-- DML_huber is not working for dim_x=1, RRuntimeError is raised
-- multiply_robust methods return some NaN effects (half not implemented)
-- t.ravel() and y.ravel() are necessary to get IPW proper behavior
+The test is skipped if estimator has not been implemented yet, i.e. if ValueError is raised.
+The test fails for any other wierd behavior.
 """
 
 from pprint import pprint
+import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
@@ -21,41 +20,20 @@ from med_bench.src.get_estimation import get_estimation
 
 
 ATE_TOLERANCE = 0.2
-DIRECT_TOELERANCE = 0.2
+DIRECT_TOLERANCE = 0.2
 INDIRECT_TOLERANCE = 0.6  # indirect effect is weak leading to a huge relative error
 TOLERANCE = np.array(
     [
         ATE_TOLERANCE,
-        DIRECT_TOELERANCE,
-        DIRECT_TOELERANCE,
+        DIRECT_TOLERANCE,
+        DIRECT_TOLERANCE,
         INDIRECT_TOLERANCE,
         INDIRECT_TOLERANCE,
     ]
 )
 
 
-data = simulate_data(
-    n=1000,
-    rg=default_rng(42),
-    mis_spec_m=False,
-    mis_spec_y=False,
-    dim_x=5,
-    dim_m=1,
-    seed=1,
-    type_m="binary",
-    sigma_y=0.5,
-    sigma_m=0.5,
-    beta_t_factor=0.5,
-    beta_m_factor=0.5,
-)
-
-x = data[0]
-t = data[1]
-m = data[2]
-y = data[3]
-effects = np.array(data[4:9])
-
-estimator_list = [
+ESTIMATOR_LIST = [
     "coefficient_product",
     "huber_ipw_noreg",
     "huber_ipw_reg",
@@ -93,25 +71,130 @@ estimator_list = [
 ]
 
 
-@pytest.mark.parametrize("estimator", estimator_list)
-@pytest.mark.parametrize("config", [1, 5])
-@pytest.mark.parametrize("error_tolerance", [TOLERANCE])
-def test_tolerance(estimator, config, error_tolerance):
-    try:
-        effects_chap = get_estimation(x, t.ravel(), m, y.ravel(), estimator, config)
-        # effects_chap = get_estimation(x, t, m, y, estimator, config)
-        effects_chap = effects_chap[0:5]
-    except Exception as get_estimation_error:
-        if get_estimation_error != NotImplementedError:
-            pytest.xfail("Missing NotImplementedError")
-        else:
-            pytest.mark.skip("Not implemented")
+PARAMETER_NAME = [
+    "n",
+    "rg",
+    "mis_spec_m",
+    "mis_spec_y",
+    "dim_x",
+    "dim_m",
+    "seed",
+    "type_m",
+    "sigma_y",
+    "sigma_m",
+    "beta_t_factor",
+    "beta_m_factor",
+]
+
+
+PARAMETER_LIST = list(
+    itertools.product(
+        [1000],
+        [default_rng(321)],
+        [False],
+        [False],
+        [1, 5],
+        [1],
+        [123],
+        ["binary"],
+        [0.5],
+        [0.5],
+        [0.5],
+        [0.5],
+    )
+)
+
+PARAMETER_LIST.extend(
+    list(
+        itertools.product(
+            [1000],
+            [default_rng(321)],
+            [False],
+            [False],
+            [1, 5],
+            [1, 5],
+            [123],
+            ["continuous"],
+            [0.5],
+            [0.5],
+            [0.5],
+            [0.5],
+        )
+    )
+)
+
+
+@pytest.fixture(params=PARAMETER_LIST)
+def dict_param(request):
+    return dict(zip(PARAMETER_NAME, request.param))
+
+
+@pytest.fixture
+def data(dict_param):
+    return simulate_data(**dict_param)
+
+
+@pytest.fixture
+def x(data):
+    return data[0]
+
+
+@pytest.fixture
+def t(data):
+    return data[1].ravel()
+
+
+@pytest.fixture
+def m(data):
+    return data[2]
+
+
+@pytest.fixture
+def y(data):
+    return data[3].ravel()
+
+
+@pytest.fixture
+def effects(data):
+    return np.array(data[4:9])
+
+
+@pytest.fixture(params=ESTIMATOR_LIST)
+def effects_chap(x, t, m, y, dict_param, request):
+    # config determination
+    if dict_param["dim_m"] == 1 and dict_param["type_m"] == "binary":
+        config = 0
     else:
-        error = abs((effects_chap - effects) / effects)
-        if np.all(np.isnan(effects_chap)):
-            pytest.skip("all effects are NaN")
-        elif np.any(np.isnan(effects_chap)):
-            pprint("NaN found")
-            assert np.all(error[~np.isnan(error)] <= error_tolerance[~np.isnan(error)])
+        config = 5
+
+    # try whether estimator is implemented or not
+    try:
+        res = get_estimation(x, t, m, y, request.param, config)[0:5]
+    except ValueError as message_error:
+        if message_error in (
+            "Estimator only supports 1D binary mediator.",
+            "Estimator does not supports this kind of data.",
+        ):
+            pytest.skip(f"{message_error}")
         else:
-            assert np.all(error <= error_tolerance)
+            pytest.xfail("Unknown error")
+
+    # NaN situations
+    if np.all(np.isnan(res)):
+        pytest.xfail("all effects are NaN")
+    elif np.any(np.isnan(res)):
+        pprint("NaN found")
+
+    return res
+
+
+def test_tolerance(effects, effects_chap):
+    error = abs((effects_chap - effects) / effects)
+    assert np.all(error[~np.isnan(error)] <= TOLERANCE[~np.isnan(error)])
+
+
+def test_total_is_direct_plus_indirect(effects_chap):
+    if not np.isnan(effects_chap[1]):
+        assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
+    if not np.isnan(effects_chap[2]):
+        assert effects_chap[0] == pytest.approx(effects_chap[2] + effects_chap[3])
