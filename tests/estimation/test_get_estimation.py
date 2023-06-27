@@ -1,10 +1,13 @@
 """
-get_estimation.py::get_estimation
+Pytest file for get_estimation.py
 
-It tests all the benchmark_mediation estimators for a certain tolerance.
-The test is skipped if estimator has not been implemented yet,
-i.e. all outputs are NaN or NotImplementedError is raised.
-The test xfails for any other wierd behavior.
+It tests all the benchmark_mediation estimators :
+- for a certain tolerance
+- whether their effects satisfy "total = direct + indirect"
+- whether they support (n,1) and (n,) inputs
+
+The test is skipped if estimator has not been implemented yet, i.e. if ValueError is raised.
+The test fails for any other wierd behavior.
 """
 
 from pprint import pprint
