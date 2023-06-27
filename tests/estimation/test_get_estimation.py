@@ -171,13 +171,13 @@ def effects_chap(x, t, m, y, dict_param, request):
     try:
         res = get_estimation(x, t, m, y, request.param, config)[0:5]
     except ValueError as message_error:
-        if message_error in (
+        if message_error.args[0] in (
             "Estimator only supports 1D binary mediator.",
-            "Estimator does not supports 1D binary mediator.",
+            "Estimator does not support 1D binary mediator.",
         ):
             pytest.skip(f"{message_error}")
         else:
-            pytest.xfail("Unknown error")
+            pytest.fail(f"{message_error}")
 
     # NaN situations
     if np.all(np.isnan(res)):
