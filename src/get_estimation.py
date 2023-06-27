@@ -685,5 +685,5 @@ def get_estimation(x, t, m, y, estimator, config):
     if effects is None:
         if config in (0, 1, 2):
             raise ValueError("Estimator only supports 1D binary mediator.")
-        raise ValueError("Estimator does not supports this kind of data.")
+        raise ValueError("Estimator does not supports 1D binary mediator.")
     return effects
