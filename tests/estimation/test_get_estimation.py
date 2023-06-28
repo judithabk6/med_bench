@@ -73,7 +73,7 @@ INFINITE_TOLERANCE = np.array(
 )
 
 
-ESTIMATOR_DICT = {
+TOLERANCE_DICT = {
     "coefficient_product": LARGE_TOLERANCE,
     "huber_ipw_noreg": INFINITE_TOLERANCE,
     "huber_ipw_reg": INFINITE_TOLERANCE,
@@ -198,14 +198,14 @@ def effects(data):
     return np.array(data[4:9])
 
 
-@pytest.fixture(params=list(ESTIMATOR_DICT.keys()))
+@pytest.fixture(params=list(TOLERANCE_DICT.keys()))
 def estimator(request):
     return request.param
 
 
 @pytest.fixture
 def tolerance(estimator):
-    return ESTIMATOR_DICT[estimator]
+    return TOLERANCE_DICT[estimator]
 
 
 @pytest.fixture
