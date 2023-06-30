@@ -6,8 +6,9 @@ It tests all the benchmark_mediation estimators :
 - whether their effects satisfy "total = direct + indirect"
 - whether they support (n,1) and (n,) inputs
 
+To be robust to future updates, tests are adjusted with a smaller tolerance when possible.
 The test is skipped if estimator has not been implemented yet, i.e. if ValueError is raised.
-The test fails for any other wierd behavior.
+The test fails for any other unwanted behavior.
 """
 
 from pprint import pprint
