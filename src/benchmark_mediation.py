@@ -9,7 +9,7 @@ causal inference, simulate data, and evaluate and compare estimators
 import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri, numpy2ri
-from sklearn.linear_model import LogisticRegressionCV, LinearRegression, RidgeCV
+from sklearn.linear_model import Lasso, LogisticRegression, LogisticRegressionCV, LinearRegression, RidgeCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.calibration import CalibratedClassifierCV
@@ -933,6 +933,217 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     raw_res_R = np.array(res.rx2('results'))
     ntrimmed = res.rx2('ntrimmed')[0]
     return list(raw_res_R[0, :5]) + [ntrimmed]
+
+
+def med_dml(x, m, t, y, k=4, trim=0.05, normalized=True):
+    """Python implementation of Double Machine Learning procedure, as described in :
+    Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
+    The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
+    https://doi.org/10.1093/ectj/utac003
+
+    Parameters
+    ----------
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit
+        Can be multidimensional or continuous
+    t : array-like, shape (n_samples)
+        Treatment value for each unit
+    m : array-like, shape (n_samples, n_features_mediator)
+        Mediator value for each unit
+        Can be multidimensional or continuous
+    y : array-like, shape (n_samples)
+        Outcome value for each unit
+    k : int
+        Number of folds for crossfitting. Default is 4.
+    trim : double
+        Trimming treshold for discarding observations with extreme probability. Default is 0.05.
+    normalized : boolean
+        Normalizes the inverse probability-based weights. Default is True.
+
+    Returns
+    -------
+    list
+        A list of estimated effects :
+        [total effect,
+        direct effect on the exposed,
+        direct effect on the unexposed,
+        indirect effect on the exposed,
+        indirect effect on the unexposed,
+        number of discarded samples]
+
+    Raises
+    ------
+    ValueError
+        If t or y are multidimensional.
+        If x, t, m, or y don't have the same length.
+    """
+    if len(y) != len(y.ravel()):
+        raise ValueError("Multidimensional y is not supported")
+
+    if len(t) != len(t.ravel()):
+        raise ValueError("Multidimensional t is not supported")
+
+    n = len(y)
+    t = t.ravel()
+    y = y.ravel()
+
+    if n != len(x) or n != len(m) or n != len(t):
+        raise ValueError("Inputs don't have the same number of observations")
+
+    if len(x.shape) == 1:
+        x.reshape(n, 1)
+
+    if len(m.shape) == 1:
+        m.reshape(n, 1)
+
+    xm = np.hstack((x, m))
+
+    kf = KFold(n_splits=k)
+    train_test_list = list(kf.split(x))
+
+    train, test = train_test_list[0]
+
+    train1 = train[t[train] == 1]
+    train0 = train[t[train] == 0]
+
+    train_mean, train_nested = np.array_split(train, 2)
+    train_mean1 = train_mean[t[train_mean] == 1]
+    train_mean0 = train_mean[t[train_mean] == 0]
+    train_nested1 = train_nested[t[train_nested] == 1]
+    train_nested0 = train_nested[t[train_nested] == 0]
+
+    (
+        tte,
+        yte,
+        ptx,
+        ptmx,
+        mut1mx,
+        mut1mx_nested,
+        mut0mx,
+        mut0mx_nested,
+        wt0x,
+        wt1x,
+        mut1x,
+        mut0x,
+    ) = [np.empty((k,), dtype=object) for _ in range(12)]
+    nobs = 0
+
+    for i in range(0, k):
+        # predict P(T=1|X)
+        res = LogisticRegression(penalty="l1", solver="liblinear").fit(
+            x[train], t[train]
+        )
+        ptx[i] = res.predict_proba(x[test])[:, 1]
+
+        # predict P(T=1|M,X)
+        res = LogisticRegression(penalty="l1", solver="liblinear").fit(
+            xm[train], t[train]
+        )
+        ptmx[i] = res.predict_proba(xm[test])[:, 1]
+
+        # predict E[Y|T=1,M,X]
+        res = Lasso(alpha=0.1).fit(xm[train_mean1], y[train_mean1])
+        mut1mx[i] = res.predict(xm[test])
+        mut1mx_nested[i] = res.predict(xm[train_nested])
+
+        # predict E[Y|T=0,M,X]
+        res = Lasso(alpha=0.1).fit(xm[train_mean0], y[train_mean0])
+        mut0mx[i] = res.predict(xm[test])
+        mut0mx_nested[i] = res.predict(xm[train_nested])
+
+        # predict E[E[Y|T=1,M,X]|T=0,X]
+        res = Lasso(alpha=0.01).fit(x[train_nested0], mut1mx_nested[i][t[train_nested] == 0])
+        wt0x[i] = res.predict(x[test])
+
+        # predict E[E[Y|T=0,M,X]|T=1,X]
+        res = Lasso(alpha=0.001).fit(x[train_nested1], mut0mx_nested[i][t[train_nested] == 1])
+        wt1x[i] = res.predict(x[test])
+
+        # predict E[Y|T=1,X]
+        res = Lasso(alpha=0.0005).fit(x[train1], y[train1])
+        mut1x[i] = res.predict(x[test])
+
+        # predict E[Y|T=0,X]
+        res = Lasso(alpha=0.05).fit(x[train0], y[train0])
+        mut0x[i] = res.predict(x[test])
+
+        # trimming
+        not_trimmed = (
+            (((1 - ptmx[i]) * ptx[i]) >= trim)
+            * ((1 - ptx[i]) >= trim)
+            * (ptx[i] >= trim)
+            * (((ptmx[i] * (1 - ptx[i]))) >= trim)
+        )
+
+        tte[i] = t[test]
+        yte[i] = y[test]
+
+        tte[i] = tte[i][not_trimmed]
+        yte[i] = yte[i][not_trimmed]
+        ptx[i] = ptx[i][not_trimmed]
+        ptmx[i] = ptmx[i][not_trimmed]
+        mut1mx[i] = mut1mx[i][not_trimmed]
+        mut0mx[i] = mut0mx[i][not_trimmed]
+        wt0x[i] = wt0x[i][not_trimmed]
+        wt1x[i] = wt1x[i][not_trimmed]
+        mut1x[i] = mut1x[i][not_trimmed]
+        mut0x[i] = mut0x[i][not_trimmed]
+
+        nobs += np.sum(not_trimmed)
+
+    if normalized:
+        sumscore1 = [np.mean(_) for _ in (1 - tte) * ptmx / ((1 - ptmx) * ptx)]
+        sumscore2 = [np.mean(_) for _ in tte / ptx]
+        sumscore3 = [np.mean(_) for _ in (1 - tte) / (1 - ptx)]
+        sumscore4 = [np.mean(_) for _ in tte * (1 - ptmx) / (ptmx * (1 - ptx))]
+        y1m1 = (tte * (yte - mut1x) / ptx) / sumscore2 + mut1x
+        y0m0 = ((1 - tte) * (yte - mut0x) / (1 - ptx)) / sumscore3 + mut0x
+        y1m0 = (
+            (tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mut1mx)) / sumscore4
+            + ((1 - tte) / (1 - ptx) * (mut1mx - wt0x)) / sumscore3
+            + wt0x
+        )
+        y0m1 = (
+            ((1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mut0mx)) / sumscore1
+            + (tte / ptx * (mut0mx - wt1x)) / sumscore2
+            + wt1x
+        )
+    else:
+        y1m1 = tte * (yte - mut1x) / ptx + mut1x
+        y0m0 = (1 - tte) * (yte - mut0x) / (1 - ptx) + mut0x
+        y1m0 = (
+            tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mut1mx)
+            + (1 - tte) / (1 - ptx) * (mut1mx - wt0x)
+            + wt0x
+        )
+        y0m1 = (
+            (1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mut0mx)
+            + tte / ptx * (mut0mx - wt1x)
+            + wt1x
+        )
+
+    my1m1 = np.mean(np.mean(y1m1))
+    my0m0 = np.mean(np.mean(y0m0))
+    my1m0 = np.mean(np.mean(y1m0))
+    my0m1 = np.mean(np.mean(y0m1))
+
+    # effects computing
+    total = my1m1 - my0m0  # total effect
+    direct1 = my1m1 - my0m1  # theta1
+    direct0 = my1m0 - my0m0  # theta0
+    indirect1 = my1m1 - my1m0  # delta1
+    indirect0 = my0m1 - my0m0  # delta0
+
+    # # variance computing
+    # vtotal = np.mean(np.mean((y1m1 - y0m0 - total) ** 2))
+    # vdirect1 = np.mean(np.mean((y1m1 - y0m1 - direct1) ** 2))
+    # vdirect0 = np.mean(np.mean((y1m0 - y0m0 - direct0) ** 2))
+    # vindirect1 = np.mean(np.mean((y1m1 - y1m0 - indirect1) ** 2))
+    # vindirect0 = np.mean(np.mean((y0m1 - y0m0 - indirect0) ** 2))
+
+    # var = [vtotal, vdirect1, vdirect0, vindirect1, vindirect0]
+
+    return [total, direct1, direct0, indirect1, indirect0, n - nobs]
 
 
 def _convert_array_to_R(x):
