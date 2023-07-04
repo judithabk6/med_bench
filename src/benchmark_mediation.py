@@ -935,7 +935,7 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def med_dml(x, m, t, y, k=4, trim=0.05, normalized=True):
+def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
     """Python implementation of Double Machine Learning procedure, as described in :
     Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
     The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
