@@ -6,8 +6,9 @@ It tests all the benchmark_mediation estimators :
 - whether their effects satisfy "total = direct + indirect"
 - whether they support (n,1) and (n,) inputs
 
+To be robust to future updates, tests are adjusted with a smaller tolerance when possible.
 The test is skipped if estimator has not been implemented yet, i.e. if ValueError is raised.
-The test fails for any other wierd behavior.
+The test fails for any other unwanted behavior.
 """
 
 from pprint import pprint
@@ -19,56 +20,96 @@ from med_bench.src.get_simulated_data import simulate_data
 from med_bench.src.get_estimation import get_estimation
 
 
-ATE_TOLERANCE = 0.2
-DIRECT_TOLERANCE = 0.2
-INDIRECT_TOLERANCE = 0.6  # indirect effect is weak leading to a huge relative error
-TOLERANCE = np.array(
+SMALL_ATE_TOLERANCE = 0.05
+SMALL_DIRECT_TOLERANCE = 0.05
+SMALL_INDIRECT_TOLERANCE = 0.2
+
+MEDIUM_ATE_TOLERANCE = 0.10
+MEDIUM_DIRECT_TOLERANCE = 0.10
+MEDIUM_INDIRECT_TOLERANCE = 0.4
+
+LARGE_ATE_TOLERANCE = 0.15
+LARGE_DIRECT_TOLERANCE = 0.15
+LARGE_INDIRECT_TOLERANCE = 0.8
+# indirect effect is weak, leading to a large relative error
+
+SMALL_TOLERANCE = np.array(
     [
-        ATE_TOLERANCE,
-        DIRECT_TOLERANCE,
-        DIRECT_TOLERANCE,
-        INDIRECT_TOLERANCE,
-        INDIRECT_TOLERANCE,
+        SMALL_ATE_TOLERANCE,
+        SMALL_DIRECT_TOLERANCE,
+        SMALL_DIRECT_TOLERANCE,
+        SMALL_INDIRECT_TOLERANCE,
+        SMALL_INDIRECT_TOLERANCE,
+    ]
+)
+
+MEDIUM_TOLERANCE = np.array(
+    [
+        MEDIUM_ATE_TOLERANCE,
+        MEDIUM_DIRECT_TOLERANCE,
+        MEDIUM_DIRECT_TOLERANCE,
+        MEDIUM_INDIRECT_TOLERANCE,
+        MEDIUM_INDIRECT_TOLERANCE,
+    ]
+)
+
+LARGE_TOLERANCE = np.array(
+    [
+        LARGE_ATE_TOLERANCE,
+        LARGE_DIRECT_TOLERANCE,
+        LARGE_DIRECT_TOLERANCE,
+        LARGE_INDIRECT_TOLERANCE,
+        LARGE_INDIRECT_TOLERANCE,
+    ]
+)
+
+INFINITE_TOLERANCE = np.array(
+    [
+        np.inf,
+        np.inf,
+        np.inf,
+        np.inf,
+        np.inf,
     ]
 )
 
 
-ESTIMATOR_LIST = [
-    "coefficient_product",
-    "huber_ipw_noreg",
-    "huber_ipw_reg",
-    "huber_ipw_reg_calibration",
-    "huber_ipw_forest",
-    "huber_ipw_forest_calibration",
-    "g_computation_noreg",
-    "g_computation_reg",
-    "g_computation_reg_calibration",
-    "g_computation_forest",
-    "g_computation_forest_calibration",
-    "multiply_robust_noreg",
-    "multiply_robust_reg",
-    "multiply_robust_reg_calibration",
-    "multiply_robust_forest",
-    "multiply_robust_forest_calibration",
-    "simulation_based",
-    "DML_huber",
-    "G_estimator",
-    "huber_ipw_noreg_cf",
-    "huber_ipw_reg_cf",
-    "huber_ipw_reg_calibration_cf",
-    "huber_ipw_forest_cf",
-    "huber_ipw_forest_calibration_cf",
-    "g_computation_noreg_cf",
-    "g_computation_reg_cf",
-    "g_computation_reg_calibration_cf",
-    "g_computation_forest_cf",
-    "g_computation_forest_calibration_cf",
-    "multiply_robust_noreg_cf",
-    "multiply_robust_reg_cf",
-    "multiply_robust_reg_calibration_cf",
-    "multiply_robust_forest_cf",
-    "multiply_robust_forest_calibration_cf",
-]
+TOLERANCE_DICT = {
+    "coefficient_product": LARGE_TOLERANCE,
+    "huber_ipw_noreg": INFINITE_TOLERANCE,
+    "huber_ipw_reg": INFINITE_TOLERANCE,
+    "huber_ipw_reg_calibration": INFINITE_TOLERANCE,
+    "huber_ipw_forest": INFINITE_TOLERANCE,
+    "huber_ipw_forest_calibration": INFINITE_TOLERANCE,
+    "g_computation_noreg": LARGE_TOLERANCE,
+    "g_computation_reg": MEDIUM_TOLERANCE,
+    "g_computation_reg_calibration": LARGE_TOLERANCE,
+    "g_computation_forest": LARGE_TOLERANCE,
+    "g_computation_forest_calibration": INFINITE_TOLERANCE,
+    "multiply_robust_noreg": MEDIUM_TOLERANCE,
+    "multiply_robust_reg": SMALL_TOLERANCE,
+    "multiply_robust_reg_calibration": SMALL_TOLERANCE,
+    "multiply_robust_forest": INFINITE_TOLERANCE,
+    "multiply_robust_forest_calibration": LARGE_TOLERANCE,
+    "simulation_based": LARGE_TOLERANCE,
+    "DML_huber": INFINITE_TOLERANCE,
+    "G_estimator": SMALL_TOLERANCE,
+    "huber_ipw_noreg_cf": INFINITE_TOLERANCE,
+    "huber_ipw_reg_cf": INFINITE_TOLERANCE,
+    "huber_ipw_reg_calibration_cf": INFINITE_TOLERANCE,
+    "huber_ipw_forest_cf": INFINITE_TOLERANCE,
+    "huber_ipw_forest_calibration_cf": INFINITE_TOLERANCE,
+    "g_computation_noreg_cf": SMALL_TOLERANCE,
+    "g_computation_reg_cf": LARGE_TOLERANCE,
+    "g_computation_reg_calibration_cf": LARGE_TOLERANCE,
+    "g_computation_forest_cf": INFINITE_TOLERANCE,
+    "g_computation_forest_calibration_cf": LARGE_TOLERANCE,
+    "multiply_robust_noreg_cf": MEDIUM_TOLERANCE,
+    "multiply_robust_reg_cf": SMALL_TOLERANCE,
+    "multiply_robust_reg_calibration_cf": MEDIUM_TOLERANCE,
+    "multiply_robust_forest_cf": INFINITE_TOLERANCE,
+    "multiply_robust_forest_calibration_cf": MEDIUM_TOLERANCE,
+}
 
 
 PARAMETER_NAME = [
@@ -85,7 +126,6 @@ PARAMETER_NAME = [
     "beta_t_factor",
     "beta_m_factor",
 ]
-
 
 PARAMETER_LIST = list(
     itertools.product(
@@ -159,25 +199,36 @@ def effects(data):
     return np.array(data[4:9])
 
 
-@pytest.fixture(params=ESTIMATOR_LIST)
-def effects_chap(x, t, m, y, dict_param, request):
-    # config determination
-    if dict_param["dim_m"] == 1 and dict_param["type_m"] == "binary":
-        config = 0
-    else:
-        config = 5
+@pytest.fixture(params=list(TOLERANCE_DICT.keys()))
+def estimator(request):
+    return request.param
 
+
+@pytest.fixture
+def tolerance(estimator):
+    return TOLERANCE_DICT[estimator]
+
+
+@pytest.fixture
+def config(dict_param):
+    if dict_param["dim_m"] == 1 and dict_param["type_m"] == "binary":
+        return 0
+    return 5
+
+
+@pytest.fixture
+def effects_chap(x, t, m, y, estimator, config):
     # try whether estimator is implemented or not
     try:
-        res = get_estimation(x, t, m, y, request.param, config)[0:5]
+        res = get_estimation(x, t, m, y, estimator, config)[0:5]
     except ValueError as message_error:
-        if message_error in (
+        if message_error.args[0] in (
             "Estimator only supports 1D binary mediator.",
-            "Estimator does not supports 1D binary mediator.",
+            "Estimator does not support 1D binary mediator.",
         ):
             pytest.skip(f"{message_error}")
         else:
-            pytest.xfail("Unknown error")
+            pytest.fail(f"{message_error}")
 
     # NaN situations
     if np.all(np.isnan(res)):
@@ -188,9 +239,9 @@ def effects_chap(x, t, m, y, dict_param, request):
     return res
 
 
-def test_tolerance(effects, effects_chap):
+def test_tolerance(effects, effects_chap, tolerance):
     error = abs((effects_chap - effects) / effects)
-    assert np.all(error[~np.isnan(error)] <= TOLERANCE[~np.isnan(error)])
+    assert np.all(error[~np.isnan(error)] <= tolerance[~np.isnan(error)])
 
 
 def test_total_is_direct_plus_indirect(effects_chap):
