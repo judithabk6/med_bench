@@ -249,3 +249,13 @@ def test_total_is_direct_plus_indirect(effects_chap):
         assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
     if not np.isnan(effects_chap[2]):
         assert effects_chap[0] == pytest.approx(effects_chap[2] + effects_chap[3])
+
+
+@pytest.mark.xfail
+def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
+    if "forest" in estimator:
+        pytest.skip("Forest estimator skipped")
+    assert np.all(
+        get_estimation(data[0], data[1], data[2], data[3], estimator, config)[0:5]
+        == pytest.approx(effects_chap, nan_ok=True)
+    )
