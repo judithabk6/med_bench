@@ -66,20 +66,22 @@ def get_interactions(interaction, *args):
            [ 2.,  3.,  1.,  2.,  2.,  3.,  4.,  6.,  2.],
            [ 4.,  5.,  1.,  2.,  4.,  5.,  8., 10.,  2.]])
     """
-    variables = args
+    variables = list(args)
+    for index, var in enumerate(variables):
+        if len(var.shape) == 1:
+            variables[index] = var.reshape(-1,1)
     pre_inter_variables = np.hstack(variables)
     if not interaction:
         return pre_inter_variables
-    else:
-        new_cols = list()
-        for i, var in enumerate(variables[:]):
-            for j, var2 in enumerate(variables[i+1:]):
-                for ii in range(var.shape[1]):
-                    for jj in range(var2.shape[1]):
-                        new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
-        new_vars = np.hstack(new_cols)
-        result = np.hstack(variables + (new_vars,))
-        return result
+    new_cols = list()
+    for i, var in enumerate(variables[:]):
+        for j, var2 in enumerate(variables[i+1:]):
+            for ii in range(var.shape[1]):
+                for jj in range(var2.shape[1]):
+                    new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
+    new_vars = np.hstack(new_cols)
+    result = np.hstack((pre_inter_variables,new_vars))
+    return result
 
 
 def plain_IPW(y, t, x, trim=0.01, regularization=True):
