@@ -257,5 +257,5 @@ def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
         pytest.skip("Forest estimator skipped")
     assert np.all(
         get_estimation(data[0], data[1], data[2], data[3], estimator, config)[0:5]
-        == pytest.approx(effects_chap, nan_ok=True)
+        == pytest.approx(effects_chap, nan_ok=True) # effects_chap is raveled
     )
