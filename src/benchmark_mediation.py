@@ -936,7 +936,8 @@ def medDML(y, t, m, x, trim=0.05, order=1):
 
 
 def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
-    """Python implementation of Double Machine Learning procedure, as described in :
+    """
+    Python implementation of Double Machine Learning procedure, as described in :
     Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
     The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
     https://doi.org/10.1093/ectj/utac003
@@ -977,6 +978,7 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         If t or y are multidimensional.
         If x, t, m, or y don't have the same length.
     """
+    # check format
     if len(y) != len(y.ravel()):
         raise ValueError("Multidimensional y is not supported")
 
@@ -998,37 +1000,45 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
 
     xm = np.hstack((x, m))
 
+    # initialisation
+    (
+        tte,  # test treatment
+        yte,  # test outcome
+        ptx,  # P(T=1|X)
+        ptmx,  # P(T=1|M,X)
+        mut1mx,  # E[Y|T=1,M,X]
+        mut1mx_nested,  # E[Y|T=1,M,X] predicted on train_nested set
+        mut0mx,  # E[Y|T=0,M,X]
+        mut0mx_nested,  # E[Y|T=0,M,X] predicted on train_nested set
+        wt0x,  # E[E[Y|T=1,M,X]|T=0,X]
+        wt1x,  # E[E[Y|T=0,M,X]|T=1,X]
+        mut1x,  # E[Y|T=1,X]
+        mut0x,  # E[Y|T=0,X]
+    ) = [np.empty((k,), dtype=object) for _ in range(12)]
+
+    var_name = ["tte", "yte", "ptx", "ptmx"]
+    var_name += ["mut1mx", "mut0mx", "wt0x", "wt1x", "mut1x", "mut0x"]
+    nobs = 0
+
+    # define cross-fitting folds
     kf = KFold(n_splits=k)
     train_test_list = list(kf.split(x))
 
-    train, test = train_test_list[0]
-
-    train1 = train[t[train] == 1]
-    train0 = train[t[train] == 0]
-
-    train_mean, train_nested = np.array_split(train, 2)
-    train_mean1 = train_mean[t[train_mean] == 1]
-    train_mean0 = train_mean[t[train_mean] == 0]
-    train_nested1 = train_nested[t[train_nested] == 1]
-    train_nested0 = train_nested[t[train_nested] == 0]
-
-    (
-        tte,
-        yte,
-        ptx,
-        ptmx,
-        mut1mx,
-        mut1mx_nested,
-        mut0mx,
-        mut0mx_nested,
-        wt0x,
-        wt1x,
-        mut1x,
-        mut0x,
-    ) = [np.empty((k,), dtype=object) for _ in range(12)]
-    nobs = 0
-
     for i in range(0, k):
+        # define test set
+        train, test = train_test_list[i]
+        train1 = train[t[train] == 1]
+        train0 = train[t[train] == 0]
+
+        train_mean, train_nested = np.array_split(train, 2)
+        train_mean1 = train_mean[t[train_mean] == 1]
+        train_mean0 = train_mean[t[train_mean] == 0]
+        train_nested1 = train_nested[t[train_nested] == 1]
+        train_nested0 = train_nested[t[train_nested] == 0]
+
+        tte[i] = t[test]
+        yte[i] = y[test]
+
         # predict P(T=1|X)
         res = LogisticRegression(penalty="l1", solver="liblinear").fit(
             x[train], t[train]
@@ -1052,11 +1062,15 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         mut0mx_nested[i] = res.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        res = Lasso(alpha=0.01).fit(x[train_nested0], mut1mx_nested[i][t[train_nested] == 0])
+        res = Lasso(alpha=0.01).fit(
+            x[train_nested0], mut1mx_nested[i][t[train_nested] == 0]
+        )
         wt0x[i] = res.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        res = Lasso(alpha=0.001).fit(x[train_nested1], mut0mx_nested[i][t[train_nested] == 1])
+        res = Lasso(alpha=0.001).fit(
+            x[train_nested1], mut0mx_nested[i][t[train_nested] == 1]
+        )
         wt1x[i] = res.predict(x[test])
 
         # predict E[Y|T=1,X]
@@ -1074,23 +1088,11 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
             * (ptx[i] >= trim)
             * (((ptmx[i] * (1 - ptx[i]))) >= trim)
         )
-
-        tte[i] = t[test]
-        yte[i] = y[test]
-
-        tte[i] = tte[i][not_trimmed]
-        yte[i] = yte[i][not_trimmed]
-        ptx[i] = ptx[i][not_trimmed]
-        ptmx[i] = ptmx[i][not_trimmed]
-        mut1mx[i] = mut1mx[i][not_trimmed]
-        mut0mx[i] = mut0mx[i][not_trimmed]
-        wt0x[i] = wt0x[i][not_trimmed]
-        wt1x[i] = wt1x[i][not_trimmed]
-        mut1x[i] = mut1x[i][not_trimmed]
-        mut0x[i] = mut0x[i][not_trimmed]
-
+        for var in var_name:
+            exec(f"{var}[i] = {var}[i][not_trimmed]")
         nobs += np.sum(not_trimmed)
 
+    # score computing
     if normalized:
         sumscore1 = [np.mean(_) for _ in (1 - tte) * ptmx / ((1 - ptmx) * ptx)]
         sumscore2 = [np.mean(_) for _ in tte / ptx]
@@ -1122,10 +1124,11 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
             + wt1x
         )
 
-    my1m1 = np.mean(np.mean(y1m1))
-    my0m0 = np.mean(np.mean(y0m0))
-    my1m0 = np.mean(np.mean(y1m0))
-    my0m1 = np.mean(np.mean(y0m1))
+    # mean score computing
+    my1m1 = np.mean([np.mean(_) for _ in y1m1])
+    my0m0 = np.mean([np.mean(_) for _ in y0m0])
+    my1m0 = np.mean([np.mean(_) for _ in y1m0])
+    my0m1 = np.mean([np.mean(_) for _ in y0m1])
 
     # effects computing
     total = my1m1 - my0m0  # total effect
