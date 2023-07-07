@@ -624,53 +624,71 @@ def multiply_robust_efficient(y, t, m, x, interaction=False,
                               regularization=True, calibration=True,
                               calib_method='sigmoid'):
     """
-    presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
+    Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
     multiple robustness and sensitivity analysis."
     Ann. Statist. 40 (3) 1816 - 1845, June 2012.
     https://doi.org/10.1214/12-AOS990
 
-    m is binary !!!
+    Parameters
+    ----------
+    y : array-like, shape (n_samples)
+        Outcome value for each unit, continuous
 
-    y       array-like, shape (n_samples)
-            outcome value for each unit, continuous
+    t : array-like, shape (n_samples)
+        Treatment value for each unit, binary
 
-    t       array-like, shape (n_samples)
-            treatment value for each unit, binary
+    m : array-like, shape (n_samples)
+        Mediator value for each unit, necessarly binary and unidimensional
 
-    m       array-like, shape (n_samples)
-            mediator value for each unit, here m is necessary binary and uni-
-            dimensional
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit, continuous
 
-    x       array-like, shape (n_samples, n_features_covariates)
-            covariates (potential confounders) values
+    interaction : boolean, default=False
+        Whether to include interaction terms in the model
+        interactions are terms XT, TM, MX
 
-    interaction boolean, default=False
-                whether to include interaction terms in the model
-                interactions are terms XT, TM, MX
+    forest : boolean, default=False
+        Whether to use a random forest model to estimate the propensity
+        scores instead of logistic regression, and outcome model instead
+        of linear regression
 
-    penalty string {‘l1’, ‘l2’, ‘elasticnet’, ‘none’}, default=’l2’
-            passed to the scikit learn sklearn.linear_model.LogisticRegression
-            model. Was used to mimick the R implementation without penalty in
-            some cases, to evaluate regularization bias
+    crossfit : integer, default+0
+        Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
-    forest  boolean, default False
-            whether to use a random forest model to estimate the propensity
-            scores instead of logistic regression, and outcome model instead
-            of linear regression
+    clip : float, default=0.01
+        Limit to clip p_x and f_mtx for numerical stability (min=clip, max=1-clip)
 
-    crossfit integer, default 0
-             number of folds for cross-fitting
+    regularization : boolean, default=True
+        Whether to use regularized models (logistic or linear regression).
+        If True, cross-validation is used to chose among 8 potential
+        log-spaced values between 1e-5 and 1e5
 
-    clip    float
-            limit to clip for numerical stability (min=clip, max=1-clip)
+    calibration : boolean, default=True
+        [...]
 
-    regularization boolean, default True
-                   whether to use regularized models (logistic or
-                   linear regression). If True, cross-validation is used
-                   to chose among 8 potential log-spaced values between
-                   1e-5 and 1e5
+    calib_method : str, default="sigmoid"
+        [...]
 
+
+    Returns
+    -------
+    list
+        A list of estimated effects :
+        [total effect,
+        direct effect on the exposed,
+        direct effect on the unexposed,
+        indirect effect on the exposed,
+        indirect effect on the unexposed,
+        number of clipped samples]
+
+
+    Raises
+    ------
+    ValueError
+        - If t or y are multidimensional.
+        - If x, t, m, or y don't have the same length.
+        - If m is not binary.
     """
     if regularization:
         alphas = ALPHAS
