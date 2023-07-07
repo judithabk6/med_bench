@@ -108,9 +108,15 @@ def test_dimension_y(y, dict_param):
 
 def test_m_is_binary(m, dict_param):
     if dict_param["type_m"] == "binary":
-        assert sum(m.ravel() == 1) + sum(m.ravel() == 0) == dict_param["n"]
+        assert (
+            sum(m.ravel() == 1) + sum(m.ravel() == 0)
+            == dict_param["n"] * dict_param["dim_m"]
+        )
     else:
-        assert sum(m.ravel() == 1) + sum(m.ravel() == 0) < dict_param["n"]
+        assert (
+            sum(m.ravel() == 1) + sum(m.ravel() == 0)
+            < dict_param["n"] * dict_param["dim_m"]
+        )
 
 
 def test_total_is_direct_plus_indirect(effects):
