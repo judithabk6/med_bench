@@ -953,12 +953,12 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         Can be multidimensional or continuous
     y : array-like, shape (n_samples)
         Outcome value for each unit
-    k : int
-        Number of folds for crossfitting. Default is 4.
-    trim : double
-        Trimming treshold for discarding observations with extreme probability. Default is 0.05.
-    normalized : boolean
-        Normalizes the inverse probability-based weights. Default is True.
+    k : int, default=4
+        Number of folds for crossfitting.
+    trim : double, default=0.05
+        Trimming treshold for discarding observations with extreme probability.
+    normalized : boolean, default=True
+        Normalizes the inverse probability-based weights.
 
     Returns
     -------
