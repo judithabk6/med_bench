@@ -935,7 +935,7 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
+def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
     """
     Python implementation of Double Machine Learning procedure, as described in :
     Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
@@ -960,6 +960,8 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         Trimming treshold for discarding observations with extreme probability.
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights.
+    alpha : float, default=10**-4
+        Lasso penalization for conditinal means estimation.
 
     Returns
     -------
@@ -1052,7 +1054,7 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         ptmx[i] = res.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
-        res = Lasso(alpha=0.1).fit(xm[train_mean1], y[train_mean1])
+        res = Lasso(alpha).fit(xm[train_mean1], y[train_mean1])
         mut1mx[i] = res.predict(xm[test])
         mut1mx_nested[i] = res.predict(xm[train_nested])
 
@@ -1062,23 +1064,23 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True):
         mut0mx_nested[i] = res.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        res = Lasso(alpha=0.01).fit(
+        res = Lasso(alpha).fit(
             x[train_nested0], mut1mx_nested[i][t[train_nested] == 0]
         )
         wt0x[i] = res.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        res = Lasso(alpha=0.001).fit(
+        res = Lasso(alpha).fit(
             x[train_nested1], mut0mx_nested[i][t[train_nested] == 1]
         )
         wt1x[i] = res.predict(x[test])
 
         # predict E[Y|T=1,X]
-        res = Lasso(alpha=0.0005).fit(x[train1], y[train1])
+        res = Lasso(alpha).fit(x[train1], y[train1])
         mut1x[i] = res.predict(x[test])
 
         # predict E[Y|T=0,X]
-        res = Lasso(alpha=0.05).fit(x[train0], y[train0])
+        res = Lasso(alpha).fit(x[train0], y[train0])
         mut0x[i] = res.predict(x[test])
 
         # trimming
