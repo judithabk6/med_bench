@@ -93,6 +93,7 @@ TOLERANCE_DICT = {
     "multiply_robust_forest_calibration": LARGE_TOLERANCE,
     "simulation_based": LARGE_TOLERANCE,
     "DML_huber": INFINITE_TOLERANCE,
+    "med_dml": INFINITE_TOLERANCE,
     "G_estimator": SMALL_TOLERANCE,
     "huber_ipw_noreg_cf": INFINITE_TOLERANCE,
     "huber_ipw_reg_cf": INFINITE_TOLERANCE,
@@ -111,6 +112,8 @@ TOLERANCE_DICT = {
     "multiply_robust_forest_calibration_cf": MEDIUM_TOLERANCE,
 }
 
+TOLERANCE_DICT = {
+    "med_dml": MEDIUM_TOLERANCE,}
 
 PARAMETER_NAME = [
     "n",
