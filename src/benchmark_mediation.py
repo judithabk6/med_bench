@@ -882,11 +882,6 @@ def multiply_robust_efficient(
             + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
-    # count clipping
-    p_x_clipped = p_x != np.clip(p_x, clip, 1 - clip)
-    f_m0x_clipped = f_m0x != np.clip(f_m0x, clip, 1 - clip)
-    f_m1x_clipped = f_m1x != np.clip(f_m1x, clip, 1 - clip)
-    clipped = np.sum(p_x_clipped + f_m0x_clipped + f_m1x_clipped)
     # clipping
     p_x = np.clip(p_x, clip, 1 - clip)
     f_m0x = np.clip(f_m0x, clip, 1 - clip)
