@@ -677,6 +677,8 @@ def get_estimation(x, t, m, y, estimator, config):
     elif estimator == "DML_huber":
         if config > 0:
             effects = medDML(y, t, m, x, trim=0.0, order=1)
+    elif estimator == "med_dml":
+        effects = med_dml(x, t, m, y, trim=0)
     elif estimator == "G_estimator":
         if config in (0, 1, 2):
             effects = g_estimator(y, t, m, x)
