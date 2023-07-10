@@ -1008,18 +1008,18 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
         yte,  # test outcome
         ptx,  # P(T=1|X)
         ptmx,  # P(T=1|M,X)
-        mut1mx,  # E[Y|T=1,M,X]
-        mut1mx_nested,  # E[Y|T=1,M,X] predicted on train_nested set
-        mut0mx,  # E[Y|T=0,M,X]
-        mut0mx_nested,  # E[Y|T=0,M,X] predicted on train_nested set
-        wt0x,  # E[E[Y|T=1,M,X]|T=0,X]
-        wt1x,  # E[E[Y|T=0,M,X]|T=1,X]
-        mut1x,  # E[Y|T=1,X]
-        mut0x,  # E[Y|T=0,X]
+        mu_t1_m_x,  # E[Y|T=1,M,X]
+        mu_t1_m_x_nested,  # E[Y|T=1,M,X] predicted on train_nested set
+        mu_t0_m_x,  # E[Y|T=0,M,X]
+        mu_t0_m_x_nested,  # E[Y|T=0,M,X] predicted on train_nested set
+        w_t0_x,  # E[E[Y|T=1,M,X]|T=0,X]
+        w_t1_x,  # E[E[Y|T=0,M,X]|T=1,X]
+        mu_t1_x,  # E[Y|T=1,X]
+        mu_t0_x,  # E[Y|T=0,X]
     ) = [np.empty((k,), dtype=object) for _ in range(12)]
 
     var_name = ["tte", "yte", "ptx", "ptmx"]
-    var_name += ["mut1mx", "mut0mx", "wt0x", "wt1x", "mut1x", "mut0x"]
+    var_name += ["mu_t1_m_x", "mu_t0_m_x", "w_t0_x", "w_t1_x", "mu_t1_x", "mu_t0_x"]
     nobs = 0
 
     # define cross-fitting folds
@@ -1055,33 +1055,33 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
 
         # predict E[Y|T=1,M,X]
         res = Lasso(alpha).fit(xm[train_mean1], y[train_mean1])
-        mut1mx[i] = res.predict(xm[test])
-        mut1mx_nested[i] = res.predict(xm[train_nested])
+        mu_t1_m_x[i] = res.predict(xm[test])
+        mu_t1_m_x_nested[i] = res.predict(xm[train_nested])
 
         # predict E[Y|T=0,M,X]
-        res = Lasso(alpha=0.1).fit(xm[train_mean0], y[train_mean0])
-        mut0mx[i] = res.predict(xm[test])
-        mut0mx_nested[i] = res.predict(xm[train_nested])
+        res = Lasso(alpha).fit(xm[train_mean0], y[train_mean0])
+        mu_t0_m_x[i] = res.predict(xm[test])
+        mu_t0_m_x_nested[i] = res.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
         res = Lasso(alpha).fit(
-            x[train_nested0], mut1mx_nested[i][t[train_nested] == 0]
+            x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
         )
-        wt0x[i] = res.predict(x[test])
+        w_t0_x[i] = res.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
         res = Lasso(alpha).fit(
-            x[train_nested1], mut0mx_nested[i][t[train_nested] == 1]
+            x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
         )
-        wt1x[i] = res.predict(x[test])
+        w_t1_x[i] = res.predict(x[test])
 
         # predict E[Y|T=1,X]
         res = Lasso(alpha).fit(x[train1], y[train1])
-        mut1x[i] = res.predict(x[test])
+        mu_t1_x[i] = res.predict(x[test])
 
         # predict E[Y|T=0,X]
         res = Lasso(alpha).fit(x[train0], y[train0])
-        mut0x[i] = res.predict(x[test])
+        mu_t0_x[i] = res.predict(x[test])
 
         # trimming
         not_trimmed = (
@@ -1100,30 +1100,30 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
         sumscore2 = [np.mean(_) for _ in tte / ptx]
         sumscore3 = [np.mean(_) for _ in (1 - tte) / (1 - ptx)]
         sumscore4 = [np.mean(_) for _ in tte * (1 - ptmx) / (ptmx * (1 - ptx))]
-        y1m1 = (tte * (yte - mut1x) / ptx) / sumscore2 + mut1x
-        y0m0 = ((1 - tte) * (yte - mut0x) / (1 - ptx)) / sumscore3 + mut0x
+        y1m1 = (tte * (yte - mu_t1_x) / ptx) / sumscore2 + mu_t1_x
+        y0m0 = ((1 - tte) * (yte - mu_t0_x) / (1 - ptx)) / sumscore3 + mu_t0_x
         y1m0 = (
-            (tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mut1mx)) / sumscore4
-            + ((1 - tte) / (1 - ptx) * (mut1mx - wt0x)) / sumscore3
-            + wt0x
+            (tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)) / sumscore4
+            + ((1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)) / sumscore3
+            + w_t0_x
         )
         y0m1 = (
-            ((1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mut0mx)) / sumscore1
-            + (tte / ptx * (mut0mx - wt1x)) / sumscore2
-            + wt1x
+            ((1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)) / sumscore1
+            + (tte / ptx * (mu_t0_m_x - w_t1_x)) / sumscore2
+            + w_t1_x
         )
     else:
-        y1m1 = tte * (yte - mut1x) / ptx + mut1x
-        y0m0 = (1 - tte) * (yte - mut0x) / (1 - ptx) + mut0x
+        y1m1 = tte * (yte - mu_t1_x) / ptx + mu_t1_x
+        y0m0 = (1 - tte) * (yte - mu_t0_x) / (1 - ptx) + mu_t0_x
         y1m0 = (
-            tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mut1mx)
-            + (1 - tte) / (1 - ptx) * (mut1mx - wt0x)
-            + wt0x
+            tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)
+            + (1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)
+            + w_t0_x
         )
         y0m1 = (
-            (1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mut0mx)
-            + tte / ptx * (mut0mx - wt1x)
-            + wt1x
+            (1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)
+            + tte / ptx * (mu_t0_m_x - w_t1_x)
+            + w_t1_x
         )
 
     # mean score computing
