@@ -1016,19 +1016,22 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
         w_t1_x,  # E[E[Y|T=0,M,X]|T=1,X]
         mu_t1_x,  # E[Y|T=1,X]
         mu_t0_x,  # E[Y|T=0,X]
-    ) = [np.empty((k,), dtype=object) for _ in range(12)]
+    ) = [np.empty((max(crossfit, 1),), dtype=object) for _ in range(12)]
 
     var_name = ["tte", "yte", "ptx", "ptmx"]
     var_name += ["mu_t1_m_x", "mu_t0_m_x", "w_t0_x", "w_t1_x", "mu_t1_x", "mu_t0_x"]
     nobs = 0
 
     # define cross-fitting folds
-    kf = KFold(n_splits=k)
-    train_test_list = list(kf.split(x))
+    if crossfit < 2:
+        train_test_list = [(np.arange(n), np.arange(n))]
+    else:
+        kf = KFold(n_splits=crossfit)
+        train_test_list = list(kf.split(x))
 
-    for i in range(0, k):
+    for i, train_test in enumerate(train_test_list):
         # define test set
-        train, test = train_test_list[i]
+        train, test = train_test
         train1 = train[t[train] == 1]
         train0 = train[t[train] == 0]
 
