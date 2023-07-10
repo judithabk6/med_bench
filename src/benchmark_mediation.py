@@ -736,16 +736,16 @@ def multiply_robust_efficient(
         f_11x,  # f(M=1|T=1,X)
         f_m0x,  # f(M|T=0,X)
         f_m1x,  # f(M|T=1,X)
-        mu_t1,  # E(Y|T=1,M,X)
-        mu_t0,  # E(Y|T=0,M,X)
-        mu_t1m1,  # E(Y|T=1,M=1,X)
-        mu_t1m0,  # E(Y|T=1,M=0,X)
-        mu_t0m1,  # E(Y|T=0,M=1,X)
-        mu_t0m0,  # E(Y|T=0,M=0,X)
-        mumut0t0x,  # E(E(Y|T=0,M,X)|T=0,X)
-        mumut0t1x,  # E(E(Y|T=0,M,X)|T=1,X)
-        mumut1t0x,  # E(E(Y|T=1,M,X)|T=0,X)
-        mumut1t1x,  # E(E(Y|T=1,M,X)|T=1,X)
+        mu_t1,  # E[Y|T=1,M,X]
+        mu_t0,  # E[Y|T=0,M,X]
+        mu_t1_m1,  # E[Y|T=1,M=1,X]
+        mu_t1_m0,  # E[Y|T=1,M=0,X]
+        mu_t0_m1,  # E[Y|T=0,M=1,X]
+        mu_t0_m0,  # E[Y|T=0,M=0,X]
+        E_mu_t0_t0,  # E[E[Y|T=0,M,X]|T=0,X]
+        E_mu_t0_t1,  # E[E[Y|T=0,M,X]|T=1,X]
+        E_mu_t1_t0,  # E[E[Y|T=1,M,X]|T=0,X]
+        E_mu_t1_t1,  # E[E[Y|T=1,M,X]|T=1,X]
     ) = [np.zeros(n) for _ in range(17)]
     t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
     t1, m1 = np.ones((n, 1)), np.ones((n, 1))
@@ -802,21 +802,9 @@ def multiply_robust_efficient(
         # predict P(T=1|X)
         p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
 
-        # predict f(M=m|,T=t,X)
-        f_00x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t0, x)[test_index, :]
-        )[:, 0]
-        f_01x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t0, x)[test_index, :]
-        )[:, 1]
-        f_10x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t1, x)[test_index, :]
-        )[:, 0]
-        f_11x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t1, x)[test_index, :]
-        )[:, 1]
+        # predict f(M=m|T=t,X)
 
-        # predict f(M|,T=t,X)
+        # predict f(M|T=t,X)
         f_m0x[test_index] = m_prob.predict_proba(
             get_interactions(interaction, t0, x)[test_index, :]
         )[test_ind, m[test_index]]
@@ -824,7 +812,7 @@ def multiply_robust_efficient(
             get_interactions(interaction, t1, x)[test_index, :]
         )[test_ind, m[test_index]]
 
-        # predict E(Y|T=t,M,X)
+        # predict E[Y|T=t,M,X]
         mu_t1[test_index] = y_reg.predict(
             get_interactions(interaction, x, t1, m)[test_index, :]
         )
@@ -832,64 +820,64 @@ def multiply_robust_efficient(
             get_interactions(interaction, x, t0, m)[test_index, :]
         )
 
-        # predict E(Y|T=t,M=m,X)
-        mu_t0m0[test_index] = y_reg.predict(
+        # predict E[Y|T=t,M=m,X]
+        mu_t0_m0[test_index] = y_reg.predict(
             get_interactions(interaction, x, t0, m0)[test_index, :]
         )
-        mu_t0m1[test_index] = y_reg.predict(
+        mu_t0_m1[test_index] = y_reg.predict(
             get_interactions(interaction, x, t0, m1)[test_index, :]
         )
-        mu_t1m1[test_index] = y_reg.predict(
+        mu_t1_m1[test_index] = y_reg.predict(
             get_interactions(interaction, x, t1, m1)[test_index, :]
         )
-        mu_t1m0[test_index] = y_reg.predict(
+        mu_t1_m0[test_index] = y_reg.predict(
             get_interactions(interaction, x, t1, m0)[test_index, :]
         )
 
-        # E(E(Y|T=1,M=m,X)|T=t,X) model fitting
+        # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
         reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t1m1[test_index][ind_t0]
+            x[test_index, :][ind_t0, :], mu_t1_m1[test_index][ind_t0]
         )
         reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t1m0[test_index][ind_t0]
+            x[test_index, :][ind_t0, :], mu_t1_m0[test_index][ind_t0]
         )
         reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t1m1[test_index][~ind_t0]
+            x[test_index, :][~ind_t0, :], mu_t1_m1[test_index][~ind_t0]
         )
         reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t1m0[test_index][~ind_t0]
+            x[test_index, :][~ind_t0, :], mu_t1_m0[test_index][~ind_t0]
         )
 
-        # predict E(E(Y|T=1,M=m,X)|T=t,X)
-        mumut1t0x[test_index] = (
+        # predict E[E[Y|T=1,M=m,X]|T=t,X]
+        E_mu_t1_t0[test_index] = (
             reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index]
             + reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
         )
-        mumut1t1x[test_index] = (
+        E_mu_t1_t1[test_index] = (
             reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index]
             + reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
-        # E(E(Y|T=0,M=m,X)|T=t,X) model fitting
+        # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
         reg_y_t0m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t0m1[test_index][ind_t0]
+            x[test_index, :][ind_t0, :], mu_t0_m1[test_index][ind_t0]
         )
         reg_y_t0m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t0m0[test_index][ind_t0]
+            x[test_index, :][ind_t0, :], mu_t0_m0[test_index][ind_t0]
         )
         reg_y_t0m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t0m1[test_index][~ind_t0]
+            x[test_index, :][~ind_t0, :], mu_t0_m1[test_index][~ind_t0]
         )
         reg_y_t0m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t0m0[test_index][~ind_t0]
+            x[test_index, :][~ind_t0, :], mu_t0_m0[test_index][~ind_t0]
         )
 
-        # predict E(E(Y|T=0,M=m,X)|T=t,X)
-        mumut0t0x[test_index] = (
+        # predict E[E[Y|T=0,M=m,X]|T=t,X]
+        E_mu_t0_t0[test_index] = (
             reg_y_t0m0_t0.predict(x[test_index, :]) * f_00x[test_index]
             + reg_y_t0m1_t0.predict(x[test_index, :]) * f_01x[test_index]
         )
-        mumut0t1x[test_index] = (
+        E_mu_t0_t1[test_index] = (
             reg_y_t0m0_t1.predict(x[test_index, :]) * f_10x[test_index]
             + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
@@ -905,17 +893,17 @@ def multiply_robust_efficient(
     f_m1x = np.clip(f_m1x, clip, 1 - clip)
 
     # ytmt computing
-    y1m1 = t / p_x * (y - mumut1t1x) + mumut1t1x
-    y0m0 = (1 - t) / (1 - p_x) * (y - mumut0t0x) + mumut0t0x
+    y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
+    y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
     y1m0 = (
         (t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)
-        + (1 - t) / (1 - p_x) * (mu_t1 - mumut1t0x)
-        + mumut1t0x
+        + (1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)
+        + E_mu_t1_t0
     )
     y0m1 = (
         (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)
-        + t / p_x * (mu_t0 - mumut0t1x)
-        + mumut0t1x
+        + t / p_x * (mu_t0 - E_mu_t0_t1)
+        + E_mu_t0_t1
     )
 
     # effects computing
@@ -925,7 +913,7 @@ def multiply_robust_efficient(
     indirect1 = np.mean(y1m1 - y1m0)
     indirect0 = np.mean(y0m1 - y0m0)
 
-    return [total, direct1, direct0, indirect1, indirect0, clipped]
+    return total, direct1, direct0, indirect1, indirect0, None
 
 
 def r_mediate(y, t, m, x, interaction=False):
