@@ -956,7 +956,7 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
         Outcome value for each unit
     k : int, default=4
         Number of folds for crossfitting.
-    trim : double, default=0.05
+    trim : float, default=0.05
         Trimming treshold for discarding observations with extreme probability.
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights.
@@ -965,14 +965,14 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
 
     Returns
     -------
-    list
-        A list of estimated effects :
-        [total effect,
+    tuple
+        A tuple of estimated effects :
+        (total effect,
         direct effect on the exposed,
         direct effect on the unexposed,
         indirect effect on the exposed,
         indirect effect on the unexposed,
-        number of discarded samples]
+        number of discarded samples)
 
     Raises
     ------
@@ -1146,9 +1146,9 @@ def med_dml(x, t, m, y, k=4, trim=0.05, normalized=True, alpha=10**-4):
     # vindirect1 = np.mean(np.mean((y1m1 - y1m0 - indirect1) ** 2))
     # vindirect0 = np.mean(np.mean((y0m1 - y0m0 - indirect0) ** 2))
 
-    # var = [vtotal, vdirect1, vdirect0, vindirect1, vindirect0]
+    # var = vtotal, vdirect1, vdirect0, vindirect1, vindirect0
 
-    return [total, direct1, direct0, indirect1, indirect0, n - nobs]
+    return total, direct1, direct0, indirect1, indirect0, n - nobs
 
 
 def _convert_array_to_R(x):
