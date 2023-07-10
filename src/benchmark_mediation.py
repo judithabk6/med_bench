@@ -80,7 +80,7 @@ def get_interactions(interaction, *args):
                 for jj in range(var2.shape[1]):
                     new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
     new_vars = np.hstack(new_cols)
-    result = np.hstack((pre_inter_variables,new_vars))
+    result = np.hstack((pre_inter_variables, new_vars))
     return result
 
 
