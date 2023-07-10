@@ -803,6 +803,12 @@ def multiply_robust_efficient(
         p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
 
         # predict f(M=m|T=t,X)
+        res = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])
+        f_00x[test_index] = res[:, 0]
+        f_01x[test_index] = res[:, 1]
+        res = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])
+        f_10x[test_index] = res[:, 0]
+        f_11x[test_index] = res[:, 1]
 
         # predict f(M|T=t,X)
         f_m0x[test_index] = m_prob.predict_proba(
