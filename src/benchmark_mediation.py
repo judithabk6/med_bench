@@ -648,7 +648,7 @@ def multiply_robust_efficient(
         Treatment value for each unit, binary
 
     m : array-like, shape (n_samples)
-        Mediator value for each unit, necessarly binary and unidimensional
+        Mediator value for each unit, binary and unidimensional
 
     x : array-like, shape (n_samples, n_features_covariates)
         Covariates value for each unit, continuous
@@ -662,7 +662,7 @@ def multiply_robust_efficient(
         scores instead of logistic regression, and outcome model instead
         of linear regression
 
-    crossfit : integer, default+0
+    crossfit : integer, default=0
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
     clip : float, default=0.01
@@ -674,22 +674,26 @@ def multiply_robust_efficient(
         log-spaced values between 1e-5 and 1e5
 
     calibration : boolean, default=True
-        [...]
+        Whether to add a calibration step so that the classifier used to estimate
+        the treatment propensity score and the density of the (binary) mediator.
+        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        method can be directly interpreted as a confidence level.
 
     calib_method : str, default="sigmoid"
-        [...]
+        Which calibration method to use.
+        Implemented calibration methods are "sigmoid" and "isotonic".
 
 
     Returns
     -------
-    list
-        A list of estimated effects :
-        [total effect,
+    tuple
+        A tuple of estimated effects :
+        (total effect,
         direct effect on the exposed,
         direct effect on the unexposed,
         indirect effect on the exposed,
         indirect effect on the unexposed,
-        number of clipped samples]
+        number of discarded samples)
 
 
     Raises
