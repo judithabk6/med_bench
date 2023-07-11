@@ -686,14 +686,18 @@ def multiply_robust_efficient(
 
     Returns
     -------
-    tuple
-        A tuple of estimated effects :
-        (total effect,
-        direct effect on the exposed,
-        direct effect on the unexposed,
-        indirect effect on the exposed,
-        indirect effect on the unexposed,
-        number of discarded samples)
+    total : float
+        Average total effect.
+    direct1 : float
+        Direct effect on the exposed.
+    direct0 : float
+        Direct effect on the unexposed,
+    indirect1 : float 
+        Indirect effect on the exposed.
+    indirect0 : float
+        Indirect effect on the unexposed.
+    n_discarded : int
+        Number of discarded samples due to trimming.
 
 
     Raises
