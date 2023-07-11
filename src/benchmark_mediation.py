@@ -1068,17 +1068,13 @@ def med_dml(
         yte[i] = y[test]
 
         # predict P(T=1|X)
-        res = LogisticRegressionCV(
-            random_state=random_state,
-            Cs=cs,
-            cv=CV_FOLDS,
-        ).fit(x[train], t[train])
+        res = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS).fit(
+            x[train], t[train]
+        )
         ptx[i] = res.predict_proba(x[test])[:, 1]
 
         # predict P(T=1|M,X)
-        res = LogisticRegressionCV(
-            random_state=random_state, Cs=cs, cv=CV_FOLDS
-            ).fit(xm[train], t[train])
+        res = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS).fit(
             xm[train], t[train]
         )
         ptmx[i] = res.predict_proba(xm[test])[:, 1]
