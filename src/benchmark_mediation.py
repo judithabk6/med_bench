@@ -627,7 +627,7 @@ def multiply_robust_efficient(
     interaction=False,
     forest=False,
     crossfit=0,
-    clip=0.01,
+    trim=0.01,
     regularization=True,
     calibration=True,
     calib_method="sigmoid",
@@ -665,8 +665,8 @@ def multiply_robust_efficient(
     crossfit : integer, default=0
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
-    clip : float, default=0.01
-        Limit to clip p_x and f_mtx for numerical stability (min=clip, max=1-clip)
+    trim : float, default=0.01
+        Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
 
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
@@ -753,6 +753,7 @@ def multiply_robust_efficient(
     ) = [np.zeros(n) for _ in range(17)]
     t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
     t1, m1 = np.ones((n, 1)), np.ones((n, 1))
+    n_discarded = 0
 
     if regularization:
         alphas, cs = ALPHAS, ALPHAS
@@ -892,10 +893,18 @@ def multiply_robust_efficient(
             + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
-    # clipping
-    p_x = np.clip(p_x, clip, 1 - clip)
-    f_m0x = np.clip(f_m0x, clip, 1 - clip)
-    f_m1x = np.clip(f_m1x, clip, 1 - clip)
+    # trimming
+    p_x_trim = p_x != np.clip(p_x, trim, 1 - trim)
+    f_m0x_trim = f_m0x != np.clip(f_m0x, trim, 1 - trim)
+    f_m1x_trim = f_m1x != np.clip(f_m1x, trim, 1 - trim)
+    trimmed = p_x_trim + f_m0x_trim + f_m1x_trim
+   
+    var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
+    var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
+    
+    for var in var_name:
+        exec(f"{var} = {var}[~trimmed]")
+    n_discarded += np.sum(trimmed)
 
     # ytmt computing
     y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
@@ -918,7 +927,7 @@ def multiply_robust_efficient(
     indirect1 = np.mean(y1m1 - y1m0)
     indirect0 = np.mean(y0m1 - y0m0)
 
-    return total, direct1, direct0, indirect1, indirect0, None
+    return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
 def r_mediate(y, t, m, x, interaction=False):
