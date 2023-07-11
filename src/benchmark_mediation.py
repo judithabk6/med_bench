@@ -955,15 +955,13 @@ def med_dml(
     Parameters
     ----------
     x : array-like, shape (n_samples, n_features_covariates)
-        Covariates value for each unit
-        Can be multidimensional or continuous
+        Covariates value for each unit, multidimensional or continuous.
     t : array-like, shape (n_samples)
-        Treatment value for each unit
+        Treatment value for each unit.
     m : array-like, shape (n_samples, n_features_mediator)
-        Mediator value for each unit
-        Can be multidimensional or continuous
+        Mediator value for each unit, multidimensional or continuous.
     y : array-like, shape (n_samples)
-        Outcome value for each unit
+        Outcome value for each unit.
     crossfit : int, default=0
         Number of folds for cross-fitting.
     trim : float, default=0.05
@@ -979,20 +977,24 @@ def med_dml(
 
     Returns
     -------
-    tuple
-        A tuple of estimated effects :
-        (total effect,
-        direct effect on the exposed,
-        direct effect on the unexposed,
-        indirect effect on the exposed,
-        indirect effect on the unexposed,
-        number of discarded samples)
+    total : float
+        Average total effect.
+    direct1 : float
+        Direct effect on the exposed.
+    direct0 : float
+        Direct effect on the unexposed,
+    indirect1 : float 
+        Indirect effect on the exposed.
+    indirect0 : float
+        Indirect effect on the unexposed.
+    n_discarded : int
+        Number of discarded samples due to trimming.
 
     Raises
     ------
     ValueError
-        If t or y are multidimensional.
-        If x, t, m, or y don't have the same length.
+        - If t or y are multidimensional.
+        - If x, t, m, or y don't have the same length.
     """
     # check format
     if len(y) != len(y.ravel()):
