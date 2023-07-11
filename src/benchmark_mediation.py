@@ -1168,16 +1168,6 @@ def med_dml(
     direct0 = my1m0 - my0m0  # theta0
     indirect1 = my1m1 - my1m0  # delta1
     indirect0 = my0m1 - my0m0  # delta0
-
-    # # variance computing
-    # vtotal = np.mean(np.mean((y1m1 - y0m0 - total) ** 2))
-    # vdirect1 = np.mean(np.mean((y1m1 - y0m1 - direct1) ** 2))
-    # vdirect0 = np.mean(np.mean((y1m0 - y0m0 - direct0) ** 2))
-    # vindirect1 = np.mean(np.mean((y1m1 - y1m0 - indirect1) ** 2))
-    # vindirect0 = np.mean(np.mean((y0m1 - y0m0 - indirect0) ** 2))
-
-    # var = vtotal, vdirect1, vdirect0, vindirect1, vindirect0
-
     return total, direct1, direct0, indirect1, indirect0, n - nobs
 
 
