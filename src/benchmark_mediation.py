@@ -956,22 +956,30 @@ def med_dml(
     ----------
     x : array-like, shape (n_samples, n_features_covariates)
         Covariates value for each unit, multidimensional or continuous.
+
     t : array-like, shape (n_samples)
         Treatment value for each unit.
+
     m : array-like, shape (n_samples, n_features_mediator)
         Mediator value for each unit, multidimensional or continuous.
+
     y : array-like, shape (n_samples)
         Outcome value for each unit.
+
     crossfit : int, default=0
         Number of folds for cross-fitting.
+
     trim : float, default=0.05
         Trimming treshold for discarding observations with extreme probability.
+
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights.
+
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
         If True, cross-validation is used to chose among 8 potential
         log-spaced values between 1e-5 and 1e5.
+
     random_state : int, default=None
         LogisticRegression random state instance.
 
@@ -983,7 +991,7 @@ def med_dml(
         Direct effect on the exposed.
     direct0 : float
         Direct effect on the unexposed,
-    indirect1 : float 
+    indirect1 : float
         Indirect effect on the exposed.
     indirect0 : float
         Indirect effect on the unexposed.
@@ -1038,6 +1046,7 @@ def med_dml(
     var_name += ["mu_t1_m_x", "mu_t0_m_x", "w_t0_x", "w_t1_x", "mu_t1_x", "mu_t0_x"]
     nobs = 0
 
+    # define regularization parameters
     if regularization:
         alphas = ALPHAS
         cs = ALPHAS
@@ -1159,11 +1168,11 @@ def med_dml(
     my0m1 = np.mean([np.mean(_) for _ in y0m1])
 
     # effects computing
-    total = my1m1 - my0m0  # total effect
-    direct1 = my1m1 - my0m1  # theta1
-    direct0 = my1m0 - my0m0  # theta0
-    indirect1 = my1m1 - my1m0  # delta1
-    indirect0 = my0m1 - my0m0  # delta0
+    total = my1m1 - my0m0
+    direct1 = my1m1 - my0m1
+    direct0 = my1m0 - my0m0
+    indirect1 = my1m1 - my1m0
+    indirect0 = my0m1 - my0m0
     return total, direct1, direct0, indirect1, indirect0, n - nobs
 
 
