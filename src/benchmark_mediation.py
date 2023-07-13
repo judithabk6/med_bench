@@ -940,6 +940,7 @@ def med_dml(
     t,
     m,
     y,
+    forest=False,
     crossfit=0,
     trim=0.05,
     normalized=True,
@@ -965,6 +966,11 @@ def med_dml(
 
     y : array-like, shape (n_samples)
         Outcome value for each unit.
+
+    forest : boolean, default=False
+        Whether to use a random forest model to estimate the propensity
+        scores instead of logistic regression, and outcome model instead
+        of linear regression.
 
     crossfit : int, default=0
         Number of folds for cross-fitting.
@@ -1054,6 +1060,16 @@ def med_dml(
         alphas = [0.0]
         cs = [np.inf]
 
+    # choose forest or regression model
+    if forest:
+        BinaryModel = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
+        ContinuousModel = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)
+    else:
+        BinaryModel = LogisticRegressionCV(
+            random_state=random_state, Cs=cs, cv=CV_FOLDS
+        )
+        ContinuousModel = LassoCV(alphas=alphas, cv=CV_FOLDS)
+
     # define cross-fitting folds
     if crossfit < 2:
         train_test_list = [(np.arange(n), np.arange(n))]
@@ -1077,45 +1093,41 @@ def med_dml(
         yte[i] = y[test]
 
         # predict P(T=1|X)
-        res = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS).fit(
-            x[train], t[train]
-        )
+        res = BinaryModel.fit(x[train], t[train])
         ptx[i] = res.predict_proba(x[test])[:, 1]
 
         # predict P(T=1|M,X)
-        res = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS).fit(
-            xm[train], t[train]
-        )
+        res = BinaryModel.fit(xm[train], t[train])
         ptmx[i] = res.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(xm[train_mean1], y[train_mean1])
+        res = ContinuousModel.fit(xm[train_mean1], y[train_mean1])
         mu_t1_m_x[i] = res.predict(xm[test])
         mu_t1_m_x_nested[i] = res.predict(xm[train_nested])
 
         # predict E[Y|T=0,M,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(xm[train_mean0], y[train_mean0])
+        res = ContinuousModel.fit(xm[train_mean0], y[train_mean0])
         mu_t0_m_x[i] = res.predict(xm[test])
         mu_t0_m_x_nested[i] = res.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+        res = ContinuousModel.fit(
             x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
         )
         w_t0_x[i] = res.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+        res = ContinuousModel.fit(
             x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
         )
         w_t1_x[i] = res.predict(x[test])
 
         # predict E[Y|T=1,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train1], y[train1])
+        res = ContinuousModel.fit(x[train1], y[train1])
         mu_t1_x[i] = res.predict(x[test])
 
         # predict E[Y|T=0,X]
-        res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train0], y[train0])
+        res = ContinuousModel.fit(x[train0], y[train0])
         mu_t0_x[i] = res.predict(x[test])
 
         # trimming
