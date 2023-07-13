@@ -946,6 +946,8 @@ def med_dml(
     normalized=True,
     regularization=True,
     random_state=None,
+    calibration=True,
+    calib_method="sigmoid",
 ):
     """
     Python implementation of Double Machine Learning procedure, as described in :
@@ -988,6 +990,16 @@ def med_dml(
 
     random_state : int, default=None
         LogisticRegression random state instance.
+
+    calibration : boolean, default=True
+        Whether to add a calibration step so that the classifier used to estimate
+        the treatment propensity score and P(T|M,X).
+        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        method can be directly interpreted as a confidence level.
+
+    calib_method : str, default="sigmoid"
+        Which calibration method to use.
+        Implemented calibration methods are "sigmoid" and "isotonic".
 
     Returns
     -------
@@ -1094,10 +1106,18 @@ def med_dml(
 
         # predict P(T=1|X)
         res = BinaryModel.fit(x[train], t[train])
+        if calibration:
+            res = CalibratedClassifierCV(res, method=calib_method).fit(
+                x[train], t[train]
+            )
         ptx[i] = res.predict_proba(x[test])[:, 1]
 
         # predict P(T=1|M,X)
         res = BinaryModel.fit(xm[train], t[train])
+        if calibration:
+            res = CalibratedClassifierCV(res, method=calib_method).fit(
+                xm[train], t[train]
+            )
         ptmx[i] = res.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
