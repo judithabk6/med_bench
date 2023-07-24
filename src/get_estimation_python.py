@@ -4,15 +4,15 @@
 
 import time
 import sys
-from rpy2.rinterface_lib.embedded import RRuntimeError
 import pandas as pd
 import numpy as np
-from .benchmark_mediation import *
+from .estimators_python import *
 
 
 def get_estimation(x, t, m, y, estimator, config):
     """Wrapper estimator fonction ; calls an estimator given mediation data
-    in order to estimate total, direct, and indirect effects.
+    in order to estimate total, direct, and indirect effects, for estimators
+    implemented in Python.
 
     Parameters
     ----------
@@ -48,14 +48,7 @@ def get_estimation(x, t, m, y, estimator, config):
         If estimator name is misspelled.
     """
     effects = None
-    if estimator == "huber_IPW_R":
-        x_r, t_r, m_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, m, y)]
-        output_w = causalweight.medweight(
-            y=y_r, d=t_r, m=m_r, x=x_r, trim=0.0, ATET="FALSE", logit="TRUE", boot=2
-        )
-        raw_res_R = np.array(output_w.rx2("results"))
-        effects = raw_res_R[0, :]
-    elif estimator == "coefficient_product":
+    if estimator == "coefficient_product":
         effects = ols_mediation(y, t, m, x)
     elif estimator == "huber_ipw_noreg":
         effects = huber_IPW(
@@ -671,15 +664,6 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=True,
                 calib_method="isotonic",
             )
-    elif estimator == "simulation_based":
-        if config in (0, 1, 2):
-            effects = r_mediate(y, t, m, x, interaction=False)
-    elif estimator == "DML_huber":
-        if config > 0:
-            effects = medDML(y, t, m, x, trim=0.0, order=1)
-    elif estimator == "G_estimator":
-        if config in (0, 1, 2):
-            effects = g_estimator(y, t, m, x)
     else:
         raise ValueError("Unrecognized estimator label.")
     if effects is None:

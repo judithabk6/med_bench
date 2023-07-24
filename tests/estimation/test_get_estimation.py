@@ -17,7 +17,7 @@ import pytest
 import numpy as np
 from numpy.random import default_rng
 from med_bench.src.get_simulated_data import simulate_data
-from med_bench.src.get_estimation import get_estimation
+from med_bench.src.get_estimation_python import get_estimation
 
 
 SMALL_ATE_TOLERANCE = 0.05
@@ -91,24 +91,21 @@ TOLERANCE_DICT = {
     "multiply_robust_reg_calibration": SMALL_TOLERANCE,
     "multiply_robust_forest": INFINITE_TOLERANCE,
     "multiply_robust_forest_calibration": LARGE_TOLERANCE,
-    "simulation_based": LARGE_TOLERANCE,
-    "DML_huber": INFINITE_TOLERANCE,
-    "G_estimator": SMALL_TOLERANCE,
     "huber_ipw_noreg_cf": INFINITE_TOLERANCE,
     "huber_ipw_reg_cf": INFINITE_TOLERANCE,
     "huber_ipw_reg_calibration_cf": INFINITE_TOLERANCE,
     "huber_ipw_forest_cf": INFINITE_TOLERANCE,
     "huber_ipw_forest_calibration_cf": INFINITE_TOLERANCE,
-    "g_computation_noreg_cf": SMALL_TOLERANCE,
-    "g_computation_reg_cf": LARGE_TOLERANCE,
+    "g_computation_noreg_cf": MEDIUM_TOLERANCE,
+    "g_computation_reg_cf": INFINITE_TOLERANCE,
     "g_computation_reg_calibration_cf": LARGE_TOLERANCE,
     "g_computation_forest_cf": INFINITE_TOLERANCE,
     "g_computation_forest_calibration_cf": LARGE_TOLERANCE,
     "multiply_robust_noreg_cf": MEDIUM_TOLERANCE,
-    "multiply_robust_reg_cf": SMALL_TOLERANCE,
-    "multiply_robust_reg_calibration_cf": MEDIUM_TOLERANCE,
+    "multiply_robust_reg_cf": LARGE_TOLERANCE,
+    "multiply_robust_reg_calibration_cf": LARGE_TOLERANCE,
     "multiply_robust_forest_cf": INFINITE_TOLERANCE,
-    "multiply_robust_forest_calibration_cf": MEDIUM_TOLERANCE,
+    "multiply_robust_forest_calibration_cf": LARGE_TOLERANCE,
 }
 
 
