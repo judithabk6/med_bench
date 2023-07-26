@@ -1056,8 +1056,18 @@ def med_dml(
         mu_t0_x,  # E[Y|T=0,X]
     ) = [np.empty((max(crossfit, 1),), dtype=object) for _ in range(12)]
 
-    var_name = ["tte", "yte", "ptx", "ptmx"]
-    var_name += ["mu_t1_m_x", "mu_t0_m_x", "w_t0_x", "w_t1_x", "mu_t1_x", "mu_t0_x"]
+    var_name = [
+        "tte",
+        "yte",
+        "ptx",
+        "ptmx",
+        "mu_t1_m_x",
+        "mu_t0_m_x",
+        "w_t0_x",
+        "w_t1_x",
+        "mu_t1_x",
+        "mu_t0_x",
+    ]
     nobs = 0
 
     # define regularization parameters
