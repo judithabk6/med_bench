@@ -946,8 +946,7 @@ def med_dml(
     normalized=True,
     regularization=True,
     random_state=None,
-    calibration=True,
-    calib_method="sigmoid",
+    calib_method=None,
 ):
     """
     Python implementation of Double Machine Learning procedure, as described in :
@@ -991,14 +990,11 @@ def med_dml(
     random_state : int, default=None
         LogisticRegression random state instance.
 
-    calibration : boolean, default=True
-        Whether to add a calibration step so that the classifier used to estimate
-        the treatment propensity score and P(T|M,X).
+    calib_method : {None, "sigmoid", "isotonic"}, default=None
+        Whether to add a calibration step for the classifier used to estimate
+        the treatment propensity score and P(T|M,X). "None" means no calibration.
         Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
         method can be directly interpreted as a confidence level.
-
-    calib_method : str, default="sigmoid"
-        Which calibration method to use.
         Implemented calibration methods are "sigmoid" and "isotonic".
 
     Returns
@@ -1107,6 +1103,7 @@ def med_dml(
                 Cs=cs,
                 cv=CV_FOLDS,
             ).fit(x[train], t[train])
+        if calib_method in {"sigmoid", "isotonic"}:
             res = CalibratedClassifierCV(res, method=calib_method).fit(
                 x[train], t[train]
             )
@@ -1125,6 +1122,7 @@ def med_dml(
                 Cs=cs,
                 cv=CV_FOLDS,
             ).fit(xm[train], t[train])
+        if calib_method in {"sigmoid", "isotonic"}:
             res = CalibratedClassifierCV(res, method=calib_method).fit(
                 xm[train], t[train]
             )
