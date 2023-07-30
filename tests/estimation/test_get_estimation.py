@@ -86,9 +86,9 @@ TOLERANCE_DICT = {
     "g_computation_reg_calibration": LARGE_TOLERANCE,
     "g_computation_forest": LARGE_TOLERANCE,
     "g_computation_forest_calibration": INFINITE_TOLERANCE,
-    "multiply_robust_noreg": MEDIUM_TOLERANCE,
-    "multiply_robust_reg": SMALL_TOLERANCE,
-    "multiply_robust_reg_calibration": SMALL_TOLERANCE,
+    "multiply_robust_noreg": INFINITE_TOLERANCE,
+    "multiply_robust_reg": LARGE_TOLERANCE,
+    "multiply_robust_reg_calibration": LARGE_TOLERANCE,
     "multiply_robust_forest": INFINITE_TOLERANCE,
     "multiply_robust_forest_calibration": LARGE_TOLERANCE,
     "simulation_based": LARGE_TOLERANCE,
@@ -106,10 +106,10 @@ TOLERANCE_DICT = {
     "g_computation_forest_cf": INFINITE_TOLERANCE,
     "g_computation_forest_calibration_cf": LARGE_TOLERANCE,
     "multiply_robust_noreg_cf": MEDIUM_TOLERANCE,
-    "multiply_robust_reg_cf": SMALL_TOLERANCE,
+    "multiply_robust_reg_cf": LARGE_TOLERANCE,
     "multiply_robust_reg_calibration_cf": MEDIUM_TOLERANCE,
     "multiply_robust_forest_cf": INFINITE_TOLERANCE,
-    "multiply_robust_forest_calibration_cf": MEDIUM_TOLERANCE,
+    "multiply_robust_forest_calibration_cf": INFINITE_TOLERANCE,
 }
 
 

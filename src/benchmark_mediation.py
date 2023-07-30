@@ -66,20 +66,22 @@ def get_interactions(interaction, *args):
            [ 2.,  3.,  1.,  2.,  2.,  3.,  4.,  6.,  2.],
            [ 4.,  5.,  1.,  2.,  4.,  5.,  8., 10.,  2.]])
     """
-    variables = args
+    variables = list(args)
+    for index, var in enumerate(variables):
+        if len(var.shape) == 1:
+            variables[index] = var.reshape(-1,1)
     pre_inter_variables = np.hstack(variables)
     if not interaction:
         return pre_inter_variables
-    else:
-        new_cols = list()
-        for i, var in enumerate(variables[:]):
-            for j, var2 in enumerate(variables[i+1:]):
-                for ii in range(var.shape[1]):
-                    for jj in range(var2.shape[1]):
-                        new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
-        new_vars = np.hstack(new_cols)
-        result = np.hstack(variables + (new_vars,))
-        return result
+    new_cols = list()
+    for i, var in enumerate(variables[:]):
+        for j, var2 in enumerate(variables[i+1:]):
+            for ii in range(var.shape[1]):
+                for jj in range(var2.shape[1]):
+                    new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
+    new_vars = np.hstack(new_cols)
+    result = np.hstack((pre_inter_variables, new_vars))
+    return result
 
 
 def plain_IPW(y, t, x, trim=0.01, regularization=True):
@@ -617,174 +619,315 @@ def alternative_estimator(y, t, m, x, regularization=True):
             None]
 
 
-def multiply_robust_efficient(y, t, m, x, interaction=False,
-                              forest=False, crossfit=0, clip=0.01,
-                              regularization=True, calibration=True,
-                              calib_method='sigmoid'):
+def multiply_robust_efficient(
+    y,
+    t,
+    m,
+    x,
+    interaction=False,
+    forest=False,
+    crossfit=0,
+    trim=0.01,
+    regularization=True,
+    calibration=True,
+    calib_method="sigmoid",
+):
     """
-    presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
+    Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
     multiple robustness and sensitivity analysis."
     Ann. Statist. 40 (3) 1816 - 1845, June 2012.
     https://doi.org/10.1214/12-AOS990
 
-    m is binary !!!
+    Parameters
+    ----------
+    y : array-like, shape (n_samples)
+        Outcome value for each unit, continuous
 
-    y       array-like, shape (n_samples)
-            outcome value for each unit, continuous
+    t : array-like, shape (n_samples)
+        Treatment value for each unit, binary
 
-    t       array-like, shape (n_samples)
-            treatment value for each unit, binary
+    m : array-like, shape (n_samples)
+        Mediator value for each unit, binary and unidimensional
 
-    m       array-like, shape (n_samples)
-            mediator value for each unit, here m is necessary binary and uni-
-            dimensional
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit, continuous
 
-    x       array-like, shape (n_samples, n_features_covariates)
-            covariates (potential confounders) values
+    interaction : boolean, default=False
+        Whether to include interaction terms in the model
+        interactions are terms XT, TM, MX
 
-    interaction boolean, default=False
-                whether to include interaction terms in the model
-                interactions are terms XT, TM, MX
+    forest : boolean, default=False
+        Whether to use a random forest model to estimate the propensity
+        scores instead of logistic regression, and outcome model instead
+        of linear regression
 
-    penalty string {‘l1’, ‘l2’, ‘elasticnet’, ‘none’}, default=’l2’
-            passed to the scikit learn sklearn.linear_model.LogisticRegression
-            model. Was used to mimick the R implementation without penalty in
-            some cases, to evaluate regularization bias
+    crossfit : integer, default=0
+        Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
-    forest  boolean, default False
-            whether to use a random forest model to estimate the propensity
-            scores instead of logistic regression, and outcome model instead
-            of linear regression
+    trim : float, default=0.01
+        Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
 
-    crossfit integer, default 0
-             number of folds for cross-fitting
+    regularization : boolean, default=True
+        Whether to use regularized models (logistic or linear regression).
+        If True, cross-validation is used to chose among 8 potential
+        log-spaced values between 1e-5 and 1e5
 
-    clip    float
-            limit to clip for numerical stability (min=clip, max=1-clip)
+    calibration : boolean, default=True
+        Whether to add a calibration step so that the classifier used to estimate
+        the treatment propensity score and the density of the (binary) mediator.
+        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        method can be directly interpreted as a confidence level.
 
-    regularization boolean, default True
-                   whether to use regularized models (logistic or
-                   linear regression). If True, cross-validation is used
-                   to chose among 8 potential log-spaced values between
-                   1e-5 and 1e5
+    calib_method : str, default="sigmoid"
+        Which calibration method to use.
+        Implemented calibration methods are "sigmoid" and "isotonic".
 
+
+    Returns
+    -------
+    total : float
+        Average total effect.
+    direct1 : float
+        Direct effect on the exposed.
+    direct0 : float
+        Direct effect on the unexposed,
+    indirect1 : float 
+        Indirect effect on the exposed.
+    indirect0 : float
+        Indirect effect on the unexposed.
+    n_discarded : int
+        Number of discarded samples due to trimming.
+
+
+    Raises
+    ------
+    ValueError
+        - If t or y are multidimensional.
+        - If x, t, m, or y don't have the same length.
+        - If m is not binary.
     """
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [0.0]
-        cs = [np.inf]
+    # Format checking
+    if len(y) != len(y.ravel()):
+        raise ValueError("Multidimensional y is not supported")
+    if len(t) != len(t.ravel()):
+        raise ValueError("Multidimensional t is not supported")
+    if len(m) != len(m.ravel()):
+        raise ValueError("Multidimensional m is not supported")
+
     n = len(y)
-    ind = np.arange(n)
     if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
+        x.reshape(n, 1)
     if len(m.shape) == 1:
-        mr = m.reshape(-1, 1)
+        m.reshape(n, 1)
+
+    dim_m = m.shape[1]
+    if n * dim_m != sum(m.ravel() == 1) + sum(m.ravel() == 0):
+        raise ValueError("m is not binary")
+
+    y = y.ravel()
+    t = t.ravel()
+    m = m.ravel()
+    if n != len(x) or n != len(m) or n != len(t):
+        raise ValueError("Inputs don't have the same number of observations")
+
+    # Initialisation
+    (
+        p_x,  # P(T=1|X)
+        f_00x,  # f(M=0|T=0,X)
+        f_01x,  # f(M=0|T=1,X)
+        f_10x,  # f(M=1|T=0,X)
+        f_11x,  # f(M=1|T=1,X)
+        f_m0x,  # f(M|T=0,X)
+        f_m1x,  # f(M|T=1,X)
+        mu_t1,  # E[Y|T=1,M,X]
+        mu_t0,  # E[Y|T=0,M,X]
+        mu_t1_m1,  # E[Y|T=1,M=1,X]
+        mu_t1_m0,  # E[Y|T=1,M=0,X]
+        mu_t0_m1,  # E[Y|T=0,M=1,X]
+        mu_t0_m0,  # E[Y|T=0,M=0,X]
+        E_mu_t0_t0,  # E[E[Y|T=0,M,X]|T=0,X]
+        E_mu_t0_t1,  # E[E[Y|T=0,M,X]|T=1,X]
+        E_mu_t1_t0,  # E[E[Y|T=1,M,X]|T=0,X]
+        E_mu_t1_t1,  # E[E[Y|T=1,M,X]|T=1,X]
+    ) = [np.zeros(n) for _ in range(17)]
+    t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
+    t1, m1 = np.ones((n, 1)), np.ones((n, 1))
+    n_discarded = 0
+
+    if regularization:
+        alphas, cs = ALPHAS, ALPHAS
     else:
-        mr = np.copy(m)
-        m = m.ravel()
-    if len(t.shape) == 1:
-        tr = t.reshape(-1, 1)
-    t0 = np.zeros((n, 1))
-    t1 = np.ones((n, 1))
-    m0 = np.zeros((n, 1))
-    m1 = np.ones((n, 1))
+        alphas, cs = [0.0], [np.inf]
 
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
     else:
         kf = KFold(n_splits=crossfit)
-        train_test_list = list()
-        for train_index, test_index in kf.split(x):
-            train_test_list.append([train_index, test_index])
-    p_x, diff_mu_m0, diff_mu_m1, f_00x, f_01x, theta_0x, f_m0x, f_m1x, mu_i, mu_t1, mu_t0, mu_t1m1, mu_t1m0, f_10x, f_11x, psi_0x, psi_1x = \
-        [np.zeros(n) for h in range(17)]
+        train_test_list = list(kf.split(x))
 
+    # Cross-fitting loop
     for train_index, test_index in train_test_list:
+        # Index declaration
         test_ind = np.arange(len(test_index))
+        ind_t0 = t[test_index] == 0
+
+        # mu_tm, f_mtx, and p_x model fitting
         if not forest:
-            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-                .fit(get_interactions(interaction, x, tr, mr)[train_index, :],
-                     y[train_index])
-            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                .fit(get_interactions(interaction, tr, x)[train_index, :],
-                     m[train_index])
-            pre_p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                .fit(x[train_index, :], t[train_index])
+            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+                get_interactions(interaction, x, t, m)[train_index, :], y[train_index]
+            )
+            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(
+                get_interactions(interaction, t, x)[train_index, :], m[train_index]
+            )
+            pre_p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(
+                x[train_index, :], t[train_index]
+            )
         else:
-            y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)\
-                .fit(get_interactions(interaction, x, tr, mr)[train_index, :], y[train_index])
-            pre_m_prob = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)\
-                .fit(get_interactions(interaction, tr, x)[train_index, :], m[train_index])
-            pre_p_x_clf = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)\
-                .fit(x[train_index, :], t[train_index])
+            y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                get_interactions(interaction, x, t, m)[train_index, :], y[train_index]
+            )
+            pre_m_prob = RandomForestClassifier(
+                n_estimators=100, min_samples_leaf=10
+            ).fit(get_interactions(interaction, t, x)[train_index, :], m[train_index])
+            pre_p_x_clf = RandomForestClassifier(
+                n_estimators=100, min_samples_leaf=10
+            ).fit(x[train_index, :], t[train_index])
         if calibration:
-            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method)\
-                .fit(get_interactions(interaction, tr, x)[train_index, :], m[train_index])
-            p_x_clf = CalibratedClassifierCV(pre_p_x_clf, method=calib_method)\
-                .fit(x[train_index, :], t[train_index])
+            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method).fit(
+                get_interactions(interaction, t, x)[train_index, :], m[train_index]
+            )
+            p_x_clf = CalibratedClassifierCV(pre_p_x_clf, method=calib_method).fit(
+                x[train_index, :], t[train_index]
+            )
         else:
             m_prob = pre_m_prob
             p_x_clf = pre_p_x_clf
 
+        # predict P(T=1|X)
         p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
 
-        ind_t0 = tr[test_index, 0] == 0
-        diff_mu_m0[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m0)[test_index, :]) -\
-            y_reg.predict(get_interactions(interaction, x, t0, m0)[test_index, :])
-        diff_mu_m1[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :]) -\
-            y_reg.predict(get_interactions(interaction, x, t0, m1)[test_index, :])
-        diff_mu_m0_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], diff_mu_m0[test_index][ind_t0])
-        diff_mu_m1_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], diff_mu_m1[test_index][ind_t0])
-        f_00x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 0]
-        f_01x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 1]
-        theta_0x[test_index] = diff_mu_m0_reg.predict(x[test_index, :]) * f_00x[test_index] +\
-            diff_mu_m1_reg.predict(x[test_index, :]) * f_01x[test_index]
+        # predict f(M=m|T=t,X)
+        res = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])
+        f_00x[test_index] = res[:, 0]
+        f_01x[test_index] = res[:, 1]
+        res = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])
+        f_10x[test_index] = res[:, 0]
+        f_11x[test_index] = res[:, 1]
 
-        f_m0x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[test_ind, m[test_index]]
-        f_m1x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[test_ind, m[test_index]]
+        # predict f(M|T=t,X)
+        f_m0x[test_index] = m_prob.predict_proba(
+            get_interactions(interaction, t0, x)[test_index, :]
+        )[test_ind, m[test_index]]
+        f_m1x[test_index] = m_prob.predict_proba(
+            get_interactions(interaction, t1, x)[test_index, :]
+        )[test_ind, m[test_index]]
 
-        mu_i[test_index] = y_reg.predict(get_interactions(interaction, x, tr, mr)[test_index, :])
-        mu_t1[test_index] = y_reg.predict(get_interactions(interaction, x, t1, mr)[test_index, :])
-        mu_t0[test_index] = y_reg.predict(get_interactions(interaction, x, t0, mr)[test_index, :])
+        # predict E[Y|T=t,M,X]
+        mu_t1[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t1, m)[test_index, :]
+        )
+        mu_t0[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t0, m)[test_index, :]
+        )
 
-        mu_t1m1[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :])
-        mu_t1m0[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m0)[test_index, :])
-        reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], mu_t1m1[test_index][ind_t0])
-        reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][ind_t0, :], mu_t1m0[test_index][ind_t0])
-        reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][~ind_t0, :], mu_t1m1[test_index][~ind_t0])
-        reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[test_index, :][~ind_t0, :], mu_t1m0[test_index][~ind_t0])
-        f_10x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 0]
-        f_11x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 1]
+        # predict E[Y|T=t,M=m,X]
+        mu_t0_m0[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t0, m0)[test_index, :]
+        )
+        mu_t0_m1[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t0, m1)[test_index, :]
+        )
+        mu_t1_m1[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t1, m1)[test_index, :]
+        )
+        mu_t1_m0[test_index] = y_reg.predict(
+            get_interactions(interaction, x, t1, m0)[test_index, :]
+        )
 
-        psi_0x[test_index] = reg_y_t1m0_t0.predict(x[test_index, :]) *\
-            f_00x[test_index] + reg_y_t1m1_t0.predict(x[test_index, :]) *\
-            f_01x[test_index]
-        psi_1x[test_index] = reg_y_t1m0_t1.predict(x[test_index, :]) *\
-            f_10x[test_index] + reg_y_t1m1_t1.predict(x[test_index, :]) *\
-            f_11x[test_index]
+        # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
+        reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][ind_t0, :], mu_t1_m1[test_index][ind_t0]
+        )
+        reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][ind_t0, :], mu_t1_m0[test_index][ind_t0]
+        )
+        reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][~ind_t0, :], mu_t1_m1[test_index][~ind_t0]
+        )
+        reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][~ind_t0, :], mu_t1_m0[test_index][~ind_t0]
+        )
 
-    p_x = np.clip(p_x, clip, 1 - clip)
-    f_m0x = np.clip(f_m0x, clip, 1 - clip)
-    f_m1x = np.clip(f_m1x, clip, 1 - clip)
+        # predict E[E[Y|T=1,M=m,X]|T=t,X]
+        E_mu_t1_t0[test_index] = (
+            reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index]
+            + reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
+        )
+        E_mu_t1_t1[test_index] = (
+            reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index]
+            + reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
+        )
 
-    direct_effect_control = ((t * f_m0x / (p_x * f_m1x) - (1 - t) / (1 - p_x))
-                             * (y - mu_i)
-                             + (1 - t) / (1 - p_x) * (mu_t1 - mu_t0 - theta_0x)
-                             + theta_0x).sum() / n
+        # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
+        reg_y_t0m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][ind_t0, :], mu_t0_m1[test_index][ind_t0]
+        )
+        reg_y_t0m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][ind_t0, :], mu_t0_m0[test_index][ind_t0]
+        )
+        reg_y_t0m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][~ind_t0, :], mu_t0_m1[test_index][~ind_t0]
+        )
+        reg_y_t0m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            x[test_index, :][~ind_t0, :], mu_t0_m0[test_index][~ind_t0]
+        )
 
-    indirect_effect_treated = (t / p_x * (y - psi_1x -
-                                          f_m0x / f_m1x * (y - mu_t1)) -
-                               (1 - t) / (1 - p_x) * (mu_t1 - psi_0x) +
-                               psi_1x - psi_0x).sum() / n
-    return [direct_effect_control + indirect_effect_treated,
-            np.nan,
-            direct_effect_control,
-            indirect_effect_treated,
-            np.nan,
-            None]
+        # predict E[E[Y|T=0,M=m,X]|T=t,X]
+        E_mu_t0_t0[test_index] = (
+            reg_y_t0m0_t0.predict(x[test_index, :]) * f_00x[test_index]
+            + reg_y_t0m1_t0.predict(x[test_index, :]) * f_01x[test_index]
+        )
+        E_mu_t0_t1[test_index] = (
+            reg_y_t0m0_t1.predict(x[test_index, :]) * f_10x[test_index]
+            + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
+        )
+
+    # trimming
+    p_x_trim = p_x != np.clip(p_x, trim, 1 - trim)
+    f_m0x_trim = f_m0x != np.clip(f_m0x, trim, 1 - trim)
+    f_m1x_trim = f_m1x != np.clip(f_m1x, trim, 1 - trim)
+    trimmed = p_x_trim + f_m0x_trim + f_m1x_trim
+   
+    var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
+    var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
+    
+    for var in var_name:
+        exec(f"{var} = {var}[~trimmed]")
+    n_discarded += np.sum(trimmed)
+
+    # ytmt computing
+    y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
+    y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
+    y1m0 = (
+        (t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)
+        + (1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)
+        + E_mu_t1_t0
+    )
+    y0m1 = (
+        (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)
+        + t / p_x * (mu_t0 - E_mu_t0_t1)
+        + E_mu_t0_t1
+    )
+
+    # effects computing
+    total = np.mean(y1m1 - y0m0)
+    direct1 = np.mean(y1m1 - y0m1)
+    direct0 = np.mean(y1m0 - y0m0)
+    indirect1 = np.mean(y1m1 - y1m0)
+    indirect0 = np.mean(y0m1 - y0m0)
+
+    return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
 def r_mediate(y, t, m, x, interaction=False):
