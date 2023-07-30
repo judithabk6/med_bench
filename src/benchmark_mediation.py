@@ -9,7 +9,7 @@ causal inference, simulate data, and evaluate and compare estimators
 import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri, numpy2ri
-from sklearn.linear_model import LogisticRegressionCV, LinearRegression, RidgeCV
+from sklearn.linear_model import LogisticRegressionCV, RidgeCV, LassoCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.calibration import CalibratedClassifierCV
@@ -933,6 +933,331 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     raw_res_R = np.array(res.rx2('results'))
     ntrimmed = res.rx2('ntrimmed')[0]
     return list(raw_res_R[0, :5]) + [ntrimmed]
+
+
+def med_dml(
+    x,
+    t,
+    m,
+    y,
+    use_forest=False,
+    crossfit=0,
+    trim=0.05,
+    normalized=True,
+    regularization=True,
+    random_state=None,
+    calib_method=None,
+):
+    """
+    Python implementation of Double Machine Learning procedure, as described in :
+    Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
+    The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
+    https://doi.org/10.1093/ectj/utac003
+
+    Parameters
+    ----------
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit, multidimensional or continuous.
+
+    t : array-like, shape (n_samples)
+        Treatment value for each unit.
+
+    m : array-like, shape (n_samples, n_features_mediator)
+        Mediator value for each unit, multidimensional or continuous.
+
+    y : array-like, shape (n_samples)
+        Outcome value for each unit.
+
+    use_forest : boolean, default=False
+        Whether to use a random forest model to estimate the propensity
+        scores instead of logistic regression, and outcome model instead
+        of linear regression.
+
+    crossfit : int, default=0
+        Number of folds for cross-fitting.
+
+    trim : float, default=0.05
+        Trimming treshold for discarding observations with extreme probability.
+
+    normalized : boolean, default=True
+        Normalizes the inverse probability-based weights.
+
+    regularization : boolean, default=True
+        Whether to use regularized models (logistic or linear regression).
+        If True, cross-validation is used to chose among 8 potential
+        log-spaced values between 1e-5 and 1e5.
+
+    random_state : int, default=None
+        LogisticRegression random state instance.
+
+    calib_method : {None, "sigmoid", "isotonic"}, default=None
+        Whether to add a calibration step for the classifier used to estimate
+        the treatment propensity score and P(T|M,X). "None" means no calibration.
+        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        method can be directly interpreted as a confidence level.
+        Implemented calibration methods are "sigmoid" and "isotonic".
+
+    Returns
+    -------
+    total : float
+        Average total effect.
+    direct1 : float
+        Direct effect on the exposed.
+    direct0 : float
+        Direct effect on the unexposed,
+    indirect1 : float
+        Indirect effect on the exposed.
+    indirect0 : float
+        Indirect effect on the unexposed.
+    n_discarded : int
+        Number of discarded samples due to trimming.
+
+    Raises
+    ------
+    ValueError
+        - If t or y are multidimensional.
+        - If x, t, m, or y don't have the same length.
+    """
+    # check format
+    if len(y) != len(y.ravel()):
+        raise ValueError("Multidimensional y is not supported")
+
+    if len(t) != len(t.ravel()):
+        raise ValueError("Multidimensional t is not supported")
+
+    n = len(y)
+    t = t.ravel()
+    y = y.ravel()
+
+    if n != len(x) or n != len(m) or n != len(t):
+        raise ValueError("Inputs don't have the same number of observations")
+
+    if len(x.shape) == 1:
+        x.reshape(n, 1)
+
+    if len(m.shape) == 1:
+        m.reshape(n, 1)
+
+    xm = np.hstack((x, m))
+
+    # initialisation
+    (
+        tte,  # test treatment
+        yte,  # test outcome
+        ptx,  # P(T=1|X)
+        ptmx,  # P(T=1|M,X)
+        mu_t1_m_x,  # E[Y|T=1,M,X]
+        mu_t1_m_x_nested,  # E[Y|T=1,M,X] predicted on train_nested set
+        mu_t0_m_x,  # E[Y|T=0,M,X]
+        mu_t0_m_x_nested,  # E[Y|T=0,M,X] predicted on train_nested set
+        w_t0_x,  # E[E[Y|T=1,M,X]|T=0,X]
+        w_t1_x,  # E[E[Y|T=0,M,X]|T=1,X]
+        mu_t1_x,  # E[Y|T=1,X]
+        mu_t0_x,  # E[Y|T=0,X]
+    ) = [np.empty((max(crossfit, 1),), dtype=object) for _ in range(12)]
+
+    var_name = [
+        "tte",
+        "yte",
+        "ptx",
+        "ptmx",
+        "mu_t1_m_x",
+        "mu_t0_m_x",
+        "w_t0_x",
+        "w_t1_x",
+        "mu_t1_x",
+        "mu_t0_x",
+    ]
+    nobs = 0
+
+    # define regularization parameters
+    if regularization:
+        alphas = ALPHAS
+        cs = ALPHAS
+    else:
+        alphas = [0.0]
+        cs = [np.inf]
+
+    # define cross-fitting folds
+    if crossfit < 2:
+        train_test_list = [(np.arange(n), np.arange(n))]
+    else:
+        kf = KFold(n_splits=crossfit)
+        train_test_list = list(kf.split(x))
+
+    for i, train_test in enumerate(train_test_list):
+        # define test set
+        train, test = train_test
+        train1 = train[t[train] == 1]
+        train0 = train[t[train] == 0]
+
+        train_mean, train_nested = np.array_split(train, 2)
+        train_mean1 = train_mean[t[train_mean] == 1]
+        train_mean0 = train_mean[t[train_mean] == 0]
+        train_nested1 = train_nested[t[train_nested] == 1]
+        train_nested0 = train_nested[t[train_nested] == 0]
+
+        tte[i] = t[test]
+        yte[i] = y[test]
+
+        # predict P(T=1|X)
+        if use_forest:
+            res = RandomForestClassifier(n_estimators=100, min_samples_leaf=10).fit(
+                x[train], t[train]
+            )
+        else:
+            res = LogisticRegressionCV(
+                penalty="l1",
+                solver="liblinear",
+                random_state=random_state,
+                Cs=cs,
+                cv=CV_FOLDS,
+            ).fit(x[train], t[train])
+        if calib_method in {"sigmoid", "isotonic"}:
+            res = CalibratedClassifierCV(res, method=calib_method).fit(
+                x[train], t[train]
+            )
+        ptx[i] = res.predict_proba(x[test])[:, 1]
+
+        # predict P(T=1|M,X)
+        if use_forest:
+            res = RandomForestClassifier(n_estimators=100, min_samples_leaf=10).fit(
+                xm[train], t[train]
+            )
+        else:
+            res = LogisticRegressionCV(
+                penalty="l1",
+                solver="liblinear",
+                random_state=random_state,
+                Cs=cs,
+                cv=CV_FOLDS,
+            ).fit(xm[train], t[train])
+        if calib_method in {"sigmoid", "isotonic"}:
+            res = CalibratedClassifierCV(res, method=calib_method).fit(
+                xm[train], t[train]
+            )
+        ptmx[i] = res.predict_proba(xm[test])[:, 1]
+
+        # predict E[Y|T=1,M,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                xm[train_mean1], y[train_mean1]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+                xm[train_mean1], y[train_mean1]
+            )
+        mu_t1_m_x[i] = res.predict(xm[test])
+        mu_t1_m_x_nested[i] = res.predict(xm[train_nested])
+
+        # predict E[Y|T=0,M,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                xm[train_mean0], y[train_mean0]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+                xm[train_mean0], y[train_mean0]
+            )
+        mu_t0_m_x[i] = res.predict(xm[test])
+        mu_t0_m_x_nested[i] = res.predict(xm[train_nested])
+
+        # predict E[E[Y|T=1,M,X]|T=0,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+                x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
+            )
+        w_t0_x[i] = res.predict(x[test])
+
+        # predict E[E[Y|T=0,M,X]|T=1,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
+                x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
+            )
+        w_t1_x[i] = res.predict(x[test])
+
+        # predict E[Y|T=1,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                x[train1], y[train1]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train1], y[train1])
+        mu_t1_x[i] = res.predict(x[test])
+
+        # predict E[Y|T=0,X]
+        if use_forest:
+            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
+                x[train0], y[train0]
+            )
+        else:
+            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train0], y[train0])
+        mu_t0_x[i] = res.predict(x[test])
+
+        # trimming
+        not_trimmed = (
+            (((1 - ptmx[i]) * ptx[i]) >= trim)
+            * ((1 - ptx[i]) >= trim)
+            * (ptx[i] >= trim)
+            * (((ptmx[i] * (1 - ptx[i]))) >= trim)
+        )
+        for var in var_name:
+            exec(f"{var}[i] = {var}[i][not_trimmed]")
+        nobs += np.sum(not_trimmed)
+
+    # score computing
+    if normalized:
+        sumscore1 = [np.mean(_) for _ in (1 - tte) * ptmx / ((1 - ptmx) * ptx)]
+        sumscore2 = [np.mean(_) for _ in tte / ptx]
+        sumscore3 = [np.mean(_) for _ in (1 - tte) / (1 - ptx)]
+        sumscore4 = [np.mean(_) for _ in tte * (1 - ptmx) / (ptmx * (1 - ptx))]
+        y1m1 = (tte * (yte - mu_t1_x) / ptx) / sumscore2 + mu_t1_x
+        y0m0 = ((1 - tte) * (yte - mu_t0_x) / (1 - ptx)) / sumscore3 + mu_t0_x
+        y1m0 = (
+            (tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)) / sumscore4
+            + ((1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)) / sumscore3
+            + w_t0_x
+        )
+        y0m1 = (
+            ((1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)) / sumscore1
+            + (tte / ptx * (mu_t0_m_x - w_t1_x)) / sumscore2
+            + w_t1_x
+        )
+    else:
+        y1m1 = tte * (yte - mu_t1_x) / ptx + mu_t1_x
+        y0m0 = (1 - tte) * (yte - mu_t0_x) / (1 - ptx) + mu_t0_x
+        y1m0 = (
+            tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)
+            + (1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)
+            + w_t0_x
+        )
+        y0m1 = (
+            (1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)
+            + tte / ptx * (mu_t0_m_x - w_t1_x)
+            + w_t1_x
+        )
+
+    # mean score computing
+    my1m1 = np.mean([np.mean(_) for _ in y1m1])
+    my0m0 = np.mean([np.mean(_) for _ in y0m0])
+    my1m0 = np.mean([np.mean(_) for _ in y1m0])
+    my0m1 = np.mean([np.mean(_) for _ in y0m1])
+
+    # effects computing
+    total = my1m1 - my0m0
+    direct1 = my1m1 - my0m1
+    direct0 = my1m0 - my0m0
+    indirect1 = my1m1 - my1m0
+    indirect0 = my0m1 - my0m0
+    return total, direct1, direct0, indirect1, indirect0, n - nobs
 
 
 def _convert_array_to_R(x):
