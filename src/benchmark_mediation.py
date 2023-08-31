@@ -670,7 +670,9 @@ def multiply_robust_efficient(
         Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
 
     normalized : boolean, default=True
-        Normalizes the inverse probability-based weights.
+        Normalizes the inverse probability-based weights so they add up to 1, as
+        described in "Identifying causal mechanisms (primarily) based on inverse probability weighting",
+        Huber (2014), https://doi.org/10.1002/jae.2341
 
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
