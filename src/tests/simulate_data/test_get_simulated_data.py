@@ -18,7 +18,7 @@ import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
-from med_bench.src.get_simulated_data import simulate_data
+from med_bench.get_simulated_data import simulate_data
 
 
 PARAMETER_NAME = [
