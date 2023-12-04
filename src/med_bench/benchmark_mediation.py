@@ -1148,7 +1148,9 @@ def med_dml(
         Trimming treshold for discarding observations with extreme probability.
 
     normalized : boolean, default=True
-        Normalizes the inverse probability-based weights.
+        Normalizes the inverse probability-based weights so they add up to 1, as
+        described in "Identifying causal mechanisms (primarily) based on inverse probability weighting",
+        Huber (2014), https://doi.org/10.1002/jae.2341
 
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
@@ -1210,8 +1212,6 @@ def med_dml(
 
     # initialisation
     (
-        tte,  # test treatment
-        yte,  # test outcome
         ptx,  # P(T=1|X)
         ptmx,  # P(T=1|M,X)
         mu_t1_m_x,  # E[Y|T=1,M,X]
@@ -1222,11 +1222,9 @@ def med_dml(
         w_t1_x,  # E[E[Y|T=0,M,X]|T=1,X]
         mu_t1_x,  # E[Y|T=1,X]
         mu_t0_x,  # E[Y|T=0,X]
-    ) = [np.empty((max(crossfit, 1),), dtype=object) for _ in range(12)]
+    ) = [np.zeros(n) for _ in range(10)]
 
     var_name = [
-        "tte",
-        "yte",
         "ptx",
         "ptmx",
         "mu_t1_m_x",
@@ -1253,9 +1251,8 @@ def med_dml(
         kf = KFold(n_splits=crossfit)
         train_test_list = list(kf.split(x))
 
-    for i, train_test in enumerate(train_test_list):
+    for train, test in train_test_list:
         # define test set
-        train, test = train_test
         train1 = train[t[train] == 1]
         train0 = train[t[train] == 0]
 
@@ -1264,9 +1261,6 @@ def med_dml(
         train_mean0 = train_mean[t[train_mean] == 0]
         train_nested1 = train_nested[t[train_nested] == 1]
         train_nested0 = train_nested[t[train_nested] == 0]
-
-        tte[i] = t[test]
-        yte[i] = y[test]
 
         # predict P(T=1|X)
         if use_forest:
@@ -1285,7 +1279,7 @@ def med_dml(
             res = CalibratedClassifierCV(res, method=calib_method).fit(
                 x[train], t[train]
             )
-        ptx[i] = res.predict_proba(x[test])[:, 1]
+        ptx[test] = res.predict_proba(x[test])[:, 1]
 
         # predict P(T=1|M,X)
         if use_forest:
@@ -1304,7 +1298,7 @@ def med_dml(
             res = CalibratedClassifierCV(res, method=calib_method).fit(
                 xm[train], t[train]
             )
-        ptmx[i] = res.predict_proba(xm[test])[:, 1]
+        ptmx[test] = res.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
         if use_forest:
@@ -1315,8 +1309,8 @@ def med_dml(
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
                 xm[train_mean1], y[train_mean1]
             )
-        mu_t1_m_x[i] = res.predict(xm[test])
-        mu_t1_m_x_nested[i] = res.predict(xm[train_nested])
+        mu_t1_m_x[test] = res.predict(xm[test])
+        mu_t1_m_x_nested[train_nested] = res.predict(xm[train_nested])
 
         # predict E[Y|T=0,M,X]
         if use_forest:
@@ -1327,30 +1321,30 @@ def med_dml(
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
                 xm[train_mean0], y[train_mean0]
             )
-        mu_t0_m_x[i] = res.predict(xm[test])
-        mu_t0_m_x_nested[i] = res.predict(xm[train_nested])
+        mu_t0_m_x[test] = res.predict(xm[test])
+        mu_t0_m_x_nested[train_nested] = res.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
         if use_forest:
             res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
+                x[train_nested0], mu_t1_m_x_nested[train_nested0]
             )
         else:
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                x[train_nested0], mu_t1_m_x_nested[i][t[train_nested] == 0]
+                x[train_nested0], mu_t1_m_x_nested[train_nested0]
             )
-        w_t0_x[i] = res.predict(x[test])
+        w_t0_x[test] = res.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
         if use_forest:
             res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
+                x[train_nested1], mu_t0_m_x_nested[train_nested1]
             )
         else:
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                x[train_nested1], mu_t0_m_x_nested[i][t[train_nested] == 1]
+                x[train_nested1], mu_t0_m_x_nested[train_nested1]
             )
-        w_t1_x[i] = res.predict(x[test])
+        w_t1_x[test] = res.predict(x[test])
 
         # predict E[Y|T=1,X]
         if use_forest:
@@ -1359,7 +1353,7 @@ def med_dml(
             )
         else:
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train1], y[train1])
-        mu_t1_x[i] = res.predict(x[test])
+        mu_t1_x[test] = res.predict(x[test])
 
         # predict E[Y|T=0,X]
         if use_forest:
@@ -1368,56 +1362,56 @@ def med_dml(
             )
         else:
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train0], y[train0])
-        mu_t0_x[i] = res.predict(x[test])
+        mu_t0_x[test] = res.predict(x[test])
 
-        # trimming
-        not_trimmed = (
-            (((1 - ptmx[i]) * ptx[i]) >= trim)
-            * ((1 - ptx[i]) >= trim)
-            * (ptx[i] >= trim)
-            * (((ptmx[i] * (1 - ptx[i]))) >= trim)
-        )
-        for var in var_name:
-            exec(f"{var}[i] = {var}[i][not_trimmed]")
-        nobs += np.sum(not_trimmed)
+    # trimming
+    not_trimmed = (
+        (((1 - ptmx) * ptx) >= trim)
+        * ((1 - ptx) >= trim)
+        * (ptx >= trim)
+        * (((ptmx * (1 - ptx))) >= trim)
+    )
+    for var in var_name:
+        exec(f"{var} = {var}[not_trimmed]")
+    nobs = np.sum(not_trimmed)
 
     # score computing
     if normalized:
-        sumscore1 = [np.mean(_) for _ in (1 - tte) * ptmx / ((1 - ptmx) * ptx)]
-        sumscore2 = [np.mean(_) for _ in tte / ptx]
-        sumscore3 = [np.mean(_) for _ in (1 - tte) / (1 - ptx)]
-        sumscore4 = [np.mean(_) for _ in tte * (1 - ptmx) / (ptmx * (1 - ptx))]
-        y1m1 = (tte * (yte - mu_t1_x) / ptx) / sumscore2 + mu_t1_x
-        y0m0 = ((1 - tte) * (yte - mu_t0_x) / (1 - ptx)) / sumscore3 + mu_t0_x
+        sumscore1 = np.mean(t / ptx)
+        sumscore2 = np.mean((1 - t) / (1 - ptx))
+        sumscore3 = np.mean(t * (1 - ptmx) / (ptmx * (1 - ptx)))
+        sumscore4 = np.mean((1 - t) * ptmx / ((1 - ptmx) * ptx))
+        y1m1 = (t / ptx * (y - mu_t1_x)) / sumscore1 + mu_t1_x
+        y0m0 = ((1 - t) / (1 - ptx) * (y - mu_t0_x)) / sumscore2 + mu_t0_x
         y1m0 = (
-            (tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)) / sumscore4
-            + ((1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)) / sumscore3
+            (t * (1 - ptmx) / (ptmx * (1 - ptx)) * (y - mu_t1_m_x)) / sumscore3
+            + ((1 - t) / (1 - ptx) * (mu_t1_m_x - w_t0_x)) / sumscore2
             + w_t0_x
         )
         y0m1 = (
-            ((1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)) / sumscore1
-            + (tte / ptx * (mu_t0_m_x - w_t1_x)) / sumscore2
+            ((1 - t) * ptmx / ((1 - ptmx) * ptx) * (y - mu_t0_m_x)) / sumscore4
+            + (t / ptx * (mu_t0_m_x - w_t1_x)) / sumscore1
             + w_t1_x
         )
     else:
-        y1m1 = tte * (yte - mu_t1_x) / ptx + mu_t1_x
-        y0m0 = (1 - tte) * (yte - mu_t0_x) / (1 - ptx) + mu_t0_x
+        y1m1 = t / ptx * (y - mu_t1_x) + mu_t1_x
+        y0m0 = (1 - t) / (1 - ptx) * (y - mu_t0_x) + mu_t0_x
         y1m0 = (
-            tte * (1 - ptmx) / (ptmx * (1 - ptx)) * (yte - mu_t1_m_x)
-            + (1 - tte) / (1 - ptx) * (mu_t1_m_x - w_t0_x)
+            t * (1 - ptmx) / (ptmx * (1 - ptx)) * (y - mu_t1_m_x)
+            + (1 - t) / (1 - ptx) * (mu_t1_m_x - w_t0_x)
             + w_t0_x
         )
         y0m1 = (
-            (1 - tte) * ptmx / ((1 - ptmx) * ptx) * (yte - mu_t0_m_x)
-            + tte / ptx * (mu_t0_m_x - w_t1_x)
+            (1 - t) * ptmx / ((1 - ptmx) * ptx) * (y - mu_t0_m_x)
+            + t / ptx * (mu_t0_m_x - w_t1_x)
             + w_t1_x
         )
 
     # mean score computing
-    my1m1 = np.mean([np.mean(_) for _ in y1m1])
-    my0m0 = np.mean([np.mean(_) for _ in y0m0])
-    my1m0 = np.mean([np.mean(_) for _ in y1m0])
-    my0m1 = np.mean([np.mean(_) for _ in y0m1])
+    my1m1 = np.mean(y1m1)
+    my0m0 = np.mean(y0m0)
+    my1m0 = np.mean(y1m0)
+    my0m1 = np.mean(y0m1)
 
     # effects computing
     total = my1m1 - my0m0
