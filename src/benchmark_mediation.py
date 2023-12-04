@@ -628,6 +628,7 @@ def multiply_robust_efficient(
     forest=False,
     crossfit=0,
     trim=0.01,
+    normalized=True,
     regularization=True,
     calibration=True,
     calib_method="sigmoid",
@@ -667,6 +668,11 @@ def multiply_robust_efficient(
 
     trim : float, default=0.01
         Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
+
+    normalized : boolean, default=True
+        Normalizes the inverse probability-based weights so they add up to 1, as
+        described in "Identifying causal mechanisms (primarily) based on inverse probability weighting",
+        Huber (2014), https://doi.org/10.1002/jae.2341
 
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
@@ -906,19 +912,37 @@ def multiply_robust_efficient(
         exec(f"{var} = {var}[~trimmed]")
     n_discarded += np.sum(trimmed)
 
-    # ytmt computing
-    y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
-    y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
-    y1m0 = (
-        (t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)
-        + (1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)
-        + E_mu_t1_t0
-    )
-    y0m1 = (
-        (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)
-        + t / p_x * (mu_t0 - E_mu_t0_t1)
-        + E_mu_t0_t1
-    )
+    # score computing
+    if normalized:
+        sumscore1 = np.mean(t / p_x)
+        sumscore2 = np.mean((1 - t) / (1 - p_x))
+        sumscore3 = np.mean((t / p_x) * (f_m0x / f_m1x))
+        sumscore4 = np.mean((1 - t) / (1 - p_x) * (f_m1x / f_m0x))
+        y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sumscore1 + E_mu_t1_t1
+        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sumscore2 + E_mu_t0_t0
+        y1m0 = (
+            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)) / sumscore3
+            + ((1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)) / sumscore2
+            + E_mu_t1_t0
+        )
+        y0m1 = (
+            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)) / sumscore4
+            + t / p_x * (mu_t0 - E_mu_t0_t1) / sumscore1
+            + E_mu_t0_t1
+        )
+    else:
+        y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
+        y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
+        y1m0 = (
+            (t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)
+            + (1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)
+            + E_mu_t1_t0
+        )
+        y0m1 = (
+            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)
+            + t / p_x * (mu_t0 - E_mu_t0_t1)
+            + E_mu_t0_t1
+        )
 
     # effects computing
     total = np.mean(y1m1 - y0m0)
