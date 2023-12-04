@@ -36,6 +36,7 @@ plmed = rpackages.importr('plmed')
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
+TINY = 1.e-12
 
 
 def get_interactions(interaction, *args):
@@ -84,7 +85,7 @@ def get_interactions(interaction, *args):
     return result
 
 
-def plain_IPW(y, t, x, trim=0.01, regularization=True):
+def plain_IPW(y, t, x, clip=0.01, regularization=True):
     """
     plain IPW estimator without mediation
     """
@@ -96,9 +97,9 @@ def plain_IPW(y, t, x, trim=0.01, regularization=True):
         x = x.reshape(-1, 1)
     p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(x, t)
     p_x = p_x_clf.predict_proba(x)[:, 1]
-    # trimming
-    p_x[p_x < trim] = trim
-    p_x[p_x > 1 - trim] = 1 - trim
+    # clipping
+    p_x[p_x < clip] = clip
+    p_x[p_x > 1 - clip] = 1 - clip
     y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
     y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
         np.sum((1 - t) / (1 - p_x))
@@ -114,7 +115,7 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
@@ -165,8 +166,8 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
     return [total_effect] + [None] * 5
 
 
-def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
-              crossfit=0, clip=0.01, calibration=True, calib_method='sigmoid'):
+def huber_IPW(y, t, m, x, w, z, logit, clip=.01, regularization=True,
+              forest=False, crossfit=0, calibration=True, calib_method='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -179,7 +180,7 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
     - direct effect non treated (\theta(0))
     - indirect effect treated (\delta(1))
     - indirect effect untreated (\delta(0))
-    - number of used observations (non trimmed)
+    - number of used observations (non clipped)
 
     y       array-like, shape (n_samples)
             outcome value for each unit, continuous
@@ -202,13 +203,13 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
             not implemented yet, mentioned to mimick the signature of
             the medweight function in the R package causalweight
 
-    trim    float
-            Trimming rule for discarding observations with extreme propensity
+    clip    float
+            Clipping rule for discarding observations with extreme propensity
             scores. In the absence of post-treatment confounders (w=NULL),
-            observations with Pr(D=1|M,X)<trim or Pr(D=1|M,X)>(1-trim) are
+            observations with Pr(D=1|M,X)<clip or Pr(D=1|M,X)>(1-clip) are
             dropped. In the presence of post-treatment confounders
-            (w is defined), observations with Pr(D=1|M,W,X)<trim or
-            Pr(D=1|M,W,X)>(1-trim) are dropped.
+            (w is defined), observations with Pr(D=1|M,W,X)<clip or
+            Pr(D=1|M,W,X)>(1-clip) are dropped.
 
     logit   boolean
             whether logit or pobit regression is used for propensity score
@@ -226,9 +227,6 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
 
     crossfit integer, default 0
              number of folds for cross-fitting
-
-    clip    float
-            limit to clip for numerical stability (min=clip, max=1-clip)
     """
     if regularization:
         cs = ALPHAS
@@ -279,9 +277,9 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
                 p_xm[test_index] = p_xm_clf.predict_proba(
                     np.hstack((x, m))[test_index, :])[:, 1]
 
-            # trimming. Following causal weight code, not sure I understand
-            # why we trim only on p_xm and not on p_x
-            ind = ((p_xm > trim) & (p_xm < (1 - trim)))
+            # clipping. Following causal weight code, not sure I understand
+            # why we clip only on p_xm and not on p_x
+            ind = ((p_xm > clip) & (p_xm < (1 - clip)))
             y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
 
             # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
@@ -353,9 +351,9 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
                 p_xmw[test_index] = p_xmw_clf.predict_proba(
                     np.hstack((x, m, w))[test_index, :])[:, 1]
 
-            # trimming. Following causal weight code, not sure I understand
+            # clipping. Following causal weight code, not sure I understand
             # why we trim only on p_xm and not on p_x
-            ind = ((p_xmw > trim) & (p_xmw < (1 - trim)))
+            ind = ((p_xmw > clip) & (p_xmw < (1 - clip)))
             y, t, p_x, p_wx, p_xmw = (y[ind], t[ind], p_x[ind], p_wx[ind],
                                       p_xmw[ind])
 
@@ -490,7 +488,7 @@ def g_computation(y, t, m, x, interaction=False, forest=False,
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
@@ -627,7 +625,7 @@ def multiply_robust_efficient(
     interaction=False,
     forest=False,
     crossfit=0,
-    trim=0.01,
+    clip=0.01,
     normalized=True,
     regularization=True,
     calibration=True,
@@ -666,8 +664,8 @@ def multiply_robust_efficient(
     crossfit : integer, default=0
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
-    trim : float, default=0.01
-        Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
+    clip : float, default=0.01
+        Limit to clip p_x and f_mtx for numerical stability (min=clip, max=1-clip)
 
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights so they add up to 1, as
@@ -703,7 +701,7 @@ def multiply_robust_efficient(
     indirect0 : float
         Indirect effect on the unexposed.
     n_discarded : int
-        Number of discarded samples due to trimming.
+        Number of discarded samples due to clipping.
 
 
     Raises
@@ -764,7 +762,7 @@ def multiply_robust_efficient(
     if regularization:
         alphas, cs = ALPHAS, ALPHAS
     else:
-        alphas, cs = [0.0], [np.inf]
+        alphas, cs = [TINY], [np.inf]
 
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
@@ -899,18 +897,18 @@ def multiply_robust_efficient(
             + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
-    # trimming
-    p_x_trim = p_x != np.clip(p_x, trim, 1 - trim)
-    f_m0x_trim = f_m0x != np.clip(f_m0x, trim, 1 - trim)
-    f_m1x_trim = f_m1x != np.clip(f_m1x, trim, 1 - trim)
-    trimmed = p_x_trim + f_m0x_trim + f_m1x_trim
+    # clipping
+    p_x_clip = p_x != np.clip(p_x, clip, 1 - clip)
+    f_m0x_clip = f_m0x != np.clip(f_m0x, clip, 1 - clip)
+    f_m1x_clip = f_m1x != np.clip(f_m1x, clip, 1 - clip)
+    clipped = p_x_clip + f_m0x_clip + f_m1x_clip
 
     var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
     var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
 
     for var in var_name:
-        exec(f"{var} = {var}[~trimmed]")
-    n_discarded += np.sum(trimmed)
+        exec(f"{var} = {var}[~clipped]")
+    n_discarded += np.sum(clipped)
 
     # score computing
     if normalized:
@@ -1063,7 +1061,7 @@ def bart(y, t, m, x, tmle=False):
     return [ate] + [None] * 5
 
 
-def medDML(y, t, m, x, trim=0.05, order=1):
+def medDML(y, t, m, x, clip=0.05, order=1):
     """
     y       array-like, shape (n_samples)
             outcome value for each unit, continuous
@@ -1078,8 +1076,8 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     x       array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
 
-    trim    float
-            Trimming rule for discarding observations with extreme
+    clip    float
+            Clipping rule for discarding observations with extreme
             conditional treatment or mediator probabilities
             (or products thereof). Observations with (products of)
             conditional probabilities that are smaller than trim in any
@@ -1096,10 +1094,10 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     """
     x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
                           (x, t, m, y)]
-    res = causalweight.medDML(y_r, t_r, m_r, x_r, trim=trim, order=order)
+    res = causalweight.medDML(y_r, t_r, m_r, x_r, trim=clip, order=order)
     raw_res_R = np.array(res.rx2('results'))
-    ntrimmed = res.rx2('ntrimmed')[0]
-    return list(raw_res_R[0, :5]) + [ntrimmed]
+    nclipped = res.rx2('nclipped')[0]
+    return list(raw_res_R[0, :5]) + [nclipped]
 
 
 def med_dml(
@@ -1109,7 +1107,7 @@ def med_dml(
     y,
     use_forest=False,
     crossfit=0,
-    trim=0.05,
+    clip=0.05,
     normalized=True,
     regularization=True,
     random_state=None,
@@ -1143,8 +1141,8 @@ def med_dml(
     crossfit : int, default=0
         Number of folds for cross-fitting.
 
-    trim : float, default=0.05
-        Trimming treshold for discarding observations with extreme probability.
+    clip : float, default=0.05
+        Clipping treshold for discarding observations with extreme probability.
 
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights.
@@ -1177,7 +1175,7 @@ def med_dml(
     indirect0 : float
         Indirect effect on the unexposed.
     n_discarded : int
-        Number of discarded samples due to trimming.
+        Number of discarded samples due to clipping.
 
     Raises
     ------
@@ -1242,7 +1240,7 @@ def med_dml(
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
 
     # define cross-fitting folds
@@ -1369,16 +1367,16 @@ def med_dml(
             res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train0], y[train0])
         mu_t0_x[i] = res.predict(x[test])
 
-        # trimming
-        not_trimmed = (
-            (((1 - ptmx[i]) * ptx[i]) >= trim)
-            * ((1 - ptx[i]) >= trim)
-            * (ptx[i] >= trim)
-            * (((ptmx[i] * (1 - ptx[i]))) >= trim)
+        # clipping
+        not_clipped = (
+            (((1 - ptmx[i]) * ptx[i]) >= clip)
+            * ((1 - ptx[i]) >= clip)
+            * (ptx[i] >= clip)
+            * (((ptmx[i] * (1 - ptx[i]))) >= clip)
         )
         for var in var_name:
-            exec(f"{var}[i] = {var}[i][not_trimmed]")
-        nobs += np.sum(not_trimmed)
+            exec(f"{var}[i] = {var}[i][not_clipped]")
+        nobs += np.sum(not_clipped)
 
     # score computing
     if normalized:

@@ -51,7 +51,7 @@ def get_estimation(x, t, m, y, estimator, config):
     if estimator == "huber_IPW_R":
         x_r, t_r, m_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, m, y)]
         output_w = causalweight.medweight(
-            y=y_r, d=t_r, m=m_r, x=x_r, trim=0.0, ATET="FALSE", logit="TRUE", boot=2
+            y=y_r, d=t_r, m=m_r, x=x_r, clip=0.0, ATET="FALSE", logit="TRUE", boot=2
         )
         raw_res_R = np.array(output_w.rx2("results"))
         effects = raw_res_R[0, :]
@@ -65,12 +65,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=False,
             forest=False,
             crossfit=0,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_noreg_cf":
@@ -81,12 +80,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=False,
             forest=False,
             crossfit=2,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_reg":
@@ -97,12 +95,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=0,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_reg_cf":
@@ -113,12 +110,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=2,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_reg_calibration":
@@ -129,12 +125,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=0,
-            clip=0.0,
             calibration=True,
         )
     elif estimator == "huber_ipw_reg_calibration_iso":
@@ -145,12 +140,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=0,
-            clip=0.0,
             calibration=True,
             calib_method="isotonic",
         )
@@ -162,12 +156,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=2,
-            clip=0.0,
             calibration=True,
         )
     elif estimator == "huber_ipw_reg_calibration_iso_cf":
@@ -178,12 +171,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=False,
             crossfit=2,
-            clip=0.0,
             calibration=True,
             calib_method="isotonic",
         )
@@ -195,12 +187,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=0,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_forest_cf":
@@ -211,12 +202,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=2,
-            clip=0.0,
             calibration=False,
         )
     elif estimator == "huber_ipw_forest_calibration":
@@ -227,12 +217,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=0,
-            clip=0.0,
             calibration=True,
         )
     elif estimator == "huber_ipw_forest_calibration_iso":
@@ -243,12 +232,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=0,
-            clip=0.0,
             calibration=True,
             calib_method="isotonic",
         )
@@ -260,12 +248,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=2,
-            clip=0.0,
             calibration=True,
         )
     elif estimator == "huber_ipw_forest_calibration_iso_cf":
@@ -276,12 +263,11 @@ def get_estimation(x, t, m, y, estimator, config):
             x,
             None,
             None,
-            trim=0,
+            clip=0,
             logit=True,
             regularization=True,
             forest=True,
             crossfit=2,
-            clip=0.0,
             calibration=True,
             calib_method="isotonic",
         )
@@ -676,17 +662,17 @@ def get_estimation(x, t, m, y, estimator, config):
             effects = r_mediate(y, t, m, x, interaction=False)
     elif estimator == "DML_huber":
         if config > 0:
-            effects = medDML(y, t, m, x, trim=0.0, order=1)
+            effects = medDML(y, t, m, x, clip=0.0, order=1)
     elif estimator == "med_dml_noreg":
-        effects = med_dml(x, t, m, y, trim=0, regularization=False)
+        effects = med_dml(x, t, m, y, clip=0, regularization=False)
     elif estimator == "med_dml_reg":
-        effects = med_dml(x, t, m, y, trim=0)
+        effects = med_dml(x, t, m, y, clip=0)
     elif estimator == "med_dml_reg_fixed_seed":
-        effects = med_dml(x, t, m, y, trim=0, random_state=321)
+        effects = med_dml(x, t, m, y, clip=0, random_state=321)
     elif estimator == "med_dml_noreg_cf":
-        effects = med_dml(x, t, m, y, trim=0, crossfit=4, regularization=False)
+        effects = med_dml(x, t, m, y, clip=0, crossfit=4, regularization=False)
     elif estimator == "med_dml_reg_cf":
-        effects = med_dml(x, t, m, y, trim=0, crossfit=4)
+        effects = med_dml(x, t, m, y, clip=0, crossfit=4)
     elif estimator == "G_estimator":
         if config in (0, 1, 2):
             effects = g_estimator(y, t, m, x)

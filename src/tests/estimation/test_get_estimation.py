@@ -243,6 +243,7 @@ def effects_chap(x, t, m, y, estimator, config):
 
 def test_tolerance(effects, effects_chap, tolerance):
     error = abs((effects_chap - effects) / effects)
+    print(tolerance)
     assert np.all(error[~np.isnan(error)] <= tolerance[~np.isnan(error)])
 
 
