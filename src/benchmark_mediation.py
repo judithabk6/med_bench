@@ -40,7 +40,7 @@ CV_FOLDS = 5
 
 def get_interactions(interaction, *args):
     """
-    this function provides interaction terms between different groups of 
+    this function provides interaction terms between different groups of
     variables (confounders, treatment, mediators)
     Inputs
     --------
@@ -215,7 +215,7 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
             legacy from the R package, here only logit is implemented
 
     regularization boolean, default True
-                   whether to use regularized models (logistic or 
+                   whether to use regularized models (logistic or
                    linear regression). If True, cross-validation is used
                    to chose among 8 potential log-spaced values between
                    1e-5 and 1e5
@@ -692,7 +692,7 @@ def multiply_robust_efficient(
         Direct effect on the exposed.
     direct0 : float
         Direct effect on the unexposed,
-    indirect1 : float 
+    indirect1 : float
         Indirect effect on the exposed.
     indirect0 : float
         Indirect effect on the unexposed.
@@ -898,10 +898,10 @@ def multiply_robust_efficient(
     f_m0x_trim = f_m0x != np.clip(f_m0x, trim, 1 - trim)
     f_m1x_trim = f_m1x != np.clip(f_m1x, trim, 1 - trim)
     trimmed = p_x_trim + f_m0x_trim + f_m1x_trim
-   
+
     var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
     var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
-    
+
     for var in var_name:
         exec(f"{var} = {var}[~trimmed]")
     n_discarded += np.sum(trimmed)
