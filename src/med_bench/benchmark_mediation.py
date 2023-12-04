@@ -36,6 +36,7 @@ plmed = rpackages.importr('plmed')
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
+TINY = 1.e-12
 
 
 def get_interactions(interaction, *args):
@@ -114,7 +115,7 @@ def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
@@ -421,7 +422,7 @@ def ols_mediation(y, t, m, x, interaction=False, regularization=True):
     if regularization:
         alphas = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
     if len(m.shape) == 1:
@@ -490,7 +491,7 @@ def g_computation(y, t, m, x, interaction=False, forest=False,
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
     n = len(y)
     if len(x.shape) == 1:
@@ -591,7 +592,7 @@ def alternative_estimator(y, t, m, x, regularization=True):
     if regularization:
         alphas = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
     if len(m.shape) == 1:
@@ -627,7 +628,7 @@ def multiply_robust_efficient(
     interaction=False,
     forest=False,
     crossfit=0,
-    trim=0.01,
+    clip=0.01,
     normalized=True,
     regularization=True,
     calibration=True,
@@ -666,8 +667,8 @@ def multiply_robust_efficient(
     crossfit : integer, default=0
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
 
-    trim : float, default=0.01
-        Limit to trim p_x and f_mtx for numerical stability (min=trim, max=1-trim)
+    clim : float, default=0.01
+        Limit to clip p_x and f_mtx for numerical stability (min=clip, max=1-clip)
 
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights so they add up to 1, as
@@ -764,7 +765,7 @@ def multiply_robust_efficient(
     if regularization:
         alphas, cs = ALPHAS, ALPHAS
     else:
-        alphas, cs = [0.0], [np.inf]
+        alphas, cs = [TINY], [np.inf]
 
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
@@ -899,18 +900,18 @@ def multiply_robust_efficient(
             + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
-    # trimming
-    p_x_trim = p_x != np.clip(p_x, trim, 1 - trim)
-    f_m0x_trim = f_m0x != np.clip(f_m0x, trim, 1 - trim)
-    f_m1x_trim = f_m1x != np.clip(f_m1x, trim, 1 - trim)
-    trimmed = p_x_trim + f_m0x_trim + f_m1x_trim
+    # clipping
+    p_x_clip = p_x != np.clip(p_x, clip, 1 - clip)
+    f_m0x_clip = f_m0x != np.clip(f_m0x, clip, 1 - clip)
+    f_m1x_clip = f_m1x != np.clip(f_m1x, clip, 1 - clip)
+    clipped = p_x_clip + f_m0x_clip + f_m1x_clip
 
     var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
     var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
 
     for var in var_name:
-        exec(f"{var} = {var}[~trimmed]")
-    n_discarded += np.sum(trimmed)
+        exec(f"{var} = {var}[~clipped]")
+    n_discarded += np.sum(clipped)
 
     # score computing
     if normalized:
@@ -1242,7 +1243,7 @@ def med_dml(
         alphas = ALPHAS
         cs = ALPHAS
     else:
-        alphas = [0.0]
+        alphas = [TINY]
         cs = [np.inf]
 
     # define cross-fitting folds
