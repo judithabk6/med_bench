@@ -18,11 +18,7 @@ import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
-<<<<<<< HEAD:tests/simulate_data/test_get_simulated_data.py
-from src.get_simulated_data import simulate_data
-=======
 from med_bench.get_simulated_data import simulate_data
->>>>>>> e068ddb225c3267aa1aad2000badec5053c59a1f:src/tests/simulate_data/test_get_simulated_data.py
 
 
 PARAMETER_NAME = [

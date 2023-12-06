@@ -23,6 +23,7 @@ from scipy.special import expit
 
 from itertools import combinations
 from sklearn.model_selection import KFold
+from .utils.utils import get_interactions, _convert_array_to_R
 
 pandas2ri.activate()
 numpy2ri.activate()
@@ -39,134 +40,8 @@ CV_FOLDS = 5
 TINY = 1.e-12
 
 
-def get_interactions(interaction, *args):
-    """
-    this function provides interaction terms between different groups of
-    variables (confounders, treatment, mediators)
-    Inputs
-    --------
-    interaction     boolean
-                    whether to compute interaction terms
 
-    *args           flexible, one or several arrays
-                    blocks of variables between which interactions should be
-                    computed
-    Returns
-    --------
-    Examples
-    --------
-    >>> x = np.arange(6).reshape(3, 2)
-    >>> t = np.ones((3, 1))
-    >>> m = 2 * np.ones((3, 1))
-    >>> get_interactions(False, x, t, m)
-    array([[0., 1., 1., 2.],
-           [2., 3., 1., 2.],
-           [4., 5., 1., 2.]])
-    >>> get_interactions(True, x, t, m)
-    array([[ 0.,  1.,  1.,  2.,  0.,  1.,  0.,  2.,  2.],
-           [ 2.,  3.,  1.,  2.,  2.,  3.,  4.,  6.,  2.],
-           [ 4.,  5.,  1.,  2.,  4.,  5.,  8., 10.,  2.]])
-    """
-    variables = list(args)
-    for index, var in enumerate(variables):
-        if len(var.shape) == 1:
-            variables[index] = var.reshape(-1,1)
-    pre_inter_variables = np.hstack(variables)
-    if not interaction:
-        return pre_inter_variables
-    new_cols = list()
-    for i, var in enumerate(variables[:]):
-        for j, var2 in enumerate(variables[i+1:]):
-            for ii in range(var.shape[1]):
-                for jj in range(var2.shape[1]):
-                    new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
-    new_vars = np.hstack(new_cols)
-    result = np.hstack((pre_inter_variables, new_vars))
-    return result
-
-
-def plain_IPW(y, t, x, trim=0.01, regularization=True):
-    """
-    plain IPW estimator without mediation
-    """
-    if regularization:
-        cs = ALPHAS
-    else:
-        cs = [np.inf]
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(x, t)
-    p_x = p_x_clf.predict_proba(x)[:, 1]
-    # trimming
-    p_x[p_x < trim] = trim
-    p_x[p_x > 1 - trim] = 1 - trim
-    y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-    y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-        np.sum((1 - t) / (1 - p_x))
-    return y1m1 - y0m0
-
-
-def AIPW(y, t, m, x, clip=0.01, forest=False, crossfit=0, forest_r=False,
-         regularization=True):
-    """
-    AIPW estimator
-    """
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [TINY]
-        cs = [np.inf]
-    n = len(y)
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if crossfit < 2:
-        train_test_list = [[np.arange(n), np.arange(n)]]
-    else:
-        kf = KFold(n_splits=crossfit)
-        train_test_list = list()
-        for train_index, test_index in kf.split(x):
-            train_test_list.append([train_index, test_index])
-
-    if not forest_r:
-        mu_1x, mu_0x, e_x = [np.zeros(n) for h in range(3)]
-
-        for train_index, test_index in train_test_list:
-            treated_train_index = np.array(
-                list(set(train_index).intersection(np.where(t == 1)[0])))
-            control_train_index = np.array(
-                list(set(train_index).intersection(np.where(t == 0)[0])))
-            if not forest:
-                y_reg_treated = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-                    .fit(x[treated_train_index, :], y[treated_train_index])
-                y_reg_control = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-                    .fit(x[control_train_index, :], y[control_train_index])
-                t_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                    .fit(x[train_index, :], t[train_index])
-            else:
-                y_reg_treated = RandomForestRegressor(max_depth=3,
-                                                      min_samples_leaf=5)\
-                    .fit(x[treated_train_index, :], y[treated_train_index])
-                y_reg_control = RandomForestRegressor(max_depth=3,
-                                                      min_samples_leaf=5)\
-                    .fit(x[control_train_index, :], y[control_train_index])
-                t_prob = CalibratedClassifierCV(
-                    RandomForestClassifier(max_depth=3, min_samples_leaf=5))\
-                    .fit(x[train_index, :], t[train_index])
-            mu_1x[test_index] = y_reg_treated.predict(x[test_index, :])
-            mu_0x[test_index] = y_reg_control.predict(x[test_index, :])
-            e_x[test_index] = t_prob.predict_proba(x[test_index, :])[:, 1]
-        e_x = np.clip(e_x, clip, 1 - clip)
-        total_effect = np.mean(mu_1x - mu_0x + t * (y - mu_1x) / e_x -
-                               (1 - t) * (y - mu_0x) / (1 - e_x))
-    else:
-        x_r, t_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, y)]
-        cf = grf.causal_forest(x_r, y_r, t_r, num_trees=500)
-        total_effect = grf.average_treatment_effect(cf)[0]
-    return [total_effect] + [None] * 5
-
-
-def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
+def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
               crossfit=0, clip=0.01, calibration=True, calib_method='sigmoid'):
     """
     IPW estimator presented in
@@ -385,7 +260,7 @@ def huber_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
                    len(y) - np.sum(ind))
 
 
-def ols_mediation(y, t, m, x, interaction=False, regularization=True):
+def mediation_coefficient_products(y, t, m, x, interaction=False, regularization=True):
     """
     found an R implementation https://cran.r-project.org/package=regmedint
 
@@ -448,7 +323,7 @@ def ols_mediation(y, t, m, x, interaction=False, regularization=True):
             None]
 
 
-def g_computation(y, t, m, x, interaction=False, forest=False,
+def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                   crossfit=0, calibration=True, regularization=True,
                   calib_method='sigmoid'):
     """
@@ -620,7 +495,7 @@ def alternative_estimator(y, t, m, x, regularization=True):
             None]
 
 
-def multiply_robust_efficient(
+def mediation_multiply_robust(
     y,
     t,
     m,
@@ -1014,7 +889,7 @@ def r_mediate(y, t, m, x, interaction=False):
     return to_return + [None]
 
 
-def g_estimator(y, t, m, x):
+def r_g_estimator(y, t, m, x):
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
@@ -1051,20 +926,7 @@ def g_estimator(y, t, m, x):
             indirect_effect,
             None]
 
-
-def bart(y, t, m, x, tmle=False):
-    x_r, t_r, y_r = [_convert_array_to_R(uu) for uu in (x, t, y)]
-    if tmle:
-        bart_model = brc.bartc(y_r, t_r, x_r, method_rsp='tmle',
-                               estimand='ate')
-    else:
-        bart_model = brc.bartc(y_r, t_r, x_r, method_rsp='p.weight',
-                               estimand='ate')
-    ate = brc.summary_bartcFit(bart_model).rx2('estimates')[0][0]
-    return [ate] + [None] * 5
-
-
-def medDML(y, t, m, x, trim=0.05, order=1):
+def r_medDML(y, t, m, x, trim=0.05, order=1):
     """
     y       array-like, shape (n_samples)
             outcome value for each unit, continuous
@@ -1103,7 +965,7 @@ def medDML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def med_dml(
+def mediation_DML(
     x,
     t,
     m,
@@ -1420,17 +1282,3 @@ def med_dml(
     indirect1 = my1m1 - my1m0
     indirect0 = my0m1 - my0m0
     return total, direct1, direct0, indirect1, indirect0, n - nobs
-
-
-def _convert_array_to_R(x):
-    """
-    converts a numpy array to a R matrix or vector
-    >>> a = np.array([[1, 2, 3], [4, 5, 6]])
-    >>> np.sum(a == np.array(_convert_array_to_R(a)))
-    6
-    """
-    if len(x.shape) == 1:
-        return robjects.FloatVector(x)
-    elif len(x.shape) == 2:
-        return robjects.r.matrix(robjects.FloatVector(x.ravel()),
-                                 nrow=x.shape[0], byrow='TRUE')
