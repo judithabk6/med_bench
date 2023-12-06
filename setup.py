@@ -4,13 +4,18 @@ with open('README.md', 'r') as readme:
     long_description = readme.read()
 
 setuptools.setup(
-    name='medbench',
+    name='med_bench',
     version='0.1',
     author='Judith Abécassis',
     description='Benchmark mediation',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    packages=setuptools.find_packages('.'),
+    # packages=setuptools.find_packages('src/*'),
+    packages=setuptools.find_packages(
+        where='src',
+        include=['med_bench*'],
+    ),
+    package_dir={"": "src"},
     install_requires=[
         'pandas>=1.2.1',
         'scikit-learn>=0.22.1',

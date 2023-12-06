@@ -16,8 +16,13 @@ import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
+<<<<<<< HEAD:tests/estimation/test_get_estimation.py
 from src.get_simulated_data import simulate_data
 from src.get_estimation import get_estimation
+=======
+from med_bench.get_simulated_data import simulate_data
+from med_bench.get_estimation import get_estimation
+>>>>>>> e068ddb225c3267aa1aad2000badec5053c59a1f:src/tests/estimation/test_get_estimation.py
 
 
 SMALL_ATE_TOLERANCE = 0.05
