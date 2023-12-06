@@ -18,7 +18,7 @@ import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
-from med_bench.src.get_simulated_data import simulate_data
+from src.get_simulated_data import simulate_data
 
 
 PARAMETER_NAME = [
@@ -340,7 +340,7 @@ def test_null_sigma_m_makes_nan():
             seed=1,
             type_m="continuous",
             sigma_y=0.5,
-            sigma_m=0,
+            sigma_m=0.5,
             beta_t_factor=1,
             beta_m_factor=1,
         )
