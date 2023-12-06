@@ -4,7 +4,7 @@ with open('README.md', 'r') as readme:
     long_description = readme.read()
 
 setuptools.setup(
-    name='benchmark_mediation',
+    name='medbench',
     version='0.1',
     author='Judith Abécassis',
     description='Benchmark mediation',
