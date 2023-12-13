@@ -260,7 +260,7 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
                    len(y) - np.sum(ind))
 
 
-def mediation_coefficient_products(y, t, m, x, interaction=False, regularization=True):
+def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
     """
     found an R implementation https://cran.r-project.org/package=regmedint
 

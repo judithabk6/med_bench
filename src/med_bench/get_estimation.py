@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from .mediation import (
     mediation_IPW,
-    mediation_coefficient_products,
+    mediation_coefficient_product,
     mediation_g_formula,
     mediation_multiply_robust,
     mediation_DML,
@@ -64,7 +64,7 @@ def get_estimation(x, t, m, y, estimator, config):
         raw_res_R = np.array(output_w.rx2("results"))
         effects = raw_res_R[0, :]
     elif estimator == "coefficient_product":
-        effects = mediation_coefficient_products(y, t, m, x)
+        effects = mediation_coefficient_product(y, t, m, x)
     elif estimator == "mediation_ipw_noreg":
         effects = mediation_IPW(
             y,
