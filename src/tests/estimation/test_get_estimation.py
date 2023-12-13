@@ -94,7 +94,7 @@ TOLERANCE_DICT = {
     "simulation_based": LARGE_TOLERANCE,
     "mediation_DML": INFINITE_TOLERANCE,
     "mediation_DML_reg_fixed_seed": INFINITE_TOLERANCE,
-    "mediation_g_computation": SMALL_TOLERANCE,
+    "mediation_g_estimator": SMALL_TOLERANCE,
     "mediation_ipw_noreg_cf": INFINITE_TOLERANCE,
     "mediation_ipw_reg_cf": INFINITE_TOLERANCE,
     "mediation_ipw_reg_calibration_cf": INFINITE_TOLERANCE,

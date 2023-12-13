@@ -323,7 +323,7 @@ def mediation_coefficient_products(y, t, m, x, interaction=False, regularization
             None]
 
 
-def mediation_g_computation(y, t, m, x, interaction=False, forest=False,
+def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                   crossfit=0, calibration=True, regularization=True,
                   calib_method='sigmoid'):
     """
@@ -889,7 +889,7 @@ def r_mediate(y, t, m, x, interaction=False):
     return to_return + [None]
 
 
-def r_mediation_g_computation(y, t, m, x):
+def r_mediation_g_estimator(y, t, m, x):
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
