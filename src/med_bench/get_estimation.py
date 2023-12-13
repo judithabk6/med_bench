@@ -293,7 +293,7 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration=True,
             calib_method="isotonic",
         )
-    elif estimator == "mediation_g_formula_noreg":
+    elif estimator == "mediation_g_computation_noreg":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -306,7 +306,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=False,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_noreg_cf":
+    elif estimator == "mediation_g_computation_noreg_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -319,7 +319,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=False,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_reg":
+    elif estimator == "mediation_g_computation_reg":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -332,7 +332,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_reg_cf":
+    elif estimator == "mediation_g_computation_reg_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -345,7 +345,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_reg_calibration":
+    elif estimator == "mediation_g_computation_reg_calibration":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -358,7 +358,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=True,
             )
-    elif estimator == "mediation_g_formula_reg_calibration_iso":
+    elif estimator == "mediation_g_computation_reg_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -372,7 +372,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=True,
                 calib_method="isotonic",
             )
-    elif estimator == "mediation_g_formula_reg_calibration_cf":
+    elif estimator == "mediation_g_computation_reg_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -385,7 +385,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=True,
             )
-    elif estimator == "mediation_g_formula_reg_calibration_iso_cf":
+    elif estimator == "mediation_g_computation_reg_calibration_iso_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -399,7 +399,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=True,
                 calib_method="isotonic",
             )
-    elif estimator == "mediation_g_formula_forest":
+    elif estimator == "mediation_g_computation_forest":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -412,7 +412,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_forest_cf":
+    elif estimator == "mediation_g_computation_forest_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -425,7 +425,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=False,
             )
-    elif estimator == "mediation_g_formula_forest_calibration":
+    elif estimator == "mediation_g_computation_forest_calibration":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -438,7 +438,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=True,
             )
-    elif estimator == "mediation_g_formula_forest_calibration_iso":
+    elif estimator == "mediation_g_computation_forest_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -452,7 +452,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=True,
                 calib_method="isotonic",
             )
-    elif estimator == "mediation_g_formula_forest_calibration_cf":
+    elif estimator == "mediation_g_computation_forest_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
@@ -465,7 +465,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=True,
             )
-    elif estimator == "mediation_g_formula_forest_calibration_iso_cf":
+    elif estimator == "mediation_g_computation_forest_calibration_iso_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
                 y,
