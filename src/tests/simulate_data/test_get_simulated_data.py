@@ -340,7 +340,7 @@ def test_null_sigma_m_makes_nan():
             seed=1,
             type_m="continuous",
             sigma_y=0.5,
-            sigma_m=0,
+            sigma_m=0.,
             beta_t_factor=1,
             beta_m_factor=1,
         )
