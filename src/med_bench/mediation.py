@@ -107,8 +107,8 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
     clip    float
             limit to clip for numerical stability (min=clip, max=1-clip)
     """
-
-    classifier_x, classifier_xm = get_x_classifiers(regularization, forest, calibration)
+    print(x)
+    classifier_x, classifier_xm = get_x_classifiers(regularization, forest, calibration, calib_method)
     p_x, p_xm = estimate_px(t, m, x, crossfit, classifier_x, classifier_xm)
 
     if z is not None:
@@ -242,13 +242,14 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                    1e-5 and 1e5
     """
 
-    classifier_y, classifier_m = get_y_m_classifiers(regularization, forest, calibration)
-    f, mu = estimate_mu_f(t, m, x, crossfit, classifier_y, classifier_m)
+    classifier_y, classifier_m = get_y_m_classifiers(regularization, forest, calibration, calib_method)
+    f, mu = estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m, interaction)
     f_00x, f_01x, f_10x, f_11x = f
     mu_11x, mu_10x, mu_01x, mu_00x = mu
 
     direct_effect_i1 = mu_11x - mu_01x
     direct_effect_i0 = mu_10x - mu_00x
+    n = len(y)
     direct_effect_treated = (direct_effect_i1 * f_11x + direct_effect_i0 * f_10x).sum() / n
     direct_effect_control = (direct_effect_i1 * f_01x + direct_effect_i0 * f_00x).sum() / n
     indirect_effect_i1 = f_11x - f_01x
@@ -442,8 +443,8 @@ def mediation_multiply_robust(
     if n != len(x) or n != len(m) or n != len(t):
         raise ValueError("Inputs don't have the same number of observations")
 
-    classifier_y, classifier_m, classifier_x = get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
-    p_x, f, mu, cross_mu = estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, classifier_x)
+    classifier_y, cross_y_clf, classifier_m, classifier_x = get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
+    p_x, f, mu, cross_mu = estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, cross_y_clf, classifier_m, classifier_x, interaction)
     f_m0x, f_m1x = f
     mu_0mx, mu_1mx = mu
     E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = cross_mu
@@ -456,7 +457,7 @@ def mediation_multiply_robust(
 
     var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_1mx", "mu_0mx"]
     var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
-
+    n_discarded = 0
     for var in var_name:
         exec(f"{var} = {var}[~clipped]")
     n_discarded += np.sum(clipped)
@@ -747,17 +748,17 @@ def mediation_DML(
 
 
     var_name = [
-        "ptx",
-        "ptmx",
-        "mu_t1_m_x",
-        "mu_t0_m_x",
-        "w_t0_x",
-        "w_t1_x",
-        "mu_t1_x",
-        "mu_t0_x",
+        "p_x",
+        "p_xm",
+        "mu_1mx",
+        "mu_0mx",
+        "E_mu_t1_t0",
+        "E_mu_t0_t1",
+        "mu_1x",
+        "mu_0x",
     ]
 
-    clf_x, clf_xm, clf_y, clf_cross_y = get_x_y_classifiers(regularization, forest, calibration, calib_method)
+    clf_x, clf_xm, clf_y, clf_cross_y = get_x_y_classifiers(regularization, use_forest, calib_method, random_state)
     p, mu, cross_mu = estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_x, clf_xm, clf_y, clf_cross_y)
 
     p_x, p_xm = p
@@ -767,10 +768,10 @@ def mediation_DML(
 
     # trimming
     not_trimmed = (
-        (((1 - p_mx) * p_x) >= trim)
+        (((1 - p_xm) * p_x) >= trim)
         * ((1 - p_x) >= trim)
         * (p_x >= trim)
-        * (((p_mx * (1 - p_x))) >= trim)
+        * (((p_xm * (1 - p_x))) >= trim)
     )
     for var in var_name:
         exec(f"{var} = {var}[not_trimmed]")
@@ -780,17 +781,17 @@ def mediation_DML(
     if normalized:
         sumscore1 = np.mean(t / p_x)
         sumscore2 = np.mean((1 - t) / (1 - p_x))
-        sumscore3 = np.mean(t * (1 - p_mx) / (p_mx * (1 - p_x)))
-        sumscore4 = np.mean((1 - t) * p_mx / ((1 - p_mx) * p_x))
+        sumscore3 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
+        sumscore4 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
         y1m1 = (t / p_x * (y - mu_1x)) / sumscore1 + mu_1x
         y0m0 = ((1 - t) / (1 - p_x) * (y - mu_0x)) / sumscore2 + mu_0x
         y1m0 = (
-            (t * (1 - p_mx) / (p_mx * (1 - p_x)) * (y - mu_1mx)) / sumscore3
-            + ((1 - t) / (1 - ptx) * (mu_1mx - E_mu_t1_t0)) / sumscore2
+            (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sumscore3
+            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sumscore2
             + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) * p_mx / ((1 - p_mx) * p_x) * (y - mu_0mx)) / sumscore4
+            ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sumscore4
             + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sumscore1
             + E_mu_t0_t1
         )
@@ -798,12 +799,12 @@ def mediation_DML(
         y1m1 = t / p_x * (y - mu_1x) + mu_1x
         y0m0 = (1 - t) / (1 - p_x) * (y - mu_0x) + mu_0x
         y1m0 = (
-            t * (1 - p_mx) / (p_mx * (1 - p_x)) * (y - mu_1mx)
+            t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)
             + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
             + E_mu_t1_t0
         )
         y0m1 = (
-            (1 - t) * p_mx / ((1 - p_mx) * p_x) * (y - mu_0mx)
+            (1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)
             + t / p_x * (mu_0mx - E_mu_t0_t1)
             + E_mu_t0_t1
         )

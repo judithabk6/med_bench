@@ -13,8 +13,13 @@ from scipy.special import expit
 from itertools import combinations
 from sklearn.model_selection import KFold
 from sklearn.base import clone
+from .utils import get_interactions, _convert_array_to_R
 
-def get_x_classifiers(regularization=False, forest=False, calibration=True, calib_method='sigmoid'):
+ALPHAS = np.logspace(-5, 5, 8)
+CV_FOLDS = 5
+TINY = 1.e-12
+
+def get_x_classifiers(regularization, forest, calibration, calib_method):
 
     if regularization:
         cs = ALPHAS
@@ -36,7 +41,7 @@ def get_x_classifiers(regularization=False, forest=False, calibration=True, cali
     return x_clf, xm_clf
 
 
-def get_train_test_lists(crossfit, n):
+def get_train_test_lists(crossfit, n, x):
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
     else:
@@ -57,7 +62,7 @@ def estimate_px(t, m, x, crossfit, classifier_x, classifier_xm):
     if len(m.shape) == 1:
         m = m.reshape(-1, 1)
 
-    train_test_list = get_train_test_lists(crossfit, n)
+    train_test_list = get_train_test_lists(crossfit, n, x)
 
     for train_index, test_index in train_test_list:
         x_clf = classifier_x.fit(x[train_index, :], t[train_index])
@@ -67,7 +72,7 @@ def estimate_px(t, m, x, crossfit, classifier_x, classifier_xm):
 
     return p_x, p_xm
 
-def get_y_m_classifiers(regularization=False, forest=False, calibration=True, calib_method='sigmoid'):
+def get_y_m_classifiers(regularization, forest, calibration, calib_method):
     if regularization:
         alphas = ALPHAS
         cs = ALPHAS
@@ -87,7 +92,7 @@ def get_y_m_classifiers(regularization=False, forest=False, calibration=True, ca
     return clf_y, clf_m
 
 
-def estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m):
+def estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m, interaction):
 
 
     n = len(y)
@@ -105,7 +110,7 @@ def estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m):
     m0 = np.zeros((n, 1))
     m1 = np.ones((n, 1))
 
-    train_test_list = get_train_test_lists(crossfit, n)
+    train_test_list = get_train_test_lists(crossfit, n, x)
 
     mu_11x, mu_10x, mu_01x, mu_00x = [np.zeros(n) for _ in range(4)]
     f_00x, f_01x, f_10x, f_11x = [np.zeros(n) for _ in range(4)]
@@ -138,7 +143,7 @@ def estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m):
     mu = mu_11x, mu_10x, mu_01x, mu_00x
     return f, mu
 
-def get_y_m_x_classifiers(regularization=False, forest=False, calibration=True, calib_method='sigmoid'):
+def get_y_m_x_classifiers(regularization, forest, calibration, calib_method):
 
 
     if regularization:
@@ -159,9 +164,13 @@ def get_y_m_x_classifiers(regularization=False, forest=False, calibration=True, 
         m_clf = CalibratedClassifierCV(m_clf, method=calib_method)
         x_clf = CalibratedClassifierCV(x_clf, method=calib_method)
 
-    return y_clf, m_clf, x_clf
+    cross_y_clf = RidgeCV(alphas=alphas, cv=CV_FOLDS)
 
-def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, classifier_x):
+    return y_clf, cross_y_clf, m_clf, x_clf
+
+def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_cross_y, classifier_m, classifier_x, interaction):
+    n = len(y)
+
     # Initialisation
     (
         p_x,  # P(T=1|X)
@@ -185,9 +194,8 @@ def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, cla
 
     t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
     t1, m1 = np.ones((n, 1)), np.ones((n, 1))
-    n_discarded = 0
 
-    train_test_list = get_train_test_lists(crossfit, n)
+    train_test_list = get_train_test_lists(crossfit, n, x)
 
     x_t_m = get_interactions(interaction, x, t, m)
     t_x = get_interactions(interaction, t, x)
@@ -240,16 +248,16 @@ def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, cla
         mu_10x[test_index] = clf_y.predict(x_t1_m0[test_index, :])
 
         # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-        reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t1m1_t0 = clone(classifier_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_11x[test_index][ind_t0]
         )
-        reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t1m0_t0 = clone(classifier_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_10x[test_index][ind_t0]
         )
-        reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t1m1_t1 = clone(classifier_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_11x[test_index][~ind_t0]
         )
-        reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t1m0_t1 = clone(classifier_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_10x[test_index][~ind_t0]
         )
 
@@ -264,17 +272,17 @@ def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, cla
         )
 
         # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-        reg_y_t0m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t0m1_t0 = clone(classifier_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_01x[test_index][ind_t0]
         )
-        reg_y_t0m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t0m0_t0 = clone(classifier_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_00x[test_index][ind_t0]
         )
-        reg_y_t0m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        reg_y_t0m1_t1 = clone(classifier_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_01x[test_index][~ind_t0]
         )
-        reg_y_t0m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t0_m0[test_index][~ind_t0]
+        reg_y_t0m0_t1 = clone(classifier_cross_y).fit(
+            x[test_index, :][~ind_t0, :], mu_00x[test_index][~ind_t0]
         )
 
         # predict E[E[Y|T=0,M=m,X]|T=t,X]
@@ -295,7 +303,9 @@ def estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, cla
 
     return p_x, f, mu, cross_mu
 
-def get_x_y_classifiers(regularization=False, forest=False, calibration=True, calib_method='sigmoid'):
+def get_x_y_classifiers(regularization, forest, calib_method, random_state):
+
+
     # define regularization parameters
     if regularization:
         alphas = ALPHAS
@@ -326,18 +336,21 @@ def get_x_y_classifiers(regularization=False, forest=False, calibration=True, ca
         )
         clf_y = LassoCV(alphas=alphas, cv=CV_FOLDS)
         clf_cross_y = LassoCV(alphas=alphas, cv=CV_FOLDS)
+
     if calib_method in {"sigmoid", "isotonic"}:
-        clf_x = CalibratedClassifierCV(clf_x, method=calib_method)
-        clf_xm = CalibratedClassifierCV(clf_xm, method=calib_method)
+            clf_x = CalibratedClassifierCV(clf_x, method=calib_method)
+            clf_xm = CalibratedClassifierCV(clf_xm, method=calib_method)
 
     return clf_x, clf_xm, clf_y, clf_cross_y
 
 def estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_x, classifier_xm, classifier_y, classifier_cross_y):
 
+    n = len(y)
+
     # initialisation
     (
         p_x,  # P(T=1|X)
-        p_mx,  # P(T=1|M,X)
+        p_xm,  # P(T=1|M,X)
         mu_1mx,  # E[Y|T=1,M,X]
         mu_1mx_nested,  # E[Y|T=1,M,X] predicted on train_nested set
         mu_0mx,  # E[Y|T=0,M,X]
@@ -350,7 +363,7 @@ def estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_x, classifier_xm, c
 
     xm = np.hstack((x, m))
 
-    train_test_list = get_train_test_lists(crossfit, n)
+    train_test_list = get_train_test_lists(crossfit, n, x)
 
     for train, test in train_test_list:
         # define test set
@@ -369,7 +382,7 @@ def estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_x, classifier_xm, c
 
         # predict P(T=1|M,X)
         classifier_xm.fit(xm[train], t[train])
-        p_mx[test] = classifier_xm.predict_proba(xm[test])[:, 1]
+        p_xm[test] = classifier_xm.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
         clf_y1m = clone(classifier_y)
