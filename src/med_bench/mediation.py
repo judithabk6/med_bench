@@ -24,6 +24,8 @@ from scipy.special import expit
 from itertools import combinations
 from sklearn.model_selection import KFold
 from .utils.utils import get_interactions, _convert_array_to_R
+from .utils.classifiers import (get_x_classifiers, get_y_m_classifiers, get_y_m_x_classifiers, get_x_y_classifiers,
+                                estimate_px, estimate_f_mu, estimate_f_mu_cross_mu, estimate_px_mu_cross_mu)
 
 pandas2ri.activate()
 numpy2ri.activate()
@@ -38,7 +40,6 @@ plmed = rpackages.importr('plmed')
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
 TINY = 1.e-12
-
 
 
 def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
@@ -106,159 +107,37 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
     clip    float
             limit to clip for numerical stability (min=clip, max=1-clip)
     """
-    if regularization:
-        cs = ALPHAS
+
+    classifier_x, classifier_xm = get_x_classifiers(regularization, forest, calibration)
+    p_x, p_xm = estimate_px(t, m, x, crossfit, classifier_x, classifier_xm)
+
+    if z is not None:
+        raise NotImplementedError
     else:
-        cs = [np.inf]
-    n = len(t)
-    if crossfit < 2:
-        train_test_list = [[np.arange(n), np.arange(n)]]
-    else:
-        kf = KFold(n_splits=crossfit)
-        train_test_list = list()
-        for train_index, test_index in kf.split(x):
-            train_test_list.append([train_index, test_index])
-    if w is None:
-        if z is not None:
-            raise NotImplementedError
-        else:
-            p_x, p_xm = [np.zeros(n) for h in range(2)]
-            # compute propensity scores
-            if len(x.shape) == 1:
-                x = x.reshape(-1, 1)
-            if len(m.shape) == 1:
-                m = m.reshape(-1, 1)
-            for train_index, test_index in train_test_list:
-                if not forest:
-                    rf_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                        .fit(x[train_index, :], t[train_index])
-                    rf_xm_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                        .fit(np.hstack((x, m))[train_index, :], t[train_index])
-                else:
-                    rf_x_clf = RandomForestClassifier(n_estimators=100,
-                                                      min_samples_leaf=10)\
-                        .fit(x[train_index, :], t[train_index])
-                    rf_xm_clf = RandomForestClassifier(n_estimators=100,
-                                                       min_samples_leaf=10)\
-                        .fit(np.hstack((x, m))[train_index, :], t[train_index])
-                if calibration:
-                    p_x_clf = CalibratedClassifierCV(rf_x_clf,
-                                                     method=calib_method)\
-                        .fit(x[train_index, :], t[train_index])
-                    p_xm_clf = CalibratedClassifierCV(rf_xm_clf,
-                                                      method=calib_method)\
-                        .fit(np.hstack((x, m))[train_index, :], t[train_index])
-                else:
-                    p_x_clf = rf_x_clf
-                    p_xm_clf = rf_xm_clf
-                p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
-                p_xm[test_index] = p_xm_clf.predict_proba(
-                    np.hstack((x, m))[test_index, :])[:, 1]
+       # trimming. Following causal weight code, not sure I understand
+        # why we trim only on p_xm and not on p_x
+        ind = ((p_xm > trim) & (p_xm < (1 - trim)))
+        y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
 
-            # trimming. Following causal weight code, not sure I understand
-            # why we trim only on p_xm and not on p_x
-            ind = ((p_xm > trim) & (p_xm < (1 - trim)))
-            y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
+        # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
+        # binary but not the mediator
+        p_x = np.clip(p_x, clip, 1 - clip)
+        p_xm = np.clip(p_xm, clip, 1 - clip)
 
-            # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
-            # binary but not the mediator
-            p_x = np.clip(p_x, clip, 1 - clip)
-            p_xm = np.clip(p_xm, clip, 1 - clip)
+        y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
+        y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
+            np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
+        y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
+            np.sum((1 - t) / (1 - p_x))
+        y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
+            np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
 
-            y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-            y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
-                np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
-            y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-                np.sum((1 - t) / (1 - p_x))
-            y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
-                np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
-
-            return(y1m1 - y0m0,
-                   y1m1 - y0m1,
-                   y1m0 - y0m0,
-                   y1m1 - y1m0,
-                   y0m1 - y0m0,
-                   np.sum(ind))
-
-    else:
-        if z is not None:
-            raise NotImplementedError
-        else:
-            p_x, p_wx, p_xmw = [np.zeros(n) for h in range(3)]
-            # compute propensity scores
-            if len(x.shape) == 1:
-                x = x.reshape(-1, 1)
-            if len(m.shape) == 1:
-                m = m.reshape(-1, 1)
-            if len(w.shape) == 1:
-                w = w.reshape(-1, 1)
-            for train_index, test_index in train_test_list:
-                if not forest:
-                    rf_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                        .fit(x[train_index, :], t[train_index])
-                    rf_xw_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                        .fit(np.hstack((x, w))[train_index, :], t[train_index])
-                    rf_xmw_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                        .fit(np.hstack((x, m, w))[train_index, :],
-                             t[train_index])
-                else:
-                    rf_x_clf = RandomForestClassifier(n_estimators=100,
-                                                      min_samples_leaf=10)
-                    rf_xw_clf = RandomForestClassifier(n_estimators=100,
-                                                       min_samples_leaf=10)
-                    rf_xmw_clf = RandomForestClassifier(n_estimators=100,
-                                                        min_samples_leaf=10)
-                if calibration:
-                    p_x_clf = CalibratedClassifierCV(rf_x_clf,
-                                                     method=calib_method)\
-                        .fit(x[train_index, :], t[train_index])
-                    p_wx_clf = CalibratedClassifierCV(rf_xw_clf,
-                                                      method=calib_method)\
-                        .fit(np.hstack((x, w))[train_index, :], t[train_index])
-                    p_xmw_clf = CalibratedClassifierCV(rf_xmw_clf,
-                                                       method=calib_method)\
-                        .fit(np.hstack((x, m, w))[train_index, :],
-                             t[train_index])
-                else:
-                    p_x_clf = rf_x_clf
-                    p_wx_clf = rf_xw_clf
-                    p_xmw_clf = rf_xmw_clf
-                p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
-                p_wx[test_index] = p_wx_clf.predict_proba(
-                    np.hstack((x, w))[test_index, :])[:, 1]
-                p_xmw[test_index] = p_xmw_clf.predict_proba(
-                    np.hstack((x, m, w))[test_index, :])[:, 1]
-
-            # trimming. Following causal weight code, not sure I understand
-            # why we trim only on p_xm and not on p_x
-            ind = ((p_xmw > trim) & (p_xmw < (1 - trim)))
-            y, t, p_x, p_wx, p_xmw = (y[ind], t[ind], p_x[ind], p_wx[ind],
-                                      p_xmw[ind])
-
-            p_x = np.clip(p_x, clip, 1 - clip)
-            p_xmw = np.clip(p_xmw, clip, 1 - clip)
-            p_wx = np.clip(p_wx, clip, 1 - clip)
-
-            # computation of effects
-            y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-            y1m0 = np.sum(y * t * (1 - p_xmw) / ((1 - p_x) * p_xmw)) /\
-                np.sum(t * (1 - p_xmw) / ((1 - p_x) * p_xmw))
-            y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-                np.sum((1 - t) / (1 - p_x))
-            y0m1 = np.sum(y * (1 - t) * p_xmw / (p_x * (1 - p_xmw))) /\
-                np.sum((1 - t) * p_xmw / (p_x * (1 - p_xmw)))
-            y1m0p = np.sum(y * t / p_xmw * (1 - p_xmw) / (1 - p_wx) * p_wx / p_x)/\
-                np.sum(t / p_xmw * (1 - p_xmw) / (1 - p_wx) * p_wx / p_x)
-            y0m1p = np.sum(y * (1 - t) / (1 - p_xmw) * p_xmw / p_wx * (1 - p_wx) / (1 - p_x)) /\
-                np.sum((1 - t) / (1 - p_xmw) * p_xmw / p_wx * (1 - p_wx) / (1 - p_x))
-
-            return(y1m1 - y0m0,
-                   y1m1 - y0m1,
-                   y1m0 - y0m0,
-                   y1m1 - y1m0p,
-                   y0m1p - y0m0,
-                   len(y) - np.sum(ind))
-
+        return(y1m1 - y0m0,
+               y1m1 - y0m1,
+               y1m0 - y0m0,
+               y1m1 - y1m0,
+               y0m1 - y0m0,
+               np.sum(ind))
 
 def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
     """
@@ -362,61 +241,11 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                    to chose among 8 potential log-spaced values between
                    1e-5 and 1e5
     """
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [TINY]
-        cs = [np.inf]
-    n = len(y)
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if len(m.shape) == 1:
-        mr = m.reshape(-1, 1)
-    else:
-        mr = np.copy(m)
-    if len(t.shape) == 1:
-        t = t.reshape(-1, 1)
-    t0 = np.zeros((n, 1))
-    t1 = np.ones((n, 1))
-    m0 = np.zeros((n, 1))
-    m1 = np.ones((n, 1))
 
-    if crossfit < 2:
-        train_test_list = [[np.arange(n), np.arange(n)]]
-    else:
-        kf = KFold(n_splits=crossfit)
-        train_test_list = list()
-        for train_index, test_index in kf.split(x):
-            train_test_list.append([train_index, test_index])
-    mu_11x, mu_10x, mu_01x, mu_00x, f_00x, f_01x, f_10x, f_11x = \
-        [np.zeros(n) for h in range(8)]
-
-    for train_index, test_index in train_test_list:
-        if not forest:
-            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-                .fit(get_interactions(interaction, x, t, mr)[train_index, :], y[train_index])
-            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)\
-                .fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
-        else:
-            y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)\
-                .fit(get_interactions(interaction, x, t, mr)[train_index, :], y[train_index])
-            pre_m_prob = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)\
-                .fit(get_interactions(interaction, t, x)[train_index, :], m.ravel()[train_index])
-        if calibration:
-            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method)\
-                .fit(get_interactions(
-                    interaction, t, x)[train_index, :], m.ravel()[train_index])
-        else:
-            m_prob = pre_m_prob
-        mu_11x[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m1)[test_index, :])
-        mu_10x[test_index] = y_reg.predict(get_interactions(interaction, x, t1, m0)[test_index, :])
-        mu_01x[test_index] = y_reg.predict(get_interactions(interaction, x, t0, m1)[test_index, :])
-        mu_00x[test_index] = y_reg.predict(get_interactions(interaction, x, t0, m0)[test_index, :])
-        f_00x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 0]
-        f_01x[test_index] = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])[:, 1]
-        f_10x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 0]
-        f_11x[test_index] = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])[:, 1]
+    classifier_y, classifier_m = get_y_m_classifiers(regularization, forest, calibration)
+    f, mu = estimate_mu_f(t, m, x, crossfit, classifier_y, classifier_m)
+    f_00x, f_01x, f_10x, f_11x = f
+    mu_11x, mu_10x, mu_01x, mu_00x = mu
 
     direct_effect_i1 = mu_11x - mu_01x
     direct_effect_i0 = mu_10x - mu_00x
@@ -613,167 +442,11 @@ def mediation_multiply_robust(
     if n != len(x) or n != len(m) or n != len(t):
         raise ValueError("Inputs don't have the same number of observations")
 
-    # Initialisation
-    (
-        p_x,  # P(T=1|X)
-        f_00x,  # f(M=0|T=0,X)
-        f_01x,  # f(M=0|T=1,X)
-        f_10x,  # f(M=1|T=0,X)
-        f_11x,  # f(M=1|T=1,X)
-        f_m0x,  # f(M|T=0,X)
-        f_m1x,  # f(M|T=1,X)
-        mu_t1,  # E[Y|T=1,M,X]
-        mu_t0,  # E[Y|T=0,M,X]
-        mu_t1_m1,  # E[Y|T=1,M=1,X]
-        mu_t1_m0,  # E[Y|T=1,M=0,X]
-        mu_t0_m1,  # E[Y|T=0,M=1,X]
-        mu_t0_m0,  # E[Y|T=0,M=0,X]
-        E_mu_t0_t0,  # E[E[Y|T=0,M,X]|T=0,X]
-        E_mu_t0_t1,  # E[E[Y|T=0,M,X]|T=1,X]
-        E_mu_t1_t0,  # E[E[Y|T=1,M,X]|T=0,X]
-        E_mu_t1_t1,  # E[E[Y|T=1,M,X]|T=1,X]
-    ) = [np.zeros(n) for _ in range(17)]
-    t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
-    t1, m1 = np.ones((n, 1)), np.ones((n, 1))
-    n_discarded = 0
-
-    if regularization:
-        alphas, cs = ALPHAS, ALPHAS
-    else:
-        alphas, cs = [TINY], [np.inf]
-
-    if crossfit < 2:
-        train_test_list = [[np.arange(n), np.arange(n)]]
-    else:
-        kf = KFold(n_splits=crossfit)
-        train_test_list = list(kf.split(x))
-
-    # Cross-fitting loop
-    for train_index, test_index in train_test_list:
-        # Index declaration
-        test_ind = np.arange(len(test_index))
-        ind_t0 = t[test_index] == 0
-
-        # mu_tm, f_mtx, and p_x model fitting
-        if not forest:
-            y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-                get_interactions(interaction, x, t, m)[train_index, :], y[train_index]
-            )
-            pre_m_prob = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(
-                get_interactions(interaction, t, x)[train_index, :], m[train_index]
-            )
-            pre_p_x_clf = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS).fit(
-                x[train_index, :], t[train_index]
-            )
-        else:
-            y_reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                get_interactions(interaction, x, t, m)[train_index, :], y[train_index]
-            )
-            pre_m_prob = RandomForestClassifier(
-                n_estimators=100, min_samples_leaf=10
-            ).fit(get_interactions(interaction, t, x)[train_index, :], m[train_index])
-            pre_p_x_clf = RandomForestClassifier(
-                n_estimators=100, min_samples_leaf=10
-            ).fit(x[train_index, :], t[train_index])
-        if calibration:
-            m_prob = CalibratedClassifierCV(pre_m_prob, method=calib_method).fit(
-                get_interactions(interaction, t, x)[train_index, :], m[train_index]
-            )
-            p_x_clf = CalibratedClassifierCV(pre_p_x_clf, method=calib_method).fit(
-                x[train_index, :], t[train_index]
-            )
-        else:
-            m_prob = pre_m_prob
-            p_x_clf = pre_p_x_clf
-
-        # predict P(T=1|X)
-        p_x[test_index] = p_x_clf.predict_proba(x[test_index, :])[:, 1]
-
-        # predict f(M=m|T=t,X)
-        res = m_prob.predict_proba(get_interactions(interaction, t0, x)[test_index, :])
-        f_00x[test_index] = res[:, 0]
-        f_01x[test_index] = res[:, 1]
-        res = m_prob.predict_proba(get_interactions(interaction, t1, x)[test_index, :])
-        f_10x[test_index] = res[:, 0]
-        f_11x[test_index] = res[:, 1]
-
-        # predict f(M|T=t,X)
-        f_m0x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t0, x)[test_index, :]
-        )[test_ind, m[test_index]]
-        f_m1x[test_index] = m_prob.predict_proba(
-            get_interactions(interaction, t1, x)[test_index, :]
-        )[test_ind, m[test_index]]
-
-        # predict E[Y|T=t,M,X]
-        mu_t1[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t1, m)[test_index, :]
-        )
-        mu_t0[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t0, m)[test_index, :]
-        )
-
-        # predict E[Y|T=t,M=m,X]
-        mu_t0_m0[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t0, m0)[test_index, :]
-        )
-        mu_t0_m1[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t0, m1)[test_index, :]
-        )
-        mu_t1_m1[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t1, m1)[test_index, :]
-        )
-        mu_t1_m0[test_index] = y_reg.predict(
-            get_interactions(interaction, x, t1, m0)[test_index, :]
-        )
-
-        # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-        reg_y_t1m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t1_m1[test_index][ind_t0]
-        )
-        reg_y_t1m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t1_m0[test_index][ind_t0]
-        )
-        reg_y_t1m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t1_m1[test_index][~ind_t0]
-        )
-        reg_y_t1m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t1_m0[test_index][~ind_t0]
-        )
-
-        # predict E[E[Y|T=1,M=m,X]|T=t,X]
-        E_mu_t1_t0[test_index] = (
-            reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index]
-            + reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
-        )
-        E_mu_t1_t1[test_index] = (
-            reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index]
-            + reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
-        )
-
-        # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-        reg_y_t0m1_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t0_m1[test_index][ind_t0]
-        )
-        reg_y_t0m0_t0 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][ind_t0, :], mu_t0_m0[test_index][ind_t0]
-        )
-        reg_y_t0m1_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t0_m1[test_index][~ind_t0]
-        )
-        reg_y_t0m0_t1 = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            x[test_index, :][~ind_t0, :], mu_t0_m0[test_index][~ind_t0]
-        )
-
-        # predict E[E[Y|T=0,M=m,X]|T=t,X]
-        E_mu_t0_t0[test_index] = (
-            reg_y_t0m0_t0.predict(x[test_index, :]) * f_00x[test_index]
-            + reg_y_t0m1_t0.predict(x[test_index, :]) * f_01x[test_index]
-        )
-        E_mu_t0_t1[test_index] = (
-            reg_y_t0m0_t1.predict(x[test_index, :]) * f_10x[test_index]
-            + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
-        )
+    classifier_y, classifier_m, classifier_x = get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
+    p_x, f, mu, cross_mu = estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, classifier_m, classifier_x)
+    f_m0x, f_m1x = f
+    mu_0mx, mu_1mx = mu
+    E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = cross_mu
 
     # clipping
     p_x_clip = p_x != np.clip(p_x, clip, 1 - clip)
@@ -781,7 +454,7 @@ def mediation_multiply_robust(
     f_m1x_clip = f_m1x != np.clip(f_m1x, clip, 1 - clip)
     clipped = p_x_clip + f_m0x_clip + f_m1x_clip
 
-    var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_t1", "mu_t0"]
+    var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_1mx", "mu_0mx"]
     var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
 
     for var in var_name:
@@ -797,26 +470,26 @@ def mediation_multiply_robust(
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sumscore1 + E_mu_t1_t1
         y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sumscore2 + E_mu_t0_t0
         y1m0 = (
-            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)) / sumscore3
-            + ((1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)) / sumscore2
+            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sumscore3
+            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sumscore2
             + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)) / sumscore4
-            + t / p_x * (mu_t0 - E_mu_t0_t1) / sumscore1
+            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)) / sumscore4
+            + t / p_x * (mu_0mx - E_mu_t0_t1) / sumscore1
             + E_mu_t0_t1
         )
     else:
         y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
         y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
         y1m0 = (
-            (t / p_x) * (f_m0x / f_m1x) * (y - mu_t1)
-            + (1 - t) / (1 - p_x) * (mu_t1 - E_mu_t1_t0)
+            (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
+            + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
             + E_mu_t1_t0
         )
         y0m1 = (
-            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_t0)
-            + t / p_x * (mu_t0 - E_mu_t0_t1)
+            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
+            + t / p_x * (mu_0mx - E_mu_t0_t1)
             + E_mu_t0_t1
         )
 
@@ -1070,21 +743,8 @@ def mediation_DML(
     if len(m.shape) == 1:
         m.reshape(n, 1)
 
-    xm = np.hstack((x, m))
+    nobs = 0
 
-    # initialisation
-    (
-        ptx,  # P(T=1|X)
-        ptmx,  # P(T=1|M,X)
-        mu_t1_m_x,  # E[Y|T=1,M,X]
-        mu_t1_m_x_nested,  # E[Y|T=1,M,X] predicted on train_nested set
-        mu_t0_m_x,  # E[Y|T=0,M,X]
-        mu_t0_m_x_nested,  # E[Y|T=0,M,X] predicted on train_nested set
-        w_t0_x,  # E[E[Y|T=1,M,X]|T=0,X]
-        w_t1_x,  # E[E[Y|T=0,M,X]|T=1,X]
-        mu_t1_x,  # E[Y|T=1,X]
-        mu_t0_x,  # E[Y|T=0,X]
-    ) = [np.zeros(n) for _ in range(10)]
 
     var_name = [
         "ptx",
@@ -1096,142 +756,21 @@ def mediation_DML(
         "mu_t1_x",
         "mu_t0_x",
     ]
-    nobs = 0
 
-    # define regularization parameters
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [TINY]
-        cs = [np.inf]
+    clf_x, clf_xm, clf_y, clf_cross_y = get_x_y_classifiers(regularization, forest, calibration, calib_method)
+    p, mu, cross_mu = estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_x, clf_xm, clf_y, clf_cross_y)
 
-    # define cross-fitting folds
-    if crossfit < 2:
-        train_test_list = [(np.arange(n), np.arange(n))]
-    else:
-        kf = KFold(n_splits=crossfit)
-        train_test_list = list(kf.split(x))
+    p_x, p_xm = p
+    mu_1mx, mu_1mx_nested, mu_0mx, mu_0mx_nested, mu_1x, mu_0x = mu
+    E_mu_t0_t1, E_mu_t1_t0 = cross_mu
 
-    for train, test in train_test_list:
-        # define test set
-        train1 = train[t[train] == 1]
-        train0 = train[t[train] == 0]
-
-        train_mean, train_nested = np.array_split(train, 2)
-        train_mean1 = train_mean[t[train_mean] == 1]
-        train_mean0 = train_mean[t[train_mean] == 0]
-        train_nested1 = train_nested[t[train_nested] == 1]
-        train_nested0 = train_nested[t[train_nested] == 0]
-
-        # predict P(T=1|X)
-        if use_forest:
-            res = RandomForestClassifier(n_estimators=100, min_samples_leaf=10).fit(
-                x[train], t[train]
-            )
-        else:
-            res = LogisticRegressionCV(
-                penalty="l1",
-                solver="liblinear",
-                random_state=random_state,
-                Cs=cs,
-                cv=CV_FOLDS,
-            ).fit(x[train], t[train])
-        if calib_method in {"sigmoid", "isotonic"}:
-            res = CalibratedClassifierCV(res, method=calib_method).fit(
-                x[train], t[train]
-            )
-        ptx[test] = res.predict_proba(x[test])[:, 1]
-
-        # predict P(T=1|M,X)
-        if use_forest:
-            res = RandomForestClassifier(n_estimators=100, min_samples_leaf=10).fit(
-                xm[train], t[train]
-            )
-        else:
-            res = LogisticRegressionCV(
-                penalty="l1",
-                solver="liblinear",
-                random_state=random_state,
-                Cs=cs,
-                cv=CV_FOLDS,
-            ).fit(xm[train], t[train])
-        if calib_method in {"sigmoid", "isotonic"}:
-            res = CalibratedClassifierCV(res, method=calib_method).fit(
-                xm[train], t[train]
-            )
-        ptmx[test] = res.predict_proba(xm[test])[:, 1]
-
-        # predict E[Y|T=1,M,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                xm[train_mean1], y[train_mean1]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                xm[train_mean1], y[train_mean1]
-            )
-        mu_t1_m_x[test] = res.predict(xm[test])
-        mu_t1_m_x_nested[train_nested] = res.predict(xm[train_nested])
-
-        # predict E[Y|T=0,M,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                xm[train_mean0], y[train_mean0]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                xm[train_mean0], y[train_mean0]
-            )
-        mu_t0_m_x[test] = res.predict(xm[test])
-        mu_t0_m_x_nested[train_nested] = res.predict(xm[train_nested])
-
-        # predict E[E[Y|T=1,M,X]|T=0,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train_nested0], mu_t1_m_x_nested[train_nested0]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                x[train_nested0], mu_t1_m_x_nested[train_nested0]
-            )
-        w_t0_x[test] = res.predict(x[test])
-
-        # predict E[E[Y|T=0,M,X]|T=1,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train_nested1], mu_t0_m_x_nested[train_nested1]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(
-                x[train_nested1], mu_t0_m_x_nested[train_nested1]
-            )
-        w_t1_x[test] = res.predict(x[test])
-
-        # predict E[Y|T=1,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train1], y[train1]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train1], y[train1])
-        mu_t1_x[test] = res.predict(x[test])
-
-        # predict E[Y|T=0,X]
-        if use_forest:
-            res = RandomForestRegressor(n_estimators=100, min_samples_leaf=10).fit(
-                x[train0], y[train0]
-            )
-        else:
-            res = LassoCV(alphas=alphas, cv=CV_FOLDS).fit(x[train0], y[train0])
-        mu_t0_x[test] = res.predict(x[test])
 
     # trimming
     not_trimmed = (
-        (((1 - ptmx) * ptx) >= trim)
-        * ((1 - ptx) >= trim)
-        * (ptx >= trim)
-        * (((ptmx * (1 - ptx))) >= trim)
+        (((1 - p_mx) * p_x) >= trim)
+        * ((1 - p_x) >= trim)
+        * (p_x >= trim)
+        * (((p_mx * (1 - p_x))) >= trim)
     )
     for var in var_name:
         exec(f"{var} = {var}[not_trimmed]")
@@ -1239,34 +778,34 @@ def mediation_DML(
 
     # score computing
     if normalized:
-        sumscore1 = np.mean(t / ptx)
-        sumscore2 = np.mean((1 - t) / (1 - ptx))
-        sumscore3 = np.mean(t * (1 - ptmx) / (ptmx * (1 - ptx)))
-        sumscore4 = np.mean((1 - t) * ptmx / ((1 - ptmx) * ptx))
-        y1m1 = (t / ptx * (y - mu_t1_x)) / sumscore1 + mu_t1_x
-        y0m0 = ((1 - t) / (1 - ptx) * (y - mu_t0_x)) / sumscore2 + mu_t0_x
+        sumscore1 = np.mean(t / p_x)
+        sumscore2 = np.mean((1 - t) / (1 - p_x))
+        sumscore3 = np.mean(t * (1 - p_mx) / (p_mx * (1 - p_x)))
+        sumscore4 = np.mean((1 - t) * p_mx / ((1 - p_mx) * p_x))
+        y1m1 = (t / p_x * (y - mu_1x)) / sumscore1 + mu_1x
+        y0m0 = ((1 - t) / (1 - p_x) * (y - mu_0x)) / sumscore2 + mu_0x
         y1m0 = (
-            (t * (1 - ptmx) / (ptmx * (1 - ptx)) * (y - mu_t1_m_x)) / sumscore3
-            + ((1 - t) / (1 - ptx) * (mu_t1_m_x - w_t0_x)) / sumscore2
-            + w_t0_x
+            (t * (1 - p_mx) / (p_mx * (1 - p_x)) * (y - mu_1mx)) / sumscore3
+            + ((1 - t) / (1 - ptx) * (mu_1mx - E_mu_t1_t0)) / sumscore2
+            + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) * ptmx / ((1 - ptmx) * ptx) * (y - mu_t0_m_x)) / sumscore4
-            + (t / ptx * (mu_t0_m_x - w_t1_x)) / sumscore1
-            + w_t1_x
+            ((1 - t) * p_mx / ((1 - p_mx) * p_x) * (y - mu_0mx)) / sumscore4
+            + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sumscore1
+            + E_mu_t0_t1
         )
     else:
-        y1m1 = t / ptx * (y - mu_t1_x) + mu_t1_x
-        y0m0 = (1 - t) / (1 - ptx) * (y - mu_t0_x) + mu_t0_x
+        y1m1 = t / p_x * (y - mu_1x) + mu_1x
+        y0m0 = (1 - t) / (1 - p_x) * (y - mu_0x) + mu_0x
         y1m0 = (
-            t * (1 - ptmx) / (ptmx * (1 - ptx)) * (y - mu_t1_m_x)
-            + (1 - t) / (1 - ptx) * (mu_t1_m_x - w_t0_x)
-            + w_t0_x
+            t * (1 - p_mx) / (p_mx * (1 - p_x)) * (y - mu_1mx)
+            + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+            + E_mu_t1_t0
         )
         y0m1 = (
-            (1 - t) * ptmx / ((1 - ptmx) * ptx) * (y - mu_t0_m_x)
-            + t / ptx * (mu_t0_m_x - w_t1_x)
-            + w_t1_x
+            (1 - t) * p_mx / ((1 - p_mx) * p_x) * (y - mu_0mx)
+            + t / p_x * (mu_0mx - E_mu_t0_t1)
+            + E_mu_t0_t1
         )
 
     # mean score computing
