@@ -23,9 +23,9 @@ from scipy.special import expit
 
 from itertools import combinations
 from sklearn.model_selection import KFold
-from .utils.utils import get_interactions, _convert_array_to_R
-from .utils.classifiers import (get_x_classifiers, get_y_m_classifiers, get_y_m_x_classifiers, get_x_y_classifiers,
-                                estimate_px, estimate_f_mu, estimate_f_mu_cross_mu, estimate_px_mu_cross_mu)
+from .utils.utils import _convert_array_to_R
+from .utils.classifiers import (_get_x_classifiers, _get_y_m_classifiers, _get_y_m_x_classifiers, _get_x_y_classifiers,
+                                _estimate_px, _estimate_f_mu, _estimate_f_mu_cross_mu, _estimate_px_mu_cross_mu)
 
 pandas2ri.activate()
 numpy2ri.activate()
@@ -50,7 +50,7 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
     probability weighting. Journal of Applied Econometrics, 2014,
     vol. 29, no 6, p. 920-943.
 
-    results has 6 values
+    result has 6 outputs
     - total effect
     - direct effect treated (\theta(1))
     - direct effect non treated (\theta(0))
@@ -104,12 +104,18 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
     crossfit integer, default 0
              number of folds for cross-fitting
 
-    clip    float
+    clip    float, default 0.01
             limit to clip for numerical stability (min=clip, max=1-clip)
+
+    calibration boolean, default False
+             whether to use a calibration with cross validation on existing classifiers
+
+    calibration_method  str, default sigmoid
+            calibration mode; for example using a sigmoid function
     """
-    print(x)
-    classifier_x, classifier_xm = get_x_classifiers(regularization, forest, calibration, calib_method)
-    p_x, p_xm = estimate_px(t, m, x, crossfit, classifier_x, classifier_xm)
+
+    classifier_x, classifier_xm = _get_x_classifiers(regularization, forest, calibration, calib_method)
+    p_x, p_xm = _estimate_px(t, m, x, crossfit, classifier_x, classifier_xm)
 
     if z is not None:
         raise NotImplementedError
@@ -242,8 +248,8 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                    1e-5 and 1e5
     """
 
-    classifier_y, classifier_m = get_y_m_classifiers(regularization, forest, calibration, calib_method)
-    f, mu = estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m, interaction)
+    classifier_y, classifier_m = _get_y_m_classifiers(regularization, forest, calibration, calib_method)
+    f, mu = _estimate_f_mu(t, m, x, y, crossfit, classifier_y, classifier_m, interaction)
     f_00x, f_01x, f_10x, f_11x = f
     mu_11x, mu_10x, mu_01x, mu_00x = mu
 
@@ -443,8 +449,8 @@ def mediation_multiply_robust(
     if n != len(x) or n != len(m) or n != len(t):
         raise ValueError("Inputs don't have the same number of observations")
 
-    classifier_y, cross_y_clf, classifier_m, classifier_x = get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
-    p_x, f, mu, cross_mu = estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, cross_y_clf, classifier_m, classifier_x, interaction)
+    classifier_y, cross_y_clf, classifier_m, classifier_x = _get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
+    p_x, f, mu, cross_mu = _estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, cross_y_clf, classifier_m, classifier_x, interaction)
     f_m0x, f_m1x = f
     mu_0mx, mu_1mx = mu
     E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = cross_mu
@@ -758,8 +764,8 @@ def mediation_DML(
         "mu_0x",
     ]
 
-    clf_x, clf_xm, clf_y, clf_cross_y = get_x_y_classifiers(regularization, use_forest, calib_method, random_state)
-    p, mu, cross_mu = estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_x, clf_xm, clf_y, clf_cross_y)
+    clf_x, clf_xm, clf_y, clf_cross_y = _get_x_y_classifiers(regularization, use_forest, calib_method, random_state)
+    p, mu, cross_mu = _estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_x, clf_xm, clf_y, clf_cross_y)
 
     p_x, p_xm = p
     mu_1mx, mu_1mx_nested, mu_0mx, mu_0mx_nested, mu_1x, mu_0x = mu

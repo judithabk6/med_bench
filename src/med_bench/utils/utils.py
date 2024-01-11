@@ -4,7 +4,7 @@ import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri, numpy2ri
 
-def get_interactions(interaction, *args):
+def _get_interactions(interaction, *args):
     """
     this function provides interaction terms between different groups of
     variables (confounders, treatment, mediators)
