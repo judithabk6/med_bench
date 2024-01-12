@@ -1,19 +1,20 @@
-from sklearn.linear_model import LogisticRegressionCV, RidgeCV, LassoCV
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.calibration import CalibratedClassifierCV
+from itertools import combinations
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 from numpy.random import default_rng
 from scipy import stats
-import pandas as pd
-from pathlib import Path
-from scipy.stats import bernoulli
 from scipy.special import expit
-
-from itertools import combinations
-from sklearn.model_selection import KFold
+from scipy.stats import bernoulli
 from sklearn.base import clone
-from .utils import _get_interactions, _convert_array_to_R
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import PolynomialFeatures
+
+from .utils import _convert_array_to_R, _get_interactions
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
