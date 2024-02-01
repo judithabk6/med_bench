@@ -452,8 +452,10 @@ def mediation_multiply_robust(
     if n != len(x) or n != len(m) or n != len(t):
         raise ValueError("Inputs don't have the same number of observations")
 
-    classifier_y, cross_y_clf, classifier_m, classifier_x = _get_y_m_x_classifiers(regularization, forest, calibration, calib_method)
-    p_x, f, mu, cross_mu = _estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, cross_y_clf, classifier_m, classifier_x, interaction)
+    classifier_y, cross_y_clf, classifier_m, classifier_x = _get_y_m_x_classifiers(regularization, forest, calibration,
+                                                                                   calib_method)
+    p_x, f, mu, cross_mu = _estimate_f_mu_cross_mu(t, m, x, y, crossfit, classifier_y, cross_y_clf, classifier_m,
+                                                   classifier_x, interaction)
     f_m0x, f_m1x = f
     mu_0mx, mu_1mx = mu
     E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = cross_mu
@@ -708,7 +710,8 @@ def mediation_DML(
     calib_method : {None, "sigmoid", "isotonic"}, default=None
         Whether to add a calibration step for the classifier used to estimate
         the treatment propensity score and P(T|M,X). "None" means no calibration.
-        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        Calibration ensures the output of the [predict_proba]
+        (https://scikit-learn.org/stable/glossary.html#term-predict_proba)
         method can be directly interpreted as a confidence level.
         Implemented calibration methods are "sigmoid" and "isotonic".
 
