@@ -107,7 +107,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     crossfit integer, default 0
              number of folds for cross-fitting
 
-    clip    float, default 0.01
+    clip    float, default=0.01
             limit to clip for numerical stability (min=clip, max=1-clip)
 
     calibration boolean, default False
