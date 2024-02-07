@@ -76,7 +76,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=0,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_noreg_cf":
         effects = mediation_IPW(
@@ -89,7 +89,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=2,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_reg":
         effects = mediation_IPW(
@@ -102,7 +102,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=0,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_reg_cf":
         effects = mediation_IPW(
@@ -115,7 +115,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=2,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_reg_calibration":
         effects = mediation_IPW(
@@ -128,7 +128,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=0,
             clip=0.0,
-            calibration=True,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_reg_calibration_iso":
         effects = mediation_IPW(
@@ -141,8 +141,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=0,
             clip=0.0,
-            calibration=True,
-            calib_method="isotonic",
+            calibration_method="isotonic",
         )
     elif estimator == "mediation_ipw_reg_calibration_cf":
         effects = mediation_IPW(
@@ -155,7 +154,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=2,
             clip=0.0,
-            calibration=True,
+            calibration_method='sigmoid',
         )
     elif estimator == "mediation_ipw_reg_calibration_iso_cf":
         effects = mediation_IPW(
@@ -168,8 +167,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=False,
             crossfit=2,
             clip=0.0,
-            calibration=True,
-            calib_method="isotonic",
+            calibration_method="isotonic",
         )
     elif estimator == "mediation_ipw_forest":
         effects = mediation_IPW(
@@ -182,7 +180,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=0,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_forest_cf":
         effects = mediation_IPW(
@@ -195,7 +193,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=2,
             clip=0.0,
-            calibration=False,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_forest_calibration":
         effects = mediation_IPW(
@@ -208,7 +206,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=0,
             clip=0.0,
-            calibration=True,
+            calibration_method=None,
         )
     elif estimator == "mediation_ipw_forest_calibration_iso":
         effects = mediation_IPW(
@@ -221,8 +219,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=0,
             clip=0.0,
-            calibration=True,
-            calib_method="isotonic",
+            calibration_method="isotonic",
         )
     elif estimator == "mediation_ipw_forest_calibration_cf":
         effects = mediation_IPW(
@@ -235,7 +232,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=2,
             clip=0.0,
-            calibration=True,
+            calibration_method='sigmoid',
         )
     elif estimator == "mediation_ipw_forest_calibration_iso_cf":
         effects = mediation_IPW(
@@ -248,8 +245,7 @@ def get_estimation(x, t, m, y, estimator, config):
             forest=True,
             crossfit=2,
             clip=0.0,
-            calibration=True,
-            calib_method="isotonic",
+            calibration_method="isotonic",
         )
     elif estimator == "mediation_g_computation_noreg":
         if config in (0, 1, 2):
@@ -262,7 +258,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=0,
                 regularization=False,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_noreg_cf":
         if config in (0, 1, 2):
@@ -275,7 +271,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=2,
                 regularization=False,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_reg":
         if config in (0, 1, 2):
@@ -288,7 +284,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=0,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_reg_cf":
         if config in (0, 1, 2):
@@ -301,7 +297,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=2,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_reg_calibration":
         if config in (0, 1, 2):
@@ -314,7 +310,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=0,
                 regularization=True,
-                calibration=True,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_reg_calibration_iso":
         if config in (0, 1, 2):
@@ -327,8 +323,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=0,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_g_computation_reg_calibration_cf":
         if config in (0, 1, 2):
@@ -341,7 +336,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=2,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_g_computation_reg_calibration_iso_cf":
         if config in (0, 1, 2):
@@ -354,8 +349,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=False,
                 crossfit=2,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_g_computation_forest":
         if config in (0, 1, 2):
@@ -368,7 +362,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=0,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_forest_cf":
         if config in (0, 1, 2):
@@ -381,7 +375,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=2,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_g_computation_forest_calibration":
         if config in (0, 1, 2):
@@ -394,7 +388,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=0,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_g_computation_forest_calibration_iso":
         if config in (0, 1, 2):
@@ -407,8 +401,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=0,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_g_computation_forest_calibration_cf":
         if config in (0, 1, 2):
@@ -421,7 +414,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=2,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_g_computation_forest_calibration_iso_cf":
         if config in (0, 1, 2):
@@ -434,8 +427,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 forest=True,
                 crossfit=2,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_multiply_robust_noreg":
         if config in (0, 1, 2):
@@ -449,7 +441,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.0,
                 regularization=False,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_noreg_cf":
         if config in (0, 1, 2):
@@ -463,7 +455,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.0,
                 regularization=False,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_reg":
         if config in (0, 1, 2):
@@ -477,7 +469,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_reg_cf":
         if config in (0, 1, 2):
@@ -491,7 +483,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_reg_calibration":
         if config in (0, 1, 2):
@@ -505,7 +497,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_multiply_robust_reg_calibration_iso":
         if config in (0, 1, 2):
@@ -519,8 +511,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_multiply_robust_reg_calibration_cf":
         if config in (0, 1, 2):
@@ -534,7 +525,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_multiply_robust_reg_calibration_iso_cf":
         if config in (0, 1, 2):
@@ -548,8 +539,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_multiply_robust_forest":
         if config in (0, 1, 2):
@@ -563,7 +553,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_forest_cf":
         if config in (0, 1, 2):
@@ -577,7 +567,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=False,
+                calibration_method=None,
             )
     elif estimator == "mediation_multiply_robust_forest_calibration":
         if config in (0, 1, 2):
@@ -591,7 +581,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_multiply_robust_forest_calibration_iso":
         if config in (0, 1, 2):
@@ -605,8 +595,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=0,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "mediation_multiply_robust_forest_calibration_cf":
         if config in (0, 1, 2):
@@ -620,7 +609,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
+                calibration_method='sigmoid',
             )
     elif estimator == "mediation_multiply_robust_forest_calibration_iso_cf":
         if config in (0, 1, 2):
@@ -634,8 +623,7 @@ def get_estimation(x, t, m, y, estimator, config):
                 crossfit=2,
                 clip=0.01,
                 regularization=True,
-                calibration=True,
-                calib_method="isotonic",
+                calibration_method="isotonic",
             )
     elif estimator == "simulation_based":
         if config in (0, 1, 2):
@@ -644,15 +632,15 @@ def get_estimation(x, t, m, y, estimator, config):
         if config > 0:
             effects = r_mediation_DML(y, t, m, x, trim=0.0, order=1)
     elif estimator == "mediation_DML_noreg":
-        effects = mediation_DML(x, t, m, y, trim=0, regularization=False)
+        effects = mediation_DML(y, t, m, x, trim=0, regularization=False)
     elif estimator == "mediation_DML_reg":
-        effects = mediation_DML(x, t, m, y, trim=0)
+        effects = mediation_DML(y, t, m, x, trim=0)
     elif estimator == "mediation_DML_reg_fixed_seed":
-        effects = mediation_DML(x, t, m, y, trim=0, random_state=321)
+        effects = mediation_DML(y, t, m, x, trim=0, random_state=321)
     elif estimator == "mediation_DML_noreg_cf":
-        effects = mediation_DML(x, t, m, y, trim=0, crossfit=4, regularization=False)
+        effects = mediation_DML(y, t, m, x, trim=0, crossfit=4, regularization=False)
     elif estimator == "mediation_DML_reg_cf":
-        effects = mediation_DML(x, t, m, y, trim=0, crossfit=4)
+        effects = mediation_DML(y, t, m, x, trim=0, crossfit=4)
     elif estimator == "mediation_g_estimator":
         if config in (0, 1, 2):
             effects = r_mediation_g_estimator(y, t, m, x)

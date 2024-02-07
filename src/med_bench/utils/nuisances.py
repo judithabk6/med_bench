@@ -20,43 +20,14 @@ ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
 TINY = 1.e-12
 
-def _get_t_predictors(regularization, forest, calibration, calib_method):
-    """
-    Obtain context classifiers to estimate treatment probabilities.
-
-    results has 2 outputs
-    - clf_t_x classifier on contexts for predicting P(T=1|X)
-    - clf_t_xm classifier on contexts for predicting P(T=1|X, M)
-
-    """
-
-    if regularization:
-        cs = ALPHAS
-    else:
-        cs = [np.inf]
-
-    if not forest:
-        clf_t_x = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)
-        clf_t_xm = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)
-    else:
-        clf_t_x = RandomForestClassifier(n_estimators=100,
-                                       min_samples_leaf=10)
-        clf_t_xm = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
-    if calibration:
-        clf_t_x = CalibratedClassifierCV(clf_t_x,
-                                       method=calib_method)
-        clf_t_xm = CalibratedClassifierCV(clf_t_xm, method=calib_method)
-
-    return clf_t_x, clf_t_xm
-
 
 def _get_train_test_lists(crossfit, n, x):
     """
     Obtain train and test folds
 
-    result
-    - train_test_list  list, list of index with train and test indexes
-
+    Returns
+    -------
+    train_test_list : list, list of index with train and test indexes
     """
     if crossfit < 2:
         train_test_list = [[np.arange(n), np.arange(n)]]
@@ -68,17 +39,60 @@ def _get_train_test_lists(crossfit, n, x):
     return train_test_list
 
 
+def _get_regularization_parameters(regularization):
+    """
+    Obtain regularization parameters
+
+    Returns
+    -------
+    cs : each of the values in Cs describes the inverse of regularization strength for predictors
+    alphas : array of alpha values to try in ridge models
+    """
+    if regularization:
+        alphas = ALPHAS
+        cs = ALPHAS
+    else:
+        alphas = [TINY]
+        cs = [np.inf]
+
+    return cs, alphas
+
+
+def _get_t_predictors(regularization, forest, calibration_method):
+    """
+    Obtain context classifiers to estimate treatment probabilities.
+
+    Returns
+    -------
+    clf_t_x : classifier on contexts for predicting P(T=1|X)
+    clf_t_xm : classifier on contexts for predicting P(T=1|X, M)
+    """
+    cs, _ = _get_regularization_parameters(regularization)
+
+    if not forest:
+        clf_t_x = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)
+        clf_t_xm = LogisticRegressionCV(Cs=cs, cv=CV_FOLDS)
+    else:
+        clf_t_x = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
+        clf_t_xm = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
+
+    if calibration_method in {"sigmoid", "isotonic"}:
+        clf_t_x = CalibratedClassifierCV(clf_t_x, method=calibration_method)
+        clf_t_xm = CalibratedClassifierCV(clf_t_xm, method=calibration_method)
+
+    return clf_t_x, clf_t_xm
+
+
 def _estimate_px(t, m, x, crossfit, clf_t_x, clf_t_xm):
     """
     Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train
     test lists from crossfitting
 
-    result has 2 outputs
-    - p_x  array-like, shape (n_samples) probabilities P(T=1|X)
-    - p_xm array-like, shape (n_samples) probabilities P(T=1|X, M)
-
+    Returns
+    -------
+    p_x : array-like, shape (n_samples) probabilities P(T=1|X)
+    p_xm : array-like, shape (n_samples) probabilities P(T=1|X, M)
     """
-
     n = len(t)
 
     p_x, p_xm = [np.zeros(n) for h in range(2)]
@@ -98,22 +112,17 @@ def _estimate_px(t, m, x, crossfit, clf_t_x, clf_t_xm):
 
     return p_x, p_xm
 
-def _get_y_m_predictors(regularization, forest, calibration, calib_method):
+
+def _get_y_m_predictors(regularization, forest, calibration_method):
     """
     Obtain regressors and classifiers to estimate mediator density and conditional mean outcome.
 
-    results has 2 outputs
-    - reg_y regressor to predict the conditional mean outcome E[Y|T,M,X]
-    - clf_m classifier to predict the density/proba f(M|T,X)
-
+    Returns
+    -------
+    reg_y : regressor to predict the conditional mean outcome E[Y|T,M,X]
+    clf_m : classifier to predict the density/proba f(M|T,X)
     """
-
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [TINY]
-        cs = [np.inf]
+    cs, alphas = _get_regularization_parameters(regularization)
 
     if not forest:
         reg_y = RidgeCV(alphas=alphas, cv=CV_FOLDS)
@@ -121,8 +130,9 @@ def _get_y_m_predictors(regularization, forest, calibration, calib_method):
     else:
         reg_y = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)
         clf_m = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
-    if calibration:
-        clf_m = CalibratedClassifierCV(clf_m, method=calib_method)
+
+    if calibration_method in {"sigmoid", "isotonic"}:
+        clf_m = CalibratedClassifierCV(clf_m, method=calibration_method)
 
     return reg_y, clf_m
 
@@ -132,14 +142,13 @@ def _estimate_f_mu(t, m, x, y, crossfit, reg_y, clf_m, interaction):
     Estimate mediator density f(M|T,X) and conditional mean outcome E[Y|T,M,X] with train
     test lists from crossfitting
 
-    result has 2 outputs
-    - f  4-tuple of array-like, shape (n_samples) of densities/probas f(M=0|T=0,X), f(M=0|T=1,X), f(M=1|T=0,X),
+    Returns
+    -------
+    f : 4-tuple of array-like, shape (n_samples) of densities/probas f(M=0|T=0,X), f(M=0|T=1,X), f(M=1|T=0,X),
      f(M=1|T=1,X)
-    - mu 4-tuple of array-like, shape (n_samples) of conditional mean outcome E[Y|T=1,M=1,X], E[Y|T=1,M=0,X],
+    mu : 4-tuple of array-like, shape (n_samples) of conditional mean outcome E[Y|T=1,M=1,X], E[Y|T=1,M=0,X],
     E[Y|T=0,M=1,X], E[Y|T=0,M=0,X]
-
     """
-
     n = len(y)
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
@@ -188,23 +197,20 @@ def _estimate_f_mu(t, m, x, y, crossfit, reg_y, clf_m, interaction):
     mu = mu_11x, mu_10x, mu_01x, mu_00x
     return f, mu
 
-def _get_y_m_t_predictors(regularization, forest, calibration, calib_method):
+
+def _get_y_m_t_predictors(regularization, forest, calibration_method):
     """
     Obtain regressors and classifiers to estimate conditional mean outcome, cross conditional mean outcome,
     mediator density and treatment probability
 
-    results has 4 outputs
-    - reg_y regressor to predict the conditional mean outcome E[Y|T,M,X]
-    - reg_cross_y regressor to predict the cross conditional mean outcome E[E[Y|T,M,X]|T',X]
-    - clf_m classifier to predict the density/proba f(M|T,X)
-    - clf_t_x classifier on contexts for predicting P(T=1|X)
-
+    Returns
+    -------
+    reg_y : regressor to predict the conditional mean outcome E[Y|T,M,X]
+    reg_cross_y : regressor to predict the cross conditional mean outcome E[E[Y|T,M,X]|T',X]
+    clf_m : classifier to predict the density/proba f(M|T,X)
+    clf_t_x : classifier on contexts for predicting P(T=1|X)
     """
-
-    if regularization:
-        alphas, cs = ALPHAS, ALPHAS
-    else:
-        alphas, cs = [TINY], [np.inf]
+    cs, alphas = _get_regularization_parameters(regularization)
 
     # mu_tm, f_mtx, and p_x model fitting
     if not forest:
@@ -215,28 +221,29 @@ def _get_y_m_t_predictors(regularization, forest, calibration, calib_method):
         reg_y = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)
         clf_m = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
         clf_t_x = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
-    if calibration:
-        clf_m = CalibratedClassifierCV(clf_m, method=calib_method)
-        clf_t_x = CalibratedClassifierCV(clf_t_x, method=calib_method)
+
+    if calibration_method in {"sigmoid", "isotonic"}:
+        clf_m = CalibratedClassifierCV(clf_m, method=calibration_method)
+        clf_t_x = CalibratedClassifierCV(clf_t_x, method=calibration_method)
 
     reg_cross_y = RidgeCV(alphas=alphas, cv=CV_FOLDS)
 
     return reg_y, reg_cross_y, clf_m, clf_t_x
+
 
 def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, reg_y, reg_cross_y, clf_m, clf_t_x, interaction):
     """
     Estimate the treatment probability, the mediator density, the conditional mean outcome,
     the cross conditional mean outcome
 
-    results has 4 outputs
-    - p_x array-like, shape (n_samples) probabilities P(T=1|X)
-    - f 2-tuple of array-like, shape (n_samples) of densities/probas f(M|T=0,X), f(M|T=1,X)
-    - mu 2-tuple of array-like, shape (n_samples) of E[Y|T=0,M,X] and E[Y|T=1,M,X]
-    - cross_mu 4-tuple of array-like, shape (n_samples) of E[E[Y|T=0,M,X]|T=0,X], E[E[Y|T=0,M,X]|T=1,X]
+    Returns
+    -------
+    p_x : array-like, shape (n_samples) probabilities P(T=1|X)
+    f : 2-tuple of array-like, shape (n_samples) of densities/probas f(M|T=0,X), f(M|T=1,X)
+    mu : 2-tuple of array-like, shape (n_samples) of E[Y|T=0,M,X] and E[Y|T=1,M,X]
+    cross_mu : 4-tuple of array-like, shape (n_samples) of E[E[Y|T=0,M,X]|T=0,X], E[E[Y|T=0,M,X]|T=1,X]
      E[E[Y|T=1,M,X]|T=0,X] and E[E[Y|T=1,M,X]|T=1,X]
-
     """
-
     n = len(y)
 
     # Initialisation
@@ -369,26 +376,21 @@ def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, reg_y, reg_cross_y, clf_m, clf
 
     return p_x, f, mu, cross_mu
 
-def _get_t_y_predictors(regularization, forest, calib_method, random_state):
+
+def _get_t_y_predictors(regularization, forest, calibration_method, random_state):
     """
     Obtain context classifiers and regressors to estimate treatment probabilities and the conditional mean outcome,
     cross conditional mean outcome
 
-    results has 2 outputs
-    - clf_t_x classifier on contexts for predicting P(T=1|X)
-    - clf_t_xm classifier on contexts for predicting P(T=1|M, X)
-    - reg_y regressor to predict the conditional mean outcome E[Y|T,M,X]
-    - reg_cross_y regressor to predict the cross conditional mean outcome E[E[Y|T,M,X]|T',X]
-
+    Returns
+    -------
+    clf_t_x : classifier on contexts for predicting P(T=1|X)
+    clf_t_xm : classifier on contexts for predicting P(T=1|M, X)
+    reg_y : regressor to predict the conditional mean outcome E[Y|T,M,X]
+    reg_cross_y : regressor to predict the cross conditional mean outcome E[E[Y|T,M,X]|T',X]
     """
-
     # define regularization parameters
-    if regularization:
-        alphas = ALPHAS
-        cs = ALPHAS
-    else:
-        alphas = [TINY]
-        cs = [np.inf]
+    cs, alphas = _get_regularization_parameters(regularization)
 
     if forest:
         clf_t_x = RandomForestClassifier(n_estimators=100, min_samples_leaf=10)
@@ -413,22 +415,23 @@ def _get_t_y_predictors(regularization, forest, calib_method, random_state):
         reg_y = LassoCV(alphas=alphas, cv=CV_FOLDS)
         reg_cross_y = LassoCV(alphas=alphas, cv=CV_FOLDS)
 
-    if calib_method in {"sigmoid", "isotonic"}:
-            clf_t_x = CalibratedClassifierCV(clf_t_x, method=calib_method)
-            clf_t_xm = CalibratedClassifierCV(clf_t_xm, method=calib_method)
+    if calibration_method in {"sigmoid", "isotonic"}:
+        clf_t_x = CalibratedClassifierCV(clf_t_x, method=calibration_method)
+        clf_t_xm = CalibratedClassifierCV(clf_t_xm, method=calibration_method)
 
     return clf_t_x, clf_t_xm, reg_y, reg_cross_y
+
 
 def _estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_t_x, clf_t_xm, reg_y, reg_cross_y):
     """
     Estimate treatment probabilities and the conditional mean outcome,
     cross conditional mean outcome
 
-    results has 2 outputs
-    - p 2-tuple of array-like, shape (n_samples) probabilities P(T=1|X) and P(T=1|M,X)
-    - mu 6-tuple of array-like, shape (n_samples) of conditional mean outcome E[Y|T,M,X]
-    - cross_mu 2 -tuple of array-like, shape (n_samples) E[E[Y|T=0,M,X]|T=1,X], E[E[Y|T=1,M,X]|T=0,X]
-
+    Returns
+    -------
+    p : 2-tuple of array-like, shape (n_samples) probabilities P(T=1|X) and P(T=1|M,X)
+    mu : 6-tuple of array-like, shape (n_samples) of conditional mean outcome E[Y|T,M,X]
+    cross_mu : 2 -tuple of array-like, shape (n_samples) E[E[Y|T=0,M,X]|T=1,X], E[E[Y|T=1,M,X]|T=0,X]
     """
     n = len(y)
 
