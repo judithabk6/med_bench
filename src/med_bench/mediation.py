@@ -45,7 +45,7 @@ CV_FOLDS = 5
 TINY = 1.e-12
 
 
-def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=False,
+def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
               crossfit=0, clip=0.01, calibration=True, calib_method='sigmoid'):
     """
     IPW estimator presented in
@@ -120,33 +120,30 @@ def mediation_IPW(y, t, m, x, w, z, trim, logit, regularization=True, forest=Fal
     classifier_t_x, classifier_t_xm = _get_t_predictors(regularization, forest, calibration, calib_method)
     p_x, p_xm = _estimate_px(t, m, x, crossfit, classifier_t_x, classifier_t_xm)
 
-    if z is not None:
-        raise NotImplementedError
-    else:
-       # trimming. Following causal weight code, not sure I understand
-        # why we trim only on p_xm and not on p_x
-        ind = ((p_xm > trim) & (p_xm < (1 - trim)))
-        y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
+   # trimming. Following causal weight code, not sure I understand
+    # why we trim only on p_xm and not on p_x
+    ind = ((p_xm > trim) & (p_xm < (1 - trim)))
+    y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
 
-        # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
-        # binary but not the mediator
-        p_x = np.clip(p_x, clip, 1 - clip)
-        p_xm = np.clip(p_xm, clip, 1 - clip)
+    # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
+    # binary but not the mediator
+    p_x = np.clip(p_x, clip, 1 - clip)
+    p_xm = np.clip(p_xm, clip, 1 - clip)
 
-        y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-        y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
-            np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
-        y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-            np.sum((1 - t) / (1 - p_x))
-        y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
-            np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
+    y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
+    y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
+        np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
+    y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
+        np.sum((1 - t) / (1 - p_x))
+    y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
+        np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
 
-        return(y1m1 - y0m0,
-               y1m1 - y0m1,
-               y1m0 - y0m0,
-               y1m1 - y1m0,
-               y0m1 - y0m0,
-               np.sum(ind))
+    return(y1m1 - y0m0,
+           y1m1 - y0m1,
+           y1m0 - y0m0,
+           y1m1 - y1m0,
+           y0m1 - y0m0,
+           np.sum(ind))
 
 def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
     """
