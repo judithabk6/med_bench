@@ -68,7 +68,7 @@ def _get_train_test_lists(crossfit, n, x):
     return train_test_list
 
 
-def _estimate_px(t, m, x, crossfit, classifier_x, classifier_xm):
+def _estimate_px(t, m, x, crossfit, clf_x, clf_xm):
     """
     Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train
     test lists from crossfitting
@@ -91,10 +91,10 @@ def _estimate_px(t, m, x, crossfit, classifier_x, classifier_xm):
     train_test_list = _get_train_test_lists(crossfit, n, x)
 
     for train_index, test_index in train_test_list:
-        x_clf = classifier_x.fit(x[train_index, :], t[train_index])
-        xm_clf = classifier_xm.fit(np.hstack((x, m))[train_index, :], t[train_index])
-        p_x[test_index] = x_clf.predict_proba(x[test_index, :])[:, 1]
-        p_xm[test_index] = xm_clf.predict_proba(np.hstack((x, m))[test_index, :])[:, 1]
+        clf_x = clf_x.fit(x[train_index, :], t[train_index])
+        clf_xm = clf_xm.fit(np.hstack((x, m))[train_index, :], t[train_index])
+        p_x[test_index] = clf_x.predict_proba(x[test_index, :])[:, 1]
+        p_xm[test_index] = clf_xm.predict_proba(np.hstack((x, m))[test_index, :])[:, 1]
 
     return p_x, p_xm
 
@@ -127,7 +127,7 @@ def _get_y_m_classifiers(regularization, forest, calibration, calib_method):
     return reg_y, clf_m
 
 
-def _estimate_f_mu(t, m, x, y, crossfit, regressor_y, classifier_m, interaction):
+def _estimate_f_mu(t, m, x, y, crossfit, reg_y, clf_m, interaction):
     """
     Estimate mediator density f(M|T,X) and conditional mean outcome E[Y|T,M,X] with train
     test lists from crossfitting
@@ -173,8 +173,8 @@ def _estimate_f_mu(t, m, x, y, crossfit, regressor_y, classifier_m, interaction)
 
     for train_index, test_index in train_test_list:
 
-        reg_y = regressor_y.fit(x_t_mr[train_index, :], y[train_index])
-        clf_m = classifier_m.fit(t_x[train_index, :], m.ravel()[train_index])
+        reg_y = reg_y.fit(x_t_mr[train_index, :], y[train_index])
+        clf_m = clf_m.fit(t_x[train_index, :], m.ravel()[train_index])
         mu_11x[test_index] = reg_y.predict(x_t1_m1[test_index, :])
         mu_10x[test_index] = reg_y.predict(x_t1_m0[test_index, :])
         mu_01x[test_index] = reg_y.predict(x_t0_m1[test_index, :])
@@ -223,7 +223,7 @@ def _get_y_m_x_classifiers(regularization, forest, calibration, calib_method):
 
     return reg_y, reg_cross_y, clf_m, clf_x
 
-def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, regressor_y, regressor_cross_y, classifier_m, classifier_x, interaction):
+def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, reg_y, reg_cross_y, clf_m, clf_x, interaction):
     """
     Estimate the treatment probability, the mediator density, the conditional mean outcome,
     the cross conditional mean outcome
@@ -285,9 +285,9 @@ def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, regressor_y, regressor_cross_y
         ind_t0 = t[test_index] == 0
 
         # mu_tm, f_mtx, and p_x model fitting
-        reg_y = regressor_y.fit(x_t_m[train_index, :], y[train_index])
-        clf_m = classifier_m.fit(t_x[train_index, :], m[train_index])
-        clf_x = classifier_x.fit(x[train_index, :], t[train_index])
+        reg_y = reg_y.fit(x_t_m[train_index, :], y[train_index])
+        clf_m = clf_m.fit(t_x[train_index, :], m[train_index])
+        clf_x = clf_x.fit(x[train_index, :], t[train_index])
         
 
         # predict P(T=1|X)
@@ -316,16 +316,16 @@ def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, regressor_y, regressor_cross_y
         mu_10x[test_index] = reg_y.predict(x_t1_m0[test_index, :])
 
         # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-        reg_y_t1m1_t0 = clone(regressor_cross_y).fit(
+        reg_y_t1m1_t0 = clone(reg_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_11x[test_index][ind_t0]
         )
-        reg_y_t1m0_t0 = clone(regressor_cross_y).fit(
+        reg_y_t1m0_t0 = clone(reg_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_10x[test_index][ind_t0]
         )
-        reg_y_t1m1_t1 = clone(regressor_cross_y).fit(
+        reg_y_t1m1_t1 = clone(reg_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_11x[test_index][~ind_t0]
         )
-        reg_y_t1m0_t1 = clone(regressor_cross_y).fit(
+        reg_y_t1m0_t1 = clone(reg_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_10x[test_index][~ind_t0]
         )
 
@@ -340,16 +340,16 @@ def _estimate_f_mu_cross_mu(t, m, x, y, crossfit, regressor_y, regressor_cross_y
         )
 
         # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-        reg_y_t0m1_t0 = clone(regressor_cross_y).fit(
+        reg_y_t0m1_t0 = clone(reg_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_01x[test_index][ind_t0]
         )
-        reg_y_t0m0_t0 = clone(regressor_cross_y).fit(
+        reg_y_t0m0_t0 = clone(reg_cross_y).fit(
             x[test_index, :][ind_t0, :], mu_00x[test_index][ind_t0]
         )
-        reg_y_t0m1_t1 = clone(regressor_cross_y).fit(
+        reg_y_t0m1_t1 = clone(reg_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_01x[test_index][~ind_t0]
         )
-        reg_y_t0m0_t1 = clone(regressor_cross_y).fit(
+        reg_y_t0m0_t1 = clone(reg_cross_y).fit(
             x[test_index, :][~ind_t0, :], mu_00x[test_index][~ind_t0]
         )
 
@@ -419,7 +419,7 @@ def _get_x_y_classifiers(regularization, forest, calib_method, random_state):
 
     return clf_x, clf_xm, reg_y, reg_cross_y
 
-def _estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_x, classifier_xm, regressor_y, regressor_cross_y):
+def _estimate_px_mu_cross_mu(t, m, x, y, crossfit, clf_x, clf_xm, reg_y, reg_cross_y):
     """
     Estimate treatment probabilities and the conditional mean outcome,
     cross conditional mean outcome
@@ -462,42 +462,42 @@ def _estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_x, classifier_xm, 
         train_nested0 = train_nested[t[train_nested] == 0]
 
         # predict P(T=1|X)
-        classifier_x.fit(x[train], t[train])
-        p_x[test] = classifier_x.predict_proba(x[test])[:, 1]
+        clf_x.fit(x[train], t[train])
+        p_x[test] = clf_x.predict_proba(x[test])[:, 1]
 
         # predict P(T=1|M,X)
-        classifier_xm.fit(xm[train], t[train])
-        p_xm[test] = classifier_xm.predict_proba(xm[test])[:, 1]
+        clf_xm.fit(xm[train], t[train])
+        p_xm[test] = clf_xm.predict_proba(xm[test])[:, 1]
 
         # predict E[Y|T=1,M,X]
-        reg_y1m = clone(regressor_y)
+        reg_y1m = clone(reg_y)
         reg_y1m.fit(xm[train_mean1], y[train_mean1])
         mu_1mx[test] = reg_y1m.predict(xm[test])
         mu_1mx_nested[train_nested] = reg_y1m.predict(xm[train_nested])
 
         # predict E[Y|T=0,M,X]
-        reg_y0m = clone(regressor_y)
+        reg_y0m = clone(reg_y)
         reg_y0m.fit(xm[train_mean0], y[train_mean0])
         mu_0mx[test] = reg_y0m.predict(xm[test])
         mu_0mx_nested[train_nested] = reg_y0m.predict(xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        reg_cross_y1 = clone(regressor_cross_y)
+        reg_cross_y1 = clone(reg_cross_y)
         reg_cross_y1.fit(x[train_nested0], mu_1mx_nested[train_nested0])
         E_mu_t1_t0[test] = reg_cross_y1.predict(x[test])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        reg_cross_y0 = clone(regressor_cross_y)
+        reg_cross_y0 = clone(reg_cross_y)
         reg_cross_y0.fit(x[train_nested1], mu_0mx_nested[train_nested1])
         E_mu_t0_t1[test] = reg_cross_y0.predict(x[test])
 
         # predict E[Y|T=1,X]
-        reg_y1 = clone(regressor_y)
+        reg_y1 = clone(reg_y)
         reg_y1.fit(x[train1], y[train1])
         mu_1x[test] = reg_y1.predict(x[test])
 
         # predict E[Y|T=0,X]
-        reg_y0 = clone(regressor_y)
+        reg_y0 = clone(reg_y)
         reg_y0.fit(x[train0], y[train0])
         mu_0x[test] = reg_y0.predict(x[test])
 

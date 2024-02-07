@@ -316,7 +316,8 @@ def alternative_estimator(y, t, m, x, regularization=True):
     # computation of direct effect
     y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[treated], m[treated])), y[treated])
     y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[~treated], m[~treated])), y[~treated])
-    direct_effect = np.sum(y_treated_reg_m.predict(np.hstack((x, m))) - y_ctrl_reg_m.predict(np.hstack((x, m)))) / len(y)
+    stack_x_m = np.hstack((x, m))
+    direct_effect = np.sum(y_treated_reg_m.predict(stack_x_m) - y_ctrl_reg_m.predict(stack_x_m)) / len(y)
 
     # computation of total effect
     y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[treated], y[treated])
@@ -397,7 +398,8 @@ def mediation_multiply_robust(
     calibration : boolean, default=True
         Whether to add a calibration step so that the classifier used to estimate
         the treatment propensity score and the density of the (binary) mediator.
-        Calibration ensures the output of the [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
+        Calibration ensures the output of the
+        [predict_proba](https://scikit-learn.org/stable/glossary.html#term-predict_proba)
         method can be directly interpreted as a confidence level.
 
     calib_method : str, default="sigmoid"
