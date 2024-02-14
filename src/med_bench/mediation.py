@@ -6,9 +6,6 @@ causal inference, simulate data, and evaluate and compare estimators
 # first step, run r code to have the original implementation by Huber
 # using rpy2 to have the same data in R and python...
 
-from itertools import combinations
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import rpy2.robjects as robjects
@@ -18,16 +15,19 @@ from rpy2.robjects import numpy2ri, pandas2ri
 from scipy import stats
 from scipy.special import expit
 from scipy.stats import bernoulli
+from sklearn.base import clone
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import PolynomialFeatures
 
-from .utils.nuisances import (_estimate_f_mu, _estimate_f_mu_cross_mu,
-                                _estimate_px, _estimate_px_mu_cross_mu,
-                                _get_t_predictors, _get_t_y_predictors,
-                                _get_y_m_predictors, _get_y_m_t_predictors)
+from .utils.nuisances import (_estimate_conditional_mean_outcome,
+                              _estimate_cross_conditional_mean_outcome,
+                              _estimate_cross_conditional_mean_outcome_bis,
+                              _estimate_mediator_density,
+                              _estimate_treatment_probabilities,
+                              _get_classifier, _get_regressor)
 from .utils.utils import _convert_array_to_R
 
 pandas2ri.activate()
@@ -45,8 +45,8 @@ CV_FOLDS = 5
 TINY = 1.e-12
 
 
-def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=0, clip=0.01,
-                  calibration_method='sigmoid'):
+def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
+                  crossfit=0, clip=0.01, calibration='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -63,7 +63,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
 
     m : array-like, shape (n_samples, n_features_mediator)
             mediator value for each unit, can be continuous or binary, and
-            multi-dimensional
+            multidimensional
 
     x : array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
@@ -76,23 +76,23 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
             (w is defined), observations with Pr(D=1|M,W,X)<trim or
             Pr(D=1|M,W,X)>(1-trim) are dropped.
 
-    regularization : boolean, default True
+    regularization : boolean, default=True
                    whether to use regularized models (logistic or
                    linear regression). If True, cross-validation is used
                    to chose among 8 potential log-spaced values between
                    1e-5 and 1e5
 
-    forest : boolean, default False
+    forest : boolean, default=False
             whether to use a random forest model to estimate the propensity
             scores instead of logistic regression
 
-    crossfit : integer, default 0
+    crossfit : integer, default=0
              number of folds for cross-fitting
 
     clip : float, default=0.01
             limit to clip for numerical stability (min=clip, max=1-clip)
 
-    calibration_method : str, default sigmoid
+    calibration : str, default=sigmoid
             calibration mode; for example using a sigmoid function
 
     Returns
@@ -102,7 +102,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
     float
             direct effect treated (\theta(1))
     float
-            direct effect non treated (\theta(0))
+            direct effect nontreated (\theta(0))
     float
             indirect effect treated (\delta(1))
     float
@@ -110,8 +110,12 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
     int
             number of used observations (non trimmed)
     """
-    classifier_t_x, classifier_t_xm = _get_t_predictors(regularization, forest, calibration_method)
-    p_x, p_xm = _estimate_px(t, m, x, crossfit, classifier_t_x, classifier_t_xm)
+    # estimate propensities
+    classifier_t_x = _get_classifier(regularization, forest, calibration)
+    classifier_t_xm = _get_classifier(regularization, forest, calibration)
+    p_x, p_xm = _estimate_treatment_probabilities(t, m, x, crossfit,
+                                                  classifier_t_x,
+                                                  classifier_t_xm)
 
    # trimming. Following causal weight code, not sure I understand
     # why we trim only on p_xm and not on p_x
@@ -123,6 +127,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
     p_x = np.clip(p_x, clip, 1 - clip)
     p_xm = np.clip(p_xm, clip, 1 - clip)
 
+    # importance weighting
     y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
     y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
         np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
@@ -139,7 +144,8 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False, crossfit=
            np.sum(ind))
 
 
-def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
+def mediation_coefficient_product(y, t, m, x, interaction=False,
+                                  regularization=True):
     """
     found an R implementation https://cran.r-project.org/package=regmedint
 
@@ -163,20 +169,12 @@ def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=
     x : array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
 
-    trim : float
-            Trimming rule for discarding observations with extreme propensity
-            scores. In the absence of post-treatment confounders (w=NULL),
-            observations with Pr(D=1|M,X)<trim or Pr(D=1|M,X)>(1-trim) are
-            dropped. In the presence of post-treatment confounders
-            (w is defined), observations with Pr(D=1|M,W,X)<trim or
-            Pr(D=1|M,W,X)>(1-trim) are dropped.
-
     interaction : boolean, default=False
                 whether to include interaction terms in the model
                 not implemented here, just for compatibility of signature
                 function
 
-    regularization : boolean, default True
+    regularization : boolean, default=True
                    whether to use regularized models (logistic or
                    linear regression). If True, cross-validation is used
                    to chose among 8 potential log-spaced values between
@@ -189,7 +187,7 @@ def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=
     float
             direct effect treated (\theta(1))
     float
-            direct effect non treated (\theta(0))
+            direct effect nontreated (\theta(0))
     float
             indirect effect treated (\delta(1))
     float
@@ -226,8 +224,9 @@ def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=
             None]
 
 
-def mediation_g_formula(y, t, m, x, interaction=False, forest=False, crossfit=0, regularization=True,
-                        calibration_method='sigmoid'):
+def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
+                        crossfit=0, regularization=True,
+                        calibration='sigmoid'):
     """
     Warning : m needs to be binary
 
@@ -252,37 +251,50 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False, crossfit=0,
                 whether to include interaction terms in the model
                 interactions are terms XT, TM, MX
 
-    forest : boolean, default False
+    forest : boolean, default=False
             whether to use a random forest model to estimate the propensity
             scores instead of logistic regression, and outcome model instead
             of linear regression
 
-    crossfit : integer, default 0
+    crossfit : integer, default=0
              number of folds for cross-fitting
 
-    regularization : boolean, default True
+    regularization : boolean, default=True
                    whether to use regularized models (logistic or
                    linear regression). If True, cross-validation is used
                    to chose among 8 potential log-spaced values between
                    1e-5 and 1e5
 
-    calibration_method : str, default sigmoid
+    calibration : str, default=sigmoid
             calibration mode; for example using a sigmoid function
     """
-    regressor_y, classifier_m = _get_y_m_predictors(regularization, forest, calibration_method)
-    f, mu = _estimate_f_mu(t, m, x, y, crossfit, regressor_y, classifier_m, interaction)
-    f_00x, f_01x, f_10x, f_11x = f
-    mu_11x, mu_10x, mu_01x, mu_00x = mu
+    # estimate mediator densities
+    classifier_m = _get_classifier(regularization, forest, calibration)
+    f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(t, m, x, y,
+                                                                  crossfit,
+                                                                  classifier_m,
+                                                                  interaction)
 
+    # estimate conditional mean outcomes
+    regressor_y = _get_regressor(regularization, forest)
+    mu_00x, mu_01x, mu_10x, mu_11x, _, _ = (
+        _estimate_conditional_mean_outcome(t, m, x, y, crossfit, regressor_y,
+                                           interaction))
+
+    # G computation
     direct_effect_i1 = mu_11x - mu_01x
     direct_effect_i0 = mu_10x - mu_00x
     n = len(y)
-    direct_effect_treated = (direct_effect_i1 * f_11x + direct_effect_i0 * f_10x).sum() / n
-    direct_effect_control = (direct_effect_i1 * f_01x + direct_effect_i0 * f_00x).sum() / n
+    direct_effect_treated = (direct_effect_i1 * f_11x
+                             + direct_effect_i0 * f_10x).sum() / n
+    direct_effect_control = (direct_effect_i1 * f_01x
+                             + direct_effect_i0 * f_00x).sum() / n
     indirect_effect_i1 = f_11x - f_01x
     indirect_effect_i0 = f_10x - f_00x
-    indirect_effect_treated = (indirect_effect_i1 * mu_11x + indirect_effect_i0 * mu_10x).sum() / n
-    indirect_effect_control = (indirect_effect_i1 * mu_01x + indirect_effect_i0 * mu_00x).sum() / n
+    indirect_effect_treated = (indirect_effect_i1 * mu_11x
+                               + indirect_effect_i0 * mu_10x).sum() / n
+    indirect_effect_control = (indirect_effect_i1 * mu_01x
+                               + indirect_effect_i0 * mu_00x).sum() / n
     total_effect = direct_effect_control + indirect_effect_treated
 
     return [total_effect,
@@ -311,12 +323,13 @@ def alternative_estimator(y, t, m, x, regularization=True):
             treatment value for each unit, binary
 
     m : array-like, shape (n_samples)
-            mediator value for each unit, here m is necessary binary and unidimensional
+            mediator value for each unit, here m is necessary binary
+            and unidimensional
 
     x : array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
 
-    regularization : boolean, default True
+    regularization : boolean, default=True
                    whether to use regularized models (logistic or
                    linear regression). If True, cross-validation is used
                    to chose among 8 potential log-spaced values between
@@ -333,15 +346,21 @@ def alternative_estimator(y, t, m, x, regularization=True):
     treated = (t == 1)
 
     # computation of direct effect
-    y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[treated], m[treated])), y[treated])
-    y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x[~treated], m[~treated])), y[~treated])
+    y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        np.hstack((x[treated], m[treated])), y[treated])
+    y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        np.hstack((x[~treated], m[~treated])), y[~treated])
     xm = np.hstack((x, m))
-    direct_effect = np.sum(y_treated_reg_m.predict(xm) - y_ctrl_reg_m.predict(xm)) / len(y)
+    direct_effect = np.sum(y_treated_reg_m.predict(xm)
+                           - y_ctrl_reg_m.predict(xm)) / len(y)
 
     # computation of total effect
-    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[treated], y[treated])
-    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[~treated], y[~treated])
-    total_effect = np.sum(y_treated_reg.predict(x) - y_ctrl_reg.predict(x)) / len(y)
+    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        x[treated], y[treated])
+    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+        x[~treated], y[~treated])
+    total_effect = np.sum(y_treated_reg.predict(x)
+                          - y_ctrl_reg.predict(x)) / len(y)
 
     # computation of indirect effect
     indirect_effect = total_effect - direct_effect
@@ -354,8 +373,9 @@ def alternative_estimator(y, t, m, x, regularization=True):
             None]
 
 
-def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False, crossfit=0, clip=0.01, normalized=True,
-                              regularization=True, calibration_method="sigmoid"):
+def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
+                              crossfit=0, clip=0.01, normalized=True,
+                              regularization=True, calibration="sigmoid"):
     """
     Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
@@ -387,22 +407,25 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False, cross
         of linear regression
 
     crossfit : integer, default=0
-        Number of folds for cross-fitting. If crossfit<2, no cross-fitting is applied
+        Number of folds for cross-fitting. If crossfit<2, no cross-fitting is
+        applied
 
-    clim : float, default=0.01
-        Limit to clip p_x and f_mtx for numerical stability (min=clip, max=1-clip)
+    clip : float, default=0.01
+        Limit to clip p_x and f_mtx for numerical stability (min=clip,
+        max=1-clip)
 
     normalized : boolean, default=True
-        Normalizes the inverse probability-based weights so they add up to 1, as
-        described in "Identifying causal mechanisms (primarily) based on inverse probability weighting",
-        Huber (2014), https://doi.org/10.1002/jae.2341
+        Normalizes the inverse probability-based weights so they add up to 1,
+        as described in "Identifying causal mechanisms (primarily) based on
+        inverse probability weighting", Huber (2014),
+        https://doi.org/10.1002/jae.2341
 
     regularization : boolean, default=True
         Whether to use regularized models (logistic or linear regression).
         If True, cross-validation is used to chose among 8 potential
         log-spaced values between 1e-5 and 1e5
 
-    calibration_method : str, default="sigmoid"
+    calibration : str, default="sigmoid"
         Which calibration method to use.
         Implemented calibration methods are "sigmoid" and "isotonic".
 
@@ -454,13 +477,27 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False, cross
     if n != len(x) or n != len(m) or n != len(t):
         raise ValueError("Inputs don't have the same number of observations")
 
-    regressor_y, regressor_cross_y, classifier_m, classifier_t_x = _get_y_m_t_predictors(regularization, forest,
-                                                                                         calibration_method)
-    p_x, f, mu, cross_mu = _estimate_f_mu_cross_mu(t, m, x, y, crossfit, regressor_y, regressor_cross_y, classifier_m,
-                                                   classifier_t_x, interaction)
-    f_m0x, f_m1x = f
-    mu_0mx, mu_1mx = mu
-    E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = cross_mu
+    # estimate propensities
+    classifier_t_x = _get_classifier(regularization, forest, calibration)
+    p_x, _ = _estimate_treatment_probabilities(t, m, x, crossfit,
+                                               classifier_t_x,
+                                               clone(classifier_t_x))
+
+    # estimate mediator densities
+    classifier_m = _get_classifier(regularization, forest, calibration)
+    f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x = (
+        _estimate_mediator_density(t, m, x, y, crossfit,
+                                   classifier_m, interaction))
+    f = f_00x, f_01x, f_10x, f_11x
+
+    # estimate conditional mean outcomes
+    regressor_y = _get_regressor(regularization, forest)
+    regressor_cross_y = _get_regressor(regularization, forest)
+    mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
+        _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit,
+                                                 regressor_y,
+                                                 regressor_cross_y, f,
+                                                 interaction))
 
     # clipping
     p_x_clip = p_x != np.clip(p_x, clip, 1 - clip)
@@ -483,29 +520,31 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False, cross
         sum_score_t0m1 = np.mean((1 - t) / (1 - p_x) * (f_m1x / f_m0x))
 
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
+        y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
+                + E_mu_t0_t0)
         y1m0 = (
-            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
-            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
-            + E_mu_t1_t0
+                ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
+                + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
+                + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)) / sum_score_t0m1
-            + t / p_x * (mu_0mx - E_mu_t0_t1) / sum_score_m1
-            + E_mu_t0_t1
+                ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
+                / sum_score_t0m1 + t / p_x * (
+                            mu_0mx - E_mu_t0_t1) / sum_score_m1
+                + E_mu_t0_t1
         )
     else:
         y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
         y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
         y1m0 = (
-            (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
-            + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
-            + E_mu_t1_t0
+                (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
+                + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+                + E_mu_t1_t0
         )
         y0m1 = (
-            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
-            + t / p_x * (mu_0mx - E_mu_t0_t1)
-            + E_mu_t0_t1
+                (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
+                + t / p_x * (mu_0mx - E_mu_t0_t1)
+                + E_mu_t0_t1
         )
 
     # effects computing
@@ -532,7 +571,8 @@ def r_mediate(y, t, m, x, interaction=False):
             treatment value for each unit, binary
 
     m : array-like, shape (n_samples)
-            mediator value for each unit, here m is necessary binary and unidimensional
+            mediator value for each unit, here m is necessary binary and
+            unidimensional
 
     x : array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
@@ -623,8 +663,8 @@ def r_mediation_g_estimator(y, t, m, x):
 
 def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     """
-    This function calls the R Double Machine Learning estimator from the package causalweight
-    (https://cran.r-project.org/web/packages/causalweight)
+    This function calls the R Double Machine Learning estimator from the
+    package causalweight (https://cran.r-project.org/web/packages/causalweight)
 
     Parameters
     ----------
@@ -641,15 +681,14 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     x : array-like, shape (n_samples, n_features_covariates)
             covariates (potential confounders) values
 
-    trim : float
+    trim : float, default=0.05
             Trimming rule for discarding observations with extreme
             conditional treatment or mediator probabilities
             (or products thereof). Observations with (products of)
             conditional probabilities that are smaller than trim in any
             denominator of the potential outcomes are dropped.
-            Default is 0.05.
 
-    order : integer
+    order : integer, default=1
             If set to an integer larger than 1, then polynomials of that
             order and interactions using the power series) rather than the
             original control variables are used in the estimation of any
@@ -665,11 +704,14 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalized=True, regularization=True,
-                  random_state=None, calibration_method=None):
+def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
+                  normalized=True, regularization=True, random_state=None,
+                  calibration=None):
     """
-    Python implementation of Double Machine Learning procedure, as described in :
-    Helmut Farbmacher and others, Causal mediation analysis with double machine learning,
+    Python implementation of Double Machine Learning procedure, as described
+    in :
+    Helmut Farbmacher and others, Causal mediation analysis with double
+    machine learning,
     The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
     https://doi.org/10.1093/ectj/utac003
 
@@ -688,7 +730,7 @@ def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalize
     x : array-like, shape (n_samples, n_features_covariates)
         Covariates value for each unit, multidimensional or continuous.
 
-    use_forest : boolean, default=False
+    forest : boolean, default=False
         Whether to use a random forest model to estimate the propensity
         scores instead of logistic regression, and outcome model instead
         of linear regression.
@@ -700,8 +742,9 @@ def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalize
         Trimming treshold for discarding observations with extreme probability.
 
     normalized : boolean, default=True
-        Normalizes the inverse probability-based weights so they add up to 1, as
-        described in "Identifying causal mechanisms (primarily) based on inverse probability weighting",
+        Normalizes the inverse probability-based weights so they add up to 1,
+        as described in "Identifying causal mechanisms (primarily) based on
+        inverse probability weighting",
         Huber (2014), https://doi.org/10.1002/jae.2341
 
     regularization : boolean, default=True
@@ -712,9 +755,10 @@ def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalize
     random_state : int, default=None
         LogisticRegression random state instance.
 
-    calibration_method : {None, "sigmoid", "isotonic"}, default=None
+    calibration : {None, "sigmoid", "isotonic"}, default=None
         Whether to add a calibration step for the classifier used to estimate
-        the treatment propensity score and P(T|M,X). "None" means no calibration.
+        the treatment propensity score and P(T|M,X). "None" means no
+        calibration.
         Calibration ensures the output of the [predict_proba]
         (https://scikit-learn.org/stable/glossary.html#term-predict_proba)
         method can be directly interpreted as a confidence level.
@@ -771,18 +815,25 @@ def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalize
         "mu_0mx",
         "E_mu_t1_t0",
         "E_mu_t0_t1",
-        "mu_1x",
-        "mu_0x",
+        "E_mu_t1_t1",
+        "E_mu_t0_t0",
     ]
 
-    classifier_t_x, classifier_t_xm, regressor_y, regressor_cross_y = _get_t_y_predictors(regularization, use_forest,
-                                                                                          calibration_method,
-                                                                                          random_state)
-    p, mu, cross_mu = _estimate_px_mu_cross_mu(t, m, x, y, crossfit, classifier_t_x, classifier_t_xm,
-                                               regressor_y, regressor_cross_y)
-    p_x, p_xm = p
-    mu_1mx, mu_1mx_nested, mu_0mx, mu_0mx_nested, mu_1x, mu_0x = mu
-    E_mu_t0_t1, E_mu_t1_t0 = cross_mu
+    # estimate propensities
+    classifier_t_x = _get_classifier(regularization, forest, calibration)
+    classifier_t_xm = _get_classifier(regularization, forest, calibration)
+    p_x, p_xm = _estimate_treatment_probabilities(t, m, x, crossfit,
+                                                  classifier_t_x,
+                                                  classifier_t_xm)
+
+    # estimate conditional mean outcomes
+    regressor_y = _get_regressor(regularization, forest)
+    regressor_cross_y = _get_regressor(regularization, forest)
+
+    mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
+        _estimate_cross_conditional_mean_outcome_bis(t, m, x, y, crossfit,
+                                                     regressor_y,
+                                                     regressor_cross_y))
 
     # trimming
     not_trimmed = (
@@ -801,21 +852,23 @@ def mediation_DML(y, t, m, x, use_forest=False, crossfit=0, trim=0.05, normalize
         sum_score_m0 = np.mean((1 - t) / (1 - p_x))
         sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
         sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
-        y1m1 = (t / p_x * (y - mu_1x)) / sum_score_m1 + mu_1x
-        y0m0 = ((1 - t) / (1 - p_x) * (y - mu_0x)) / sum_score_m0 + mu_0x
+        y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
+        y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
+                + E_mu_t0_t0)
         y1m0 = (
-            (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
-            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
-            + E_mu_t1_t0
+            (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx))
+            / sum_score_t1m0 + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0))
+            / sum_score_m0 + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sum_score_t0m1
+            ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx))
+            / sum_score_t0m1
             + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sum_score_m1
             + E_mu_t0_t1
         )
     else:
-        y1m1 = t / p_x * (y - mu_1x) + mu_1x
-        y0m0 = (1 - t) / (1 - p_x) * (y - mu_0x) + mu_0x
+        y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
+        y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
         y1m0 = (
             t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)
             + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
