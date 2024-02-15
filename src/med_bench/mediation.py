@@ -24,7 +24,7 @@ from sklearn.preprocessing import PolynomialFeatures
 
 from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_cross_conditional_mean_outcome,
-                              _estimate_cross_conditional_mean_outcome_bis,
+                              _estimate_cross_conditional_mean_outcome_nesting,
                               _estimate_mediator_density,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
@@ -831,9 +831,9 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
     regressor_cross_y = _get_regressor(regularization, forest)
 
     mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-        _estimate_cross_conditional_mean_outcome_bis(t, m, x, y, crossfit,
-                                                     regressor_y,
-                                                     regressor_cross_y))
+        _estimate_cross_conditional_mean_outcome_nesting(t, m, x, y, crossfit,
+                                                         regressor_y,
+                                                         regressor_cross_y))
 
     # trimming
     not_trimmed = (

@@ -88,7 +88,7 @@ def _get_classifier(regularization, forest, calibration, random_state=42):
 
 def _get_regressor(regularization, forest, random_state=42):
     """
-    Obtain context classifiers to estimate treatment probabilities.
+    Obtain regressors to estimate conditional mean outcomes.
 
     Returns
     -------
@@ -302,10 +302,6 @@ def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
 
     # Initialisation
     (
-        #         f_00x,  # f(M=0|T=0,X)
-        #         f_01x,  # f(M=0|T=1,X)
-        #         f_10x,  # f(M=1|T=0,X)
-        #         f_11x,  # f(M=1|T=1,X)
         mu_1mx,  # E[Y|T=1,M,X]
         mu_0mx,  # E[Y|T=0,M,X]
         mu_11x,  # E[Y|T=1,M=1,X]
@@ -403,8 +399,8 @@ def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
 
 
-def _estimate_cross_conditional_mean_outcome_bis(t, m, x, y, crossfit, reg_y,
-                                                 reg_cross_y):
+def _estimate_cross_conditional_mean_outcome_nesting(t, m, x, y, crossfit,
+                                                     reg_y, reg_cross_y):
     """
     Estimate treatment probabilities and the conditional mean outcome,
     cross conditional mean outcome
