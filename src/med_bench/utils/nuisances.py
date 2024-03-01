@@ -202,8 +202,8 @@ def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
         f_11x[test_index] = fm_1[:, 1]
 
         # predict f(M|T=t,X)
-        f_m0x[test_index] = fm_0[test_ind, m[test_index]]
-        f_m1x[test_index] = fm_1[test_ind, m[test_index]]
+        f_m0x[test_index] = fm_0[test_ind, m[test_index].astype(int)]
+        f_m1x[test_index] = fm_1[test_ind, m[test_index].astype(int)]
 
     return f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x
 
