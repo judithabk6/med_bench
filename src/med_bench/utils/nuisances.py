@@ -81,7 +81,7 @@ def _get_classifier(regularization, forest, calibration, random_state=42):
         clf = RandomForestClassifier(random_state=random_state,
                                      n_estimators=100, min_samples_leaf=10)
     if calibration in {"sigmoid", "isotonic"}:
-        clf = CalibratedClassifierCV(clf, method=calibration, random_state=random_state)
+        clf = CalibratedClassifierCV(clf, method=calibration)
 
     return clf
 
@@ -97,7 +97,7 @@ def _get_regressor(regularization, forest, random_state=42):
     _, alphas = _get_regularization_parameters(regularization)
 
     if not forest:
-        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS, random_state=random_state)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
     else:
         reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=random_state)
 
