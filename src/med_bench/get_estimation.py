@@ -4,7 +4,7 @@
 
 import time
 import sys
-from rpy2.rinterface_lib.embedded import RRuntimeError
+# from rpy2.rinterface_lib.embedded import RRuntimeError
 import pandas as pd
 import numpy as np
 from .mediation import (

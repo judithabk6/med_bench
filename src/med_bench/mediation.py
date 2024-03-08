@@ -8,10 +8,10 @@ causal inference, simulate data, and evaluate and compare estimators
 
 import numpy as np
 import pandas as pd
-import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
+# import rpy2.robjects as robjects
+# import rpy2.robjects.packages as rpackages
 from numpy.random import default_rng
-from rpy2.robjects import numpy2ri, pandas2ri
+# from rpy2.robjects import numpy2ri, pandas2ri
 from scipy import stats
 from scipy.special import expit
 from scipy.stats import bernoulli
@@ -28,17 +28,24 @@ from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_mediator_density,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
-from .utils.utils import _convert_array_to_R
+from .utils.utils import check_r_dependencies
 
-pandas2ri.activate()
-numpy2ri.activate()
+if check_r_dependencies():
+    from .utils.utils import _convert_array_to_R
+    import rpy2.robjects as robjects
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
 
-causalweight = rpackages.importr('causalweight')
-mediation = rpackages.importr('mediation')
-Rstats = rpackages.importr('stats')
-base = rpackages.importr('base')
-grf = rpackages.importr('grf')
-plmed = rpackages.importr('plmed')
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    causalweight = rpackages.importr('causalweight')
+    mediation = rpackages.importr('mediation')
+    Rstats = rpackages.importr('stats')
+    base = rpackages.importr('base')
+    grf = rpackages.importr('grf')
+    plmed = rpackages.importr('plmed')
+
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5

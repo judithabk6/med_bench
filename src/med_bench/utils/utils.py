@@ -1,8 +1,37 @@
 import numpy as np
 
-import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
-from rpy2.robjects import pandas2ri, numpy2ri
+# import rpy2.robjects.packages as rpackages
+# from rpy2.robjects import pandas2ri, numpy2ri
+
+import subprocess
+
+
+def check_r_dependencies():
+    try:
+        # Check if R is accessible by trying to get its version
+        result = subprocess.run(["R", "--version"], capture_output=True, text=True, check=True)
+        
+        # If the above command fails, it will raise a subprocess.CalledProcessError and won't reach here
+        
+        # Assuming reaching here means R is accessible, now try importing rpy2 packages
+        import rpy2.robjects.packages as rpackages
+        required_packages = ['causalweight', 'mediation', 'stats', 'base', 'grf', 'plmed']
+
+        for package in required_packages:
+            rpackages.importr(package)
+
+        return True  # All checks passed, R and required packages are available
+
+    except (subprocess.CalledProcessError, FileNotFoundError, ModuleNotFoundError) as e:
+        # Handle the case where R is not found or rpy2 is not installed
+        print(f"R or required R packages not available: {e}")
+        return False
+
+    
+
+if check_r_dependencies():
+    import rpy2.robjects as robjects
+
 
 def _get_interactions(interaction, *args):
     """
