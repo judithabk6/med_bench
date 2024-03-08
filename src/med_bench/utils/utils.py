@@ -9,7 +9,8 @@ import subprocess
 def check_r_dependencies():
     try:
         # Check if R is accessible by trying to get its version
-        result = subprocess.run(["R", "--version"], capture_output=True, text=True, check=True)
+        # result = subprocess.run(["R", "--version"], capture_output=True, text=True, check=True)
+        subprocess.check_output(["R", "--version"])
         
         # If the above command fails, it will raise a subprocess.CalledProcessError and won't reach here
         
@@ -22,9 +23,9 @@ def check_r_dependencies():
 
         return True  # All checks passed, R and required packages are available
 
-    except (subprocess.CalledProcessError, FileNotFoundError, ModuleNotFoundError) as e:
+    except:
         # Handle the case where R is not found or rpy2 is not installed
-        print(f"R or required R packages not available: {e}")
+        print("R or required R packages not available")
         return False
 
     
