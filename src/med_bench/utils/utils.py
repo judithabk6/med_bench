@@ -4,6 +4,7 @@ import numpy as np
 # from rpy2.robjects import pandas2ri, numpy2ri
 
 import subprocess
+import warnings
 
 
 def check_r_dependencies():
@@ -28,9 +29,54 @@ def check_r_dependencies():
         print("R or required R packages not available")
         return False
 
+
+def is_r_installed():
+    try:
+        subprocess.check_output(["R", "--version"])
+        return True
+    except:
+        return False
+
+def check_r_package(package_name):
+    try:
+        import rpy2.robjects.packages as rpackages
+        rpackages.importr(package_name)
+        return True
+    except Exception:
+        return False
     
 
-if check_r_dependencies():
+def r_dependency_required(required_packages):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not is_r_installed():
+                warnings.warn("R is not installed or not found. Please install R and set it up correctly in your system.")
+                return None
+            
+            for package in required_packages:
+                if not check_r_package(package):
+                    if package!='plmed':
+                        warnings.warn(f"The '{package}' R package is not installed. Please install it using R by running:\n"
+                                        "import rpy2.robjects.packages as rpackages\n"
+                                        "utils = rpackages.importr('utils')\n"
+                                        "utils.chooseCRANmirror(ind=33)\n"
+                                        f"utils.install_packages('{package}')")
+                    else:
+                        warnings.warn("The 'plmed' R package is not installed. Please install it using R by running:\n"
+                                        "import rpy2.robjects.packages as rpackages\n"
+                                        "utils = rpackages.importr('utils')\n"
+                                        "utils.chooseCRANmirror(ind=33)\n"
+                                        "utils.install_packages('devtools')\n"
+                                        "devtools = rpackages.importr('devtools')"
+                                        "devtools.install_github('ohines/plmed')")    
+                    return None
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+        
+
+if is_r_installed():
     import rpy2.robjects as robjects
 
 
