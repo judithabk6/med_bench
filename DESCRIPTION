@@ -1,8 +1,0 @@
-Package: med_bench
-Version: 0.1.0
-Imports:
-    grf,
-    causalweight,
-    mediation
-Remotes: 
-    ohines/plmed
