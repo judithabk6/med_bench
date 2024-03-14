@@ -29,24 +29,6 @@ from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
 from .utils.utils import r_dependency_required
-# import warnings
-
-# if check_r_dependencies():
-    # from .utils.utils import _convert_array_to_R
-#     import rpy2.robjects as robjects
-#     import rpy2.robjects.packages as rpackages
-#     from rpy2.robjects import numpy2ri, pandas2ri
-
-#     pandas2ri.activate()
-#     numpy2ri.activate()
-
-    # causalweight = rpackages.importr('causalweight')
-    # mediation = rpackages.importr('mediation')
-    # Rstats = rpackages.importr('stats')
-    # base = rpackages.importr('base')
-    # grf = rpackages.importr('grf')
-    # plmed = rpackages.importr('plmed')
-
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
