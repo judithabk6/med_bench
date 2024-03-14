@@ -1,4 +1,4 @@
-name: CI-with-R
+name: cache-R
 
 on:
   push:
@@ -48,7 +48,3 @@ jobs:
     - name: Install Pytest
       run: |
         pip install pytest
-
-    - name: Run tests
-      run: |
-        pytest
