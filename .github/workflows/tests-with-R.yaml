@@ -32,11 +32,11 @@ jobs:
     - name: Install R packages
       uses: r-lib/actions/setup-r-dependencies@v2
       with:
-        cache: TRUE
+        cache: true
         cache-version: 1
         dependencies: 'NA'
-        install-pandoc: FALSE
-        packages: |
+        install-pandoc: false
+        extra-packages: |
           grf
           causalweight
           mediation
