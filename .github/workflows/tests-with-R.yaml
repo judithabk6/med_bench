@@ -34,8 +34,8 @@ jobs:
       with:
         cache: true
         cache-version: 1
-        # dependencies: 'NA'
-        install-pandoc: false
+        dependencies: 'NA'
+        # install-pandoc: false
         extra-packages: |
           grf
           causalweight
