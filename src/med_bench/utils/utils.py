@@ -26,7 +26,7 @@ def check_r_dependencies():
 
     except:
         # Handle the case where R is not found or rpy2 is not installed
-        print("R or required R packages not available")
+        # print("R or required R packages not available")
         return False
 
 

@@ -225,9 +225,9 @@ def effects_chap(x, t, m, y, estimator, config):
     # try whether estimator is implemented or not
 
     r_dependent_estimators = ["mediation_IPW_R", "simulation_based", "mediation_DML", "mediation_g_estimator"]
-    # required_r_packages = ['causalweight', 'mediation', 'plmed', 'grf']
 
     if estimator in r_dependent_estimators and not check_r_dependencies():
+        print("R or some required R packages ('causalweight', 'mediation', 'stats', 'base', 'grf', 'plmed') not available")
         pytest.skip(f"Skipping {estimator} as the required R environment/packages are not available.")
 
     try:
