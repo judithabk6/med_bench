@@ -8,10 +8,7 @@ causal inference, simulate data, and evaluate and compare estimators
 
 import numpy as np
 import pandas as pd
-# import rpy2.robjects as robjects
-# import rpy2.robjects.packages as rpackages
 from numpy.random import default_rng
-# from rpy2.robjects import numpy2ri, pandas2ri
 from scipy import stats
 from scipy.special import expit
 from scipy.stats import bernoulli

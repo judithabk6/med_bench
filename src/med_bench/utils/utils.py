@@ -1,8 +1,4 @@
 import numpy as np
-
-# import rpy2.robjects.packages as rpackages
-# from rpy2.robjects import pandas2ri, numpy2ri
-
 import subprocess
 import warnings
 
@@ -10,14 +6,15 @@ import warnings
 def check_r_dependencies():
     try:
         # Check if R is accessible by trying to get its version
-        # result = subprocess.run(["R", "--version"], capture_output=True, text=True, check=True)
         subprocess.check_output(["R", "--version"])
         
         # If the above command fails, it will raise a subprocess.CalledProcessError and won't reach here
         
         # Assuming reaching here means R is accessible, now try importing rpy2 packages
         import rpy2.robjects.packages as rpackages
-        required_packages = ['causalweight', 'mediation', 'stats', 'base', 'grf', 'plmed']
+        required_packages = [
+            'causalweight', 'mediation', 'stats', 'base', 'grf', 'plmed'
+            ]
 
         for package in required_packages:
             rpackages.importr(package)
@@ -26,7 +23,6 @@ def check_r_dependencies():
 
     except:
         # Handle the case where R is not found or rpy2 is not installed
-        # print("R or required R packages not available")
         return False
 
 
@@ -42,7 +38,7 @@ def check_r_package(package_name):
         import rpy2.robjects.packages as rpackages
         rpackages.importr(package_name)
         return True
-    except Exception:
+    except:
         return False
     
 
@@ -50,30 +46,38 @@ def r_dependency_required(required_packages):
     def decorator(func):
         def wrapper(*args, **kwargs):
             if not is_r_installed():
-                warnings.warn("R is not installed or not found. Please install R and set it up correctly in your system.")
+                warnings.warn(
+                    "R is not installed or not found. "
+                    "Please install R and set it up correctly in your system."
+                )
                 return None
             
             for package in required_packages:
                 if not check_r_package(package):
                     if package!='plmed':
-                        warnings.warn(f"The '{package}' R package is not installed. Please install it using R by running:\n"
-                                        "import rpy2.robjects.packages as rpackages\n"
-                                        "utils = rpackages.importr('utils')\n"
-                                        "utils.chooseCRANmirror(ind=33)\n"
-                                        f"utils.install_packages('{package}')")
+                        warnings.warn(
+                            f"The '{package}' R package is not installed. "
+                            "Please install it using R by running:\n"
+                            "import rpy2.robjects.packages as rpackages\n"
+                            "utils = rpackages.importr('utils')\n"
+                            "utils.chooseCRANmirror(ind=33)\n"
+                            f"utils.install_packages('{package}')"
+                            )
                     else:
-                        warnings.warn("The 'plmed' R package is not installed. Please install it using R by running:\n"
-                                        "import rpy2.robjects.packages as rpackages\n"
-                                        "utils = rpackages.importr('utils')\n"
-                                        "utils.chooseCRANmirror(ind=33)\n"
-                                        "utils.install_packages('devtools')\n"
-                                        "devtools = rpackages.importr('devtools')"
-                                        "devtools.install_github('ohines/plmed')")    
+                        warnings.warn(
+                            "The 'plmed' R package is not installed. "
+                            "Please install it using R by running:\n"
+                            "import rpy2.robjects.packages as rpackages\n"
+                            "utils = rpackages.importr('utils')\n"
+                            "utils.chooseCRANmirror(ind=33)\n"
+                            "utils.install_packages('devtools')\n"
+                            "devtools = rpackages.importr('devtools')\n"
+                            "devtools.install_github('ohines/plmed')"
+                            )    
                     return None
             return func(*args, **kwargs)
         return wrapper
     return decorator
-
         
 
 if is_r_installed():
