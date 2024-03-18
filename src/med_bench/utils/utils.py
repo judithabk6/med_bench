@@ -1,8 +1,6 @@
 import numpy as np
-
 import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
-from rpy2.robjects import pandas2ri, numpy2ri
+
 
 def _get_interactions(interaction, *args):
     """
@@ -41,7 +39,7 @@ def _get_interactions(interaction, *args):
     variables = list(args)
     for index, var in enumerate(variables):
         if len(var.shape) == 1:
-            variables[index] = var.reshape(-1,1)
+            variables[index] = var.reshape(-1, 1)
     pre_inter_variables = np.hstack(variables)
     if not interaction:
         return pre_inter_variables
@@ -54,6 +52,7 @@ def _get_interactions(interaction, *args):
     new_vars = np.hstack(new_cols)
     result = np.hstack((pre_inter_variables, new_vars))
     return result
+
 
 def _convert_array_to_R(x):
     """

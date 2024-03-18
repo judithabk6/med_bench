@@ -3,19 +3,13 @@ the objective of this script is to implement nuisances functions
 used in mediation estimators in causal inference
 """
 import numpy as np
-import pandas as pd
-from numpy.random import default_rng
-from scipy import stats
-from scipy.special import expit
-from scipy.stats import bernoulli
 from sklearn.base import clone
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
+from sklearn.linear_model import LogisticRegressionCV, RidgeCV
 from sklearn.model_selection import KFold
-from sklearn.preprocessing import PolynomialFeatures
 
-from .utils import _convert_array_to_R, _get_interactions
+from .utils import _get_interactions
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
@@ -99,7 +93,8 @@ def _get_regressor(regularization, forest, random_state=42):
     if not forest:
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
     else:
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=random_state)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=random_state)
 
     return reg
 
@@ -191,7 +186,7 @@ def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
 
         # f_mtx model fitting
         clf_m = clf_m.fit(t_x[train_index, :], m[train_index])
-        #clf_m = clf_m.fit(t_x[train_index, :], m.ravel()[train_index])
+        # clf_m = clf_m.fit(t_x[train_index, :], m.ravel()[train_index])
 
         # predict f(M=m|T=t,X)
         fm_0 = clf_m.predict_proba(t0_x[test_index, :])
@@ -364,12 +359,12 @@ def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
 
         # predict E[E[Y|T=1,M=m,X]|T=t,X]
         E_mu_t1_t0[test_index] = (
-                reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index]
-                + reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
+            reg_y_t1m0_t0.predict(x[test_index, :]) * f_00x[test_index]
+            + reg_y_t1m1_t0.predict(x[test_index, :]) * f_01x[test_index]
         )
         E_mu_t1_t1[test_index] = (
-                reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index]
-                + reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
+            reg_y_t1m0_t1.predict(x[test_index, :]) * f_10x[test_index]
+            + reg_y_t1m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
         # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
@@ -388,12 +383,12 @@ def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
 
         # predict E[E[Y|T=0,M=m,X]|T=t,X]
         E_mu_t0_t0[test_index] = (
-                reg_y_t0m0_t0.predict(x[test_index, :]) * f_00x[test_index]
-                + reg_y_t0m1_t0.predict(x[test_index, :]) * f_01x[test_index]
+            reg_y_t0m0_t0.predict(x[test_index, :]) * f_00x[test_index]
+            + reg_y_t0m1_t0.predict(x[test_index, :]) * f_01x[test_index]
         )
         E_mu_t0_t1[test_index] = (
-                reg_y_t0m0_t1.predict(x[test_index, :]) * f_10x[test_index]
-                + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
+            reg_y_t0m0_t1.predict(x[test_index, :]) * f_10x[test_index]
+            + reg_y_t0m1_t1.predict(x[test_index, :]) * f_11x[test_index]
         )
 
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
