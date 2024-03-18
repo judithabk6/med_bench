@@ -1,13 +1,7 @@
 import numpy as np
 from numpy.random import default_rng
 from scipy import stats
-import pandas as pd
-from pathlib import Path
-from scipy.stats import bernoulli
 from scipy.special import expit
-import matplotlib.pyplot as plt
-import pathlib
-import seaborn as sns
 
 
 def simulate_data(n,
@@ -23,16 +17,16 @@ def simulate_data(n,
                   beta_t_factor=1,
                   beta_m_factor=1):
     """Simulate data for mediation analysis
-    
+
     Parameters
     ----------
     n:  :obj:`int`,
         Number of samples to generate.
-    
+
     rg: RandomState instance,
         Controls the pseudo random number generator used to generate the
         data at fit time.
-    
+
     mis_spec_m: obj:`bool`, 
         Whether the mediator generation is misspecified or not
         defaults to False
@@ -40,7 +34,7 @@ def simulate_data(n,
     mis_spec_y: obj:`bool`, 
         Whether the output model is misspecified or not
         defaults to False
-    
+
     dim_x: :obj:`int`, optional,
         Number of covariates in the input.
         Defaults to 1
@@ -48,13 +42,13 @@ def simulate_data(n,
     dim_m: :obj:`int`, optional,
         Number of mediatiors to generate.
         Defaults to 1
-    
+
     seed: :obj:`int` or None, optional,
         Controls the pseudo random number generator used to generate the
         coefficients of the model.
         Pass an int for reproducible output across multiple function calls.
         Defaults to None
-    
+
     type_m: :obj:`str`,
         Whether the mediator is binary or continuous
         Defaults to 'binary',
@@ -66,7 +60,7 @@ def simulate_data(n,
     sigma_m :obj:`float`,
         noise variance on mediator
         Defaults to 0.5,
-    
+
     beta_t_factor: :obj:`float`,
         scaling factor on treatment effect,
         Defaults to 1,
@@ -74,18 +68,18 @@ def simulate_data(n,
     beta_m_factor: :obj:`float`,
         scaling factor on mediator,
         Defaults to 1,
-    
+
     returns
     -------
     x: ndarray of shape (n, dim_x)
         the simulated covariates
-    
+
     t: ndarray of shape (n, 1)
         the simulated treatment
-    
+
     m: ndarray of shape (n, dim_m)
         the simulated mediators
-     
+
     y: ndarray of shape (n, 1)
         the simulated outcome
 
@@ -137,9 +131,11 @@ def simulate_data(n,
         m = m_2d[np.arange(n), t[:, 0]].reshape(-1, 1)
     else:
         random_noise = sigma_m * rg.standard_normal((n, dim_m))
-        m0 = x.dot(beta_x) + t0.dot(beta_t) + t0 * (x.dot(beta_xt)) + random_noise
-        m1 = x.dot(beta_x) + t1.dot(beta_t) + t1 * (x.dot(beta_xt)) + random_noise
-        m = x.dot(beta_x) + t.dot(beta_t) + t * (x.dot(beta_xt)) + random_noise       
+        m0 = x.dot(beta_x) + t0.dot(beta_t) + t0 * \
+            (x.dot(beta_xt)) + random_noise
+        m1 = x.dot(beta_x) + t1.dot(beta_t) + t1 * \
+            (x.dot(beta_xt)) + random_noise
+        m = x.dot(beta_x) + t.dot(beta_t) + t * (x.dot(beta_xt)) + random_noise
 
     # generate the outcome Y
     gamma_m = np.ones((dim_m, 1)) * 0.5 / dim_m * beta_m_factor
@@ -150,31 +146,38 @@ def simulate_data(n,
     else:
         gamma_t_m = np.zeros((dim_m, 1))
 
-    y = x.dot(gamma_x) + gamma_t * t + m.dot(gamma_m) + m.dot(gamma_t_m) * t + sigma_y * rg.standard_normal((n, 1))
+    y = x.dot(gamma_x) + gamma_t * t + m.dot(gamma_m) + \
+        m.dot(gamma_t_m) * t + sigma_y * rg.standard_normal((n, 1))
 
     # Compute differents types of effects
     if type_m == 'binary':
         theta_1 = gamma_t + gamma_t_m * np.mean(p_m1)
         theta_0 = gamma_t + gamma_t_m * np.mean(p_m0)
-        delta_1 = np.mean((p_m1 - p_m0) * (gamma_m.flatten() + gamma_t_m.dot(t1.T)))
-        delta_0 = np.mean((p_m1 - p_m0) * (gamma_m.flatten() + gamma_t_m.dot(t0.T)))
+        delta_1 = np.mean(
+            (p_m1 - p_m0) * (gamma_m.flatten() + gamma_t_m.dot(t1.T)))
+        delta_0 = np.mean(
+            (p_m1 - p_m0) * (gamma_m.flatten() + gamma_t_m.dot(t0.T)))
     else:
-        theta_1 = gamma_t + gamma_t_m.T.dot(np.mean(m1, axis=0)) # to do mean(m1) pour avoir un vecteur de taille dim_m
+        # to do mean(m1) pour avoir un vecteur de taille dim_m
+        theta_1 = gamma_t + gamma_t_m.T.dot(np.mean(m1, axis=0))
         theta_0 = gamma_t + gamma_t_m.T.dot(np.mean(m0, axis=0))
-        delta_1 = (gamma_t * t1 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t1 - (gamma_t * t1 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t1)).mean()
-        delta_0 = (gamma_t * t0 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t0 - (gamma_t * t0 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t0)).mean()
+        delta_1 = (gamma_t * t1 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t1 -
+                   (gamma_t * t1 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t1)).mean()
+        delta_0 = (gamma_t * t0 + m1.dot(gamma_m) + m1.dot(gamma_t_m) * t0 -
+                   (gamma_t * t0 + m0.dot(gamma_m) + m0.dot(gamma_t_m) * t0)).mean()
 
     if type_m == 'binary':
         pre_pm = np.hstack((p_m0.reshape(-1, 1), p_m1.reshape(-1, 1)))
-        pre_pm[m.ravel()==0, :] = 1 - pre_pm[m.ravel()==0, :]
+        pre_pm[m.ravel() == 0, :] = 1 - pre_pm[m.ravel() == 0, :]
         pm = pre_pm[:, 1].reshape(-1, 1)
     else:
-        p_m0 = np.prod(stats.norm.pdf((m - x.dot(beta_x)) - t0.dot(beta_t) - t0 * (x.dot(beta_xt)) / sigma_m), axis=1)
-        p_m1 = np.prod(stats.norm.pdf((m - x.dot(beta_x)) - t1.dot(beta_t) - t1 * (x.dot(beta_xt)) / sigma_m), axis=1)
+        p_m0 = np.prod(stats.norm.pdf((m - x.dot(beta_x)) -
+                       t0.dot(beta_t) - t0 * (x.dot(beta_xt)) / sigma_m), axis=1)
+        p_m1 = np.prod(stats.norm.pdf((m - x.dot(beta_x)) -
+                       t1.dot(beta_t) - t1 * (x.dot(beta_xt)) / sigma_m), axis=1)
         pre_pm = np.hstack((p_m0.reshape(-1, 1), p_m1.reshape(-1, 1)))
         pm = pre_pm[:, 1].reshape(-1, 1)
 
-        
     px = np.prod(stats.norm.pdf(x), axis=1)
 
     pre_pt = np.hstack(((1-p_t).reshape(-1, 1), p_t.reshape(-1, 1)))
@@ -182,15 +185,15 @@ def simulate_data(n,
     denom = np.sum(pre_pm * pre_pt * double_px, axis=1)
     num = pm.ravel() * p_t.ravel() * px.ravel()
     th_p_t_mx = num.ravel() / denom
-    
-    return (x, 
-            t, 
-            m, 
-            y, 
+
+    return (x,
+            t,
+            m,
+            y,
             theta_1.flatten()[0] + delta_0.flatten()[0],
-            theta_1.flatten()[0], 
-            theta_0.flatten()[0], 
+            theta_1.flatten()[0],
+            theta_0.flatten()[0],
             delta_1.flatten()[0],
-            delta_0.flatten()[0], 
-            p_t, 
+            delta_0.flatten()[0],
+            p_t,
             th_p_t_mx)
