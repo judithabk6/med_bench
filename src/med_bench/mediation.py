@@ -129,12 +129,12 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
         np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
 
-    return [y1m1 - y0m0,
+    return (y1m1 - y0m0,
             y1m1 - y0m1,
             y1m0 - y0m0,
             y1m1 - y1m0,
             y0m1 - y0m0,
-            np.sum(ind)]
+            np.sum(ind))
 
 
 def mediation_coefficient_product(y, t, m, x, interaction=False,
@@ -209,12 +209,12 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
     # return total, direct and indirect effect
     direct_effect = y_reg.coef_[x.shape[1]]
     indirect_effect = sum(y_reg.coef_[x.shape[1] + 1:] * coef_t_m)
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
@@ -290,12 +290,12 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                                + indirect_effect_i0 * mu_00x).sum() / n
     total_effect = direct_effect_control + indirect_effect_treated
 
-    return [total_effect,
+    return (total_effect,
             direct_effect_treated,
             direct_effect_control,
             indirect_effect_treated,
             indirect_effect_control,
-            None]
+            None)
 
 
 def alternative_estimator(y, t, m, x, regularization=True):
@@ -358,12 +358,12 @@ def alternative_estimator(y, t, m, x, regularization=True):
     # computation of indirect effect
     indirect_effect = total_effect - direct_effect
 
-    return [total_effect,
+    return (total_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
@@ -547,7 +547,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     indirect1 = np.mean(y1m1 - y1m0)
     indirect0 = np.mean(y0m1 - y0m0)
 
-    return [total, direct1, direct0, indirect1, indirect0, n_discarded]
+    return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
 def r_mediate(y, t, m, x, interaction=False):
@@ -646,12 +646,12 @@ def r_mediation_g_estimator(y, t, m, x):
                              data=base.as_symbol('df'))
     direct_effect = res.rx2('coef')[0]
     indirect_effect = res.rx2('coef')[1]
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
@@ -884,4 +884,4 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
     direct0 = my1m0 - my0m0
     indirect1 = my1m1 - my1m0
     indirect0 = my0m1 - my0m0
-    return [total, direct1, direct0, indirect1, indirect0, n - nobs]
+    return total, direct1, direct0, indirect1, indirect0, n - nobs
