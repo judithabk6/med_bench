@@ -19,6 +19,8 @@ from numpy.random import default_rng
 from med_bench.get_simulated_data import simulate_data
 from med_bench.get_estimation import get_estimation
 
+from med_bench.utils.utils import check_r_dependencies
+
 
 SMALL_ATE_TOLERANCE = 0.05
 SMALL_DIRECT_TOLERANCE = 0.05
@@ -221,6 +223,21 @@ def config(dict_param):
 @pytest.fixture
 def effects_chap(x, t, m, y, estimator, config):
     # try whether estimator is implemented or not
+
+    r_dependent_estimators = [
+        "mediation_IPW_R", "simulation_based", "mediation_DML", "mediation_g_estimator"
+        ]
+
+    if estimator in r_dependent_estimators and not check_r_dependencies():
+        warning_message = (
+            "R or some required R packages ('causalweight', 'mediation', 'stats', 'base', "
+            "'grf', 'plmed') not available"
+            )
+        print(warning_message)
+        pytest.skip(
+            f"Skipping {estimator} as the required R environment/packages are not available."
+            )
+
     try:
         res = get_estimation(x, t, m, y, estimator, config)[0:5]
     except ValueError as message_error:

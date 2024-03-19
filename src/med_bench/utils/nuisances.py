@@ -15,7 +15,11 @@ from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import PolynomialFeatures
 
-from .utils import _convert_array_to_R, _get_interactions
+from .utils import check_r_dependencies
+
+if check_r_dependencies():
+    from .utils import _convert_array_to_R, _get_interactions
+
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5

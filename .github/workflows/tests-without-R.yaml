@@ -1,0 +1,33 @@
+name: CI-without-R
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.11'  # Specify the Python version you want to use    
+
+    - name: Install Package in Editable Mode with Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Install Pytest
+      run: |
+        pip install pytest
+
+    - name: Run tests
+      run: |
+        pytest
