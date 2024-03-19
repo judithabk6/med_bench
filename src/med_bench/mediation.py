@@ -8,9 +8,6 @@ causal inference, simulate data, and evaluate and compare estimators
 
 import numpy as np
 import pandas as pd
-import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
-from rpy2.robjects import numpy2ri, pandas2ri
 from sklearn.base import clone
 from sklearn.linear_model import RidgeCV
 
@@ -21,17 +18,7 @@ from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_mediator_density,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
-from .utils.utils import _convert_array_to_R
-
-pandas2ri.activate()
-numpy2ri.activate()
-
-causalweight = rpackages.importr('causalweight')
-mediation = rpackages.importr('mediation')
-Rstats = rpackages.importr('stats')
-base = rpackages.importr('base')
-grf = rpackages.importr('grf')
-plmed = rpackages.importr('plmed')
+from .utils.utils import r_dependency_required
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
@@ -550,6 +537,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
+@r_dependency_required(['mediation', 'stats', 'base'])
 def r_mediate(y, t, m, x, interaction=False):
     """
     This function calls the R function mediate from the package mediation
@@ -574,6 +562,18 @@ def r_mediate(y, t, m, x, interaction=False):
                 whether to include interaction terms in the model
                 interactions are terms XT, TM, MX
     """
+
+    import rpy2.robjects as robjects
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    mediation = rpackages.importr('mediation')
+    Rstats = rpackages.importr('stats')
+    base = rpackages.importr('base')
+
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
@@ -612,11 +612,23 @@ def r_mediate(y, t, m, x, interaction=False):
     return to_return + [None]
 
 
+@r_dependency_required(['plmed', 'base'])
 def r_mediation_g_estimator(y, t, m, x):
     """
     This function calls the R G-estimator from the package plmed
     (https://github.com/ohines/plmed)
     """
+
+    import rpy2.robjects as robjects
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    plmed = rpackages.importr('plmed')
+    base = rpackages.importr('base')
+
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
@@ -654,6 +666,7 @@ def r_mediation_g_estimator(y, t, m, x):
             None)
 
 
+@r_dependency_required(['causalweight', 'base'])
 def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     """
     This function calls the R Double Machine Learning estimator from the
@@ -689,6 +702,17 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
             Polynomials/interactions are created using the Generate.
             Powers command of the LARF package.
     """
+
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+    from .utils.utils import _convert_array_to_R
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    causalweight = rpackages.importr('causalweight')
+    base = rpackages.importr('base')
+
     x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
                           (x, t, m, y)]
     res = causalweight.medDML(y_r, t_r, m_r, x_r, trim=trim, order=order)
