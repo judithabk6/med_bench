@@ -17,13 +17,14 @@ setuptools.setup(
     ),
     package_dir={"": "src"},
     install_requires=[
-        'pandas>=1.2.1',
+        'pandas==1.2.1',
         'scikit-learn>=0.22.1',
         'numpy>=1.19.2',
         'rpy2>=2.9.4',
         'scipy>=1.5.2',
         'seaborn>=0.11.1',
-        'matplotlib>=3.3.2'
+        'matplotlib>=3.3.2',
+        "pytest"
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

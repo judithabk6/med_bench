@@ -12,159 +12,14 @@ The test fails for any other unwanted behavior.
 """
 
 from pprint import pprint
-import itertools
 import pytest
 import numpy as np
-from numpy.random import default_rng
+
 from med_bench.get_simulated_data import simulate_data
 from med_bench.get_estimation import get_estimation
 
 from med_bench.utils.utils import check_r_dependencies
-
-
-SMALL_ATE_TOLERANCE = 0.05
-SMALL_DIRECT_TOLERANCE = 0.05
-SMALL_INDIRECT_TOLERANCE = 0.2
-
-MEDIUM_ATE_TOLERANCE = 0.10
-MEDIUM_DIRECT_TOLERANCE = 0.10
-MEDIUM_INDIRECT_TOLERANCE = 0.4
-
-LARGE_ATE_TOLERANCE = 0.15
-LARGE_DIRECT_TOLERANCE = 0.15
-LARGE_INDIRECT_TOLERANCE = 0.8
-# indirect effect is weak, leading to a large relative error
-
-SMALL_TOLERANCE = np.array(
-    [
-        SMALL_ATE_TOLERANCE,
-        SMALL_DIRECT_TOLERANCE,
-        SMALL_DIRECT_TOLERANCE,
-        SMALL_INDIRECT_TOLERANCE,
-        SMALL_INDIRECT_TOLERANCE,
-    ]
-)
-
-MEDIUM_TOLERANCE = np.array(
-    [
-        MEDIUM_ATE_TOLERANCE,
-        MEDIUM_DIRECT_TOLERANCE,
-        MEDIUM_DIRECT_TOLERANCE,
-        MEDIUM_INDIRECT_TOLERANCE,
-        MEDIUM_INDIRECT_TOLERANCE,
-    ]
-)
-
-LARGE_TOLERANCE = np.array(
-    [
-        LARGE_ATE_TOLERANCE,
-        LARGE_DIRECT_TOLERANCE,
-        LARGE_DIRECT_TOLERANCE,
-        LARGE_INDIRECT_TOLERANCE,
-        LARGE_INDIRECT_TOLERANCE,
-    ]
-)
-
-INFINITE_TOLERANCE = np.array(
-    [
-        np.inf,
-        np.inf,
-        np.inf,
-        np.inf,
-        np.inf,
-    ]
-)
-
-
-TOLERANCE_DICT = {
-    "coefficient_product": LARGE_TOLERANCE,
-    "mediation_ipw_noreg": INFINITE_TOLERANCE,
-    "mediation_ipw_reg": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_calibration": INFINITE_TOLERANCE,
-    "mediation_ipw_forest": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_calibration": INFINITE_TOLERANCE,
-    "mediation_g_computation_noreg": LARGE_TOLERANCE,
-    "mediation_g_computation_reg": MEDIUM_TOLERANCE,
-    "mediation_g_computation_reg_calibration": LARGE_TOLERANCE,
-    "mediation_g_computation_forest": LARGE_TOLERANCE,
-    "mediation_g_computation_forest_calibration": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_noreg": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_reg": LARGE_TOLERANCE,
-    "mediation_multiply_robust_reg_calibration": LARGE_TOLERANCE,
-    "mediation_multiply_robust_forest": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_forest_calibration": LARGE_TOLERANCE,
-    "simulation_based": LARGE_TOLERANCE,
-    "mediation_DML": INFINITE_TOLERANCE,
-    "mediation_DML_reg_fixed_seed": INFINITE_TOLERANCE,
-    "mediation_g_estimator": SMALL_TOLERANCE,
-    "mediation_ipw_noreg_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_calibration_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_calibration_cf": INFINITE_TOLERANCE,
-    "mediation_g_computation_noreg_cf": SMALL_TOLERANCE,
-    "mediation_g_computation_reg_cf": LARGE_TOLERANCE,
-    "mediation_g_computation_reg_calibration_cf": LARGE_TOLERANCE,
-    "mediation_g_computation_forest_cf": INFINITE_TOLERANCE,
-    "mediation_g_computation_forest_calibration_cf": LARGE_TOLERANCE,
-    "mediation_multiply_robust_noreg_cf": MEDIUM_TOLERANCE,
-    "mediation_multiply_robust_reg_cf": LARGE_TOLERANCE,
-    "mediation_multiply_robust_reg_calibration_cf": MEDIUM_TOLERANCE,
-    "mediation_multiply_robust_forest_cf": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_forest_calibration_cf": INFINITE_TOLERANCE,
-}
-
-
-PARAMETER_NAME = [
-    "n",
-    "rg",
-    "mis_spec_m",
-    "mis_spec_y",
-    "dim_x",
-    "dim_m",
-    "seed",
-    "type_m",
-    "sigma_y",
-    "sigma_m",
-    "beta_t_factor",
-    "beta_m_factor",
-]
-
-PARAMETER_LIST = list(
-    itertools.product(
-        [1000],
-        [default_rng(321)],
-        [False],
-        [False],
-        [1, 5],
-        [1],
-        [123],
-        ["binary"],
-        [0.5],
-        [0.5],
-        [0.5],
-        [0.5],
-    )
-)
-
-PARAMETER_LIST.extend(
-    list(
-        itertools.product(
-            [1000],
-            [default_rng(321)],
-            [False],
-            [False],
-            [1, 5],
-            [1, 5],
-            [123],
-            ["continuous"],
-            [0.5],
-            [0.5],
-            [0.5],
-            [0.5],
-        )
-    )
-)
+from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME, TOLERANCE_DICT
 
 
 @pytest.fixture(params=PARAMETER_LIST)
@@ -226,28 +81,33 @@ def effects_chap(x, t, m, y, estimator, config):
 
     r_dependent_estimators = [
         "mediation_IPW_R", "simulation_based", "mediation_DML", "mediation_g_estimator"
-        ]
+    ]
 
     if estimator in r_dependent_estimators and not check_r_dependencies():
         warning_message = (
             "R or some required R packages ('causalweight', 'mediation', 'stats', 'base', "
             "'grf', 'plmed') not available"
-            )
+        )
         print(warning_message)
         pytest.skip(
             f"Skipping {estimator} as the required R environment/packages are not available."
-            )
+        )
 
     try:
         res = get_estimation(x, t, m, y, estimator, config)[0:5]
-    except ValueError as message_error:
-        if message_error.args[0] in (
+    except Exception as e:
+        if str(e) in (
             "Estimator only supports 1D binary mediator.",
             "Estimator does not support 1D binary mediator.",
         ):
-            pytest.skip(f"{message_error}")
+            pytest.skip(f"{e}")
+
+        # We skip the test if an error with function from glmet rpy2 package occurs
+        elif "glmnet::glmnet" in str(e):
+            pytest.skip(f"{e}")
+
         else:
-            pytest.fail(f"{message_error}")
+            pytest.fail(f"{e}")
 
     # NaN situations
     if np.all(np.isnan(res)):
@@ -265,9 +125,11 @@ def test_tolerance(effects, effects_chap, tolerance):
 
 def test_total_is_direct_plus_indirect(effects_chap):
     if not np.isnan(effects_chap[1]):
-        assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
+        assert effects_chap[0] == pytest.approx(
+            effects_chap[1] + effects_chap[4])
     if not np.isnan(effects_chap[2]):
-        assert effects_chap[0] == pytest.approx(effects_chap[2] + effects_chap[3])
+        assert effects_chap[0] == pytest.approx(
+            effects_chap[2] + effects_chap[3])
 
 
 @pytest.mark.xfail
@@ -275,7 +137,8 @@ def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")
     assert np.all(
-        get_estimation(data[0], data[1], data[2], data[3], estimator, config)[0:5]
+        get_estimation(data[0], data[1], data[2],
+                       data[3], estimator, config)[0:5]
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()

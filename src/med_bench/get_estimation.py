@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import numpy as np
+
 from .mediation import (
     mediation_IPW,
     mediation_coefficient_product,
@@ -12,6 +13,7 @@ from .mediation import (
     r_mediation_DML,
     r_mediate,
 )
+
 
 def get_estimation(x, t, m, y, estimator, config):
     """Wrapper estimator fonction ; calls an estimator given mediation data

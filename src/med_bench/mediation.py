@@ -8,16 +8,9 @@ causal inference, simulate data, and evaluate and compare estimators
 
 import numpy as np
 import pandas as pd
-from numpy.random import default_rng
-from scipy import stats
-from scipy.special import expit
-from scipy.stats import bernoulli
 from sklearn.base import clone
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
-from sklearn.model_selection import KFold
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import RidgeCV
+
 
 from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_cross_conditional_mean_outcome,
@@ -123,12 +116,12 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
         np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
 
-    return(y1m1 - y0m0,
-           y1m1 - y0m1,
-           y1m0 - y0m0,
-           y1m1 - y1m0,
-           y0m1 - y0m0,
-           np.sum(ind))
+    return (y1m1 - y0m0,
+            y1m1 - y0m1,
+            y1m0 - y0m0,
+            y1m1 - y1m0,
+            y0m1 - y0m0,
+            np.sum(ind))
 
 
 def mediation_coefficient_product(y, t, m, x, interaction=False,
@@ -203,12 +196,12 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
     # return total, direct and indirect effect
     direct_effect = y_reg.coef_[x.shape[1]]
     indirect_effect = sum(y_reg.coef_[x.shape[1] + 1:] * coef_t_m)
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
@@ -284,12 +277,12 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                                + indirect_effect_i0 * mu_00x).sum() / n
     total_effect = direct_effect_control + indirect_effect_treated
 
-    return [total_effect,
+    return (total_effect,
             direct_effect_treated,
             direct_effect_control,
             indirect_effect_treated,
             indirect_effect_control,
-            None]
+            None)
 
 
 def alternative_estimator(y, t, m, x, regularization=True):
@@ -352,12 +345,12 @@ def alternative_estimator(y, t, m, x, regularization=True):
     # computation of indirect effect
     indirect_effect = total_effect - direct_effect
 
-    return [total_effect,
+    return (total_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
@@ -510,28 +503,28 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
                 + E_mu_t0_t0)
         y1m0 = (
-                ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
-                + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
-                + E_mu_t1_t0
+            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
+            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
+            + E_mu_t1_t0
         )
         y0m1 = (
-                ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
-                / sum_score_t0m1 + t / p_x * (
-                            mu_0mx - E_mu_t0_t1) / sum_score_m1
-                + E_mu_t0_t1
+            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
+            / sum_score_t0m1 + t / p_x * (
+                mu_0mx - E_mu_t0_t1) / sum_score_m1
+            + E_mu_t0_t1
         )
     else:
         y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
         y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
         y1m0 = (
-                (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
-                + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
-                + E_mu_t1_t0
+            (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
+            + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+            + E_mu_t1_t0
         )
         y0m1 = (
-                (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
-                + t / p_x * (mu_0mx - E_mu_t0_t1)
-                + E_mu_t0_t1
+            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
+            + t / p_x * (mu_0mx - E_mu_t0_t1)
+            + E_mu_t0_t1
         )
 
     # effects computing
@@ -665,12 +658,12 @@ def r_mediation_g_estimator(y, t, m, x):
                              data=base.as_symbol('df'))
     direct_effect = res.rx2('coef')[0]
     indirect_effect = res.rx2('coef')[1]
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 @r_dependency_required(['causalweight', 'base'])
@@ -709,7 +702,7 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
             Polynomials/interactions are created using the Generate.
             Powers command of the LARF package.
     """
-    
+
     import rpy2.robjects.packages as rpackages
     from rpy2.robjects import numpy2ri, pandas2ri
     from .utils.utils import _convert_array_to_R
@@ -830,7 +823,6 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
         m.reshape(n, 1)
 
     nobs = 0
-
 
     var_name = [
         "p_x",
