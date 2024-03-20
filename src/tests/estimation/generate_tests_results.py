@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from med_bench.get_simulated_data import simulate_data
@@ -7,7 +6,9 @@ from med_bench.get_estimation import get_estimation
 from med_bench.utils.constants import ESTIMATORS, PARAMETER_LIST, PARAMETER_NAME
 
 
-def get_data_from_list(data):
+def _get_data_from_list(data):
+    """Get x, t, m, y from simulated data
+    """
     x = data[0]
     t = data[1].ravel()
     m = data[2]
@@ -16,7 +17,9 @@ def get_data_from_list(data):
     return x, t, m, y
 
 
-def get_config_from_dict(dict_params):
+def _get_config_from_dict(dict_params):
+    """Get config parameter used for estimators parametrisation
+    """
     if dict_params["dim_m"] == 1 and dict_params["type_m"] == "binary":
         config = 0
     else:
@@ -24,7 +27,9 @@ def get_config_from_dict(dict_params):
     return config
 
 
-def get_estimators_results(x, t, m, y, config, estimator):
+def _get_estimators_results(x, t, m, y, config, estimator):
+    """Get estimation result from specified input parameters and estimator name
+    """
 
     try:
         res = get_estimation(x, t, m, y, estimator, config)[0:5]
@@ -44,13 +49,13 @@ if __name__ == "__main__":
         # Get synthetic input data from parameters list defined above
         dict_params = dict(zip(PARAMETER_NAME, param_list))
         data = simulate_data(**dict_params)
-        x, t, m, y = get_data_from_list(data)
-        config = get_config_from_dict(dict_params=dict_params)
+        x, t, m, y = _get_data_from_list(data)
+        config = _get_config_from_dict(dict_params=dict_params)
 
         for estimator in ESTIMATORS:
 
             # Get results from synthetic inputs
-            result = get_estimators_results(x, t, m, y, config, estimator)
+            result = _get_estimators_results(x, t, m, y, config, estimator)
             row = [estimator, x, t, m, y, config, result]
             results.append(row)
 
