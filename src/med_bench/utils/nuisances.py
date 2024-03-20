@@ -190,7 +190,6 @@ def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
 
         # f_mtx model fitting
         clf_m = clf_m.fit(t_x[train_index, :], m[train_index])
-        # clf_m = clf_m.fit(t_x[train_index, :], m.ravel()[train_index])
 
         # predict f(M=m|T=t,X)
         fm_0 = clf_m.predict_proba(t0_x[test_index, :])
