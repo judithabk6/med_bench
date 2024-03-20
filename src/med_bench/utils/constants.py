@@ -41,7 +41,7 @@ def get_tolerance_array(tolerance_size: str) -> np.array:
     Returns
     -------
     np.array
-        array of size 5 containing the ATE, DIRECT and INDIRECT effects tolerance
+        array of size 5 containing the ATE, DIRECT (*2) and INDIRECT (*2) effects tolerance
     """
 
     return np.array(
