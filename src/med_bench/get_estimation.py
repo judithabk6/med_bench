@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-
-import time
-import sys
-from rpy2.rinterface_lib.embedded import RRuntimeError
-import pandas as pd
 import numpy as np
+
 from .mediation import (
     mediation_IPW,
     mediation_coefficient_product,
@@ -17,6 +13,7 @@ from .mediation import (
     r_mediation_DML,
     r_mediate,
 )
+
 
 def get_estimation(x, t, m, y, estimator, config):
     """Wrapper estimator fonction ; calls an estimator given mediation data

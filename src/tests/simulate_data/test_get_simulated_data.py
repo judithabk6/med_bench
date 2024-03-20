@@ -14,45 +14,11 @@ th_p_t_mx = P(T=1|X,M)
 """
 
 from pprint import pprint
-import itertools
 import pytest
 import numpy as np
 from numpy.random import default_rng
 from med_bench.get_simulated_data import simulate_data
-
-
-PARAMETER_NAME = [
-    "n",
-    "rg",
-    "mis_spec_m",
-    "mis_spec_y",
-    "dim_x",
-    "dim_m",
-    "seed",
-    "type_m",
-    "sigma_y",
-    "sigma_m",
-    "beta_t_factor",
-    "beta_m_factor",
-]
-
-
-PARAMETER_LIST = list(
-    itertools.product(
-        [1, 500, 1000],
-        [default_rng(321)],
-        [False, True],
-        [False, True],
-        [1, 5],
-        [1],
-        [123],
-        ["binary", "continuous"],
-        [0.5],
-        [0.5],
-        [0.5],
-        [0.5],
-    )
-)
+from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME
 
 
 @pytest.fixture(params=PARAMETER_LIST)
