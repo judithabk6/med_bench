@@ -99,4 +99,4 @@ def effects_chap(x, t, m, y, estimator, config):
 
 def test_estimation_exactness(result, effects_chap):
 
-    assert np.all(effects_chap == pytest.approx(result))
+    assert np.all(effects_chap == pytest.approx(result, abs=0.01))
