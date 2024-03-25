@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import rpy2.robjects as robjects
 
 import subprocess
@@ -54,6 +55,10 @@ def r_dependency_required(required_packages):
                     "Please install R and set it up correctly in your system."
                 )
                 return None
+
+            # To get rid of the 'DataFrame' object has no attribute 'iteritems' error due to pandas version mismatch in rpy2
+            # https://stackoverflow.com/a/76404841
+            pd.DataFrame.iteritems = pd.DataFrame.items
 
             for package in required_packages:
                 if not check_r_package(package):
