@@ -26,7 +26,7 @@ TINY = 1.e-12
 
 
 def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
-                  crossfit=0, clip=0.01, calibration='sigmoid'):
+                  crossfit=0, clip=1e-6, calibration='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -354,7 +354,7 @@ def alternative_estimator(y, t, m, x, regularization=True):
 
 
 def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
-                              crossfit=0, clip=0.01, normalized=True,
+                              crossfit=0, clip=1e-6, normalized=True,
                               regularization=True, calibration="sigmoid"):
     """
     Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
