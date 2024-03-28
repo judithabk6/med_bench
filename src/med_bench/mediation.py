@@ -18,7 +18,7 @@ from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_mediator_density,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
-from .utils.utils import r_dependency_required
+from .utils.utils import r_dependency_required, _check_input
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
@@ -90,6 +90,10 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     int
             number of used observations (non trimmed)
     """
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    m = m.ravel()
+
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
     classifier_t_xm = _get_classifier(regularization, forest, calibration)
@@ -179,12 +183,14 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
         alphas = ALPHAS
     else:
         alphas = [TINY]
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if len(m.shape) == 1:
-        m = m.reshape(-1, 1)
+
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    m = m.ravel()
+
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
+
     coef_t_m = np.zeros(m.shape[1])
     for i in range(m.shape[1]):
         m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
@@ -248,6 +254,9 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
     calibration : str, default=sigmoid
             calibration mode; for example using a sigmoid function
     """
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+
     # estimate mediator densities
     classifier_m = _get_classifier(regularization, forest, calibration)
     f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(t, m, x, y,
@@ -319,10 +328,10 @@ def alternative_estimator(y, t, m, x, regularization=True):
         alphas = ALPHAS
     else:
         alphas = [TINY]
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if len(m.shape) == 1:
-        m = m.reshape(-1, 1)
+
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    m = m.ravel()
     treated = (t == 1)
 
     # computation of direct effect
@@ -433,29 +442,9 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         - If x, t, m, or y don't have the same length.
         - If m is not binary.
     """
-    # Format checking
-    if len(y) != len(y.ravel()):
-        raise ValueError("Multidimensional y is not supported")
-    if len(t) != len(t.ravel()):
-        raise ValueError("Multidimensional t is not supported")
-    if len(m) != len(m.ravel()):
-        raise ValueError("Multidimensional m is not supported")
-
-    n = len(y)
-    if len(x.shape) == 1:
-        x.reshape(n, 1)
-    if len(m.shape) == 1:
-        m.reshape(n, 1)
-
-    dim_m = m.shape[1]
-    if n * dim_m != sum(m.ravel() == 1) + sum(m.ravel() == 0):
-        raise ValueError("m is not binary")
-
-    y = y.ravel()
-    t = t.ravel()
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
     m = m.ravel()
-    if n != len(x) or n != len(m) or n != len(t):
-        raise ValueError("Inputs don't have the same number of observations")
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
@@ -574,7 +563,10 @@ def r_mediate(y, t, m, x, interaction=False):
     Rstats = rpackages.importr('stats')
     base = rpackages.importr('base')
 
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
     m = m.ravel()
+
     var_names = [[y, 'y'],
                  [t, 't'],
                  [m, 'm'],
@@ -629,7 +621,10 @@ def r_mediation_g_estimator(y, t, m, x):
     plmed = rpackages.importr('plmed')
     base = rpackages.importr('base')
 
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
     m = m.ravel()
+
     var_names = [[y, 'y'],
                  [t, 't'],
                  [m, 'm'],
@@ -712,6 +707,10 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
 
     causalweight = rpackages.importr('causalweight')
     base = rpackages.importr('base')
+
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    m = m.ravel()
 
     x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
                           (x, t, m, y)]
@@ -802,25 +801,9 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
         - If t or y are multidimensional.
         - If x, t, m, or y don't have the same length.
     """
-    # check format
-    if len(y) != len(y.ravel()):
-        raise ValueError("Multidimensional y is not supported")
-
-    if len(t) != len(t.ravel()):
-        raise ValueError("Multidimensional t is not supported")
-
+    # check input
+    y, t, m, x = _check_input(y, t, m, x, setting='binary')
     n = len(y)
-    t = t.ravel()
-    y = y.ravel()
-
-    if n != len(x) or n != len(m) or n != len(t):
-        raise ValueError("Inputs don't have the same number of observations")
-
-    if len(x.shape) == 1:
-        x.reshape(n, 1)
-
-    if len(m.shape) == 1:
-        m.reshape(n, 1)
 
     nobs = 0
 

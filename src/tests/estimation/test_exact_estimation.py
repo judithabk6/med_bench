@@ -46,7 +46,7 @@ def x(data):
 # t is raveled because some estimators fail with (n,1) inputs
 @pytest.fixture
 def t(data):
-    return data[2].ravel()
+    return data[2]
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def m(data):
 
 @pytest.fixture
 def y(data):
-    return data[4].ravel()  # same reason as t
+    return data[4]
 
 
 @pytest.fixture
