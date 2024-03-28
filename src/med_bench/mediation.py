@@ -91,8 +91,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
             number of used observations (non trimmed)
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
-    m = m.ravel()
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
@@ -185,8 +184,7 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
         alphas = [TINY]
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
-    m = m.ravel()
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional') 
 
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
@@ -709,8 +707,7 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     base = rpackages.importr('base')
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
-    m = m.ravel()
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
 
     x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
                           (x, t, m, y)]
@@ -802,7 +799,7 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
         - If x, t, m, or y don't have the same length.
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
     n = len(y)
 
     nobs = 0
