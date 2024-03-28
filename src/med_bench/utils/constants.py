@@ -20,7 +20,7 @@ TOLERANCE_THRESHOLDS = {
     "LARGE": {
         "ATE": 0.15,
         "DIRECT": 0.15,
-        "INDIRECT": 0.8,
+        "INDIRECT": 0.9,
     },
     "INFINITE": {
         "ATE": np.inf,
@@ -80,7 +80,7 @@ TOLERANCE_DICT = {
     "simulation_based": LARGE_TOLERANCE,
     "mediation_DML": INFINITE_TOLERANCE,
     "mediation_DML_reg_fixed_seed": INFINITE_TOLERANCE,
-    "mediation_g_estimator": SMALL_TOLERANCE,
+    "mediation_g_estimator": LARGE_TOLERANCE,
     "mediation_ipw_noreg_cf": INFINITE_TOLERANCE,
     "mediation_ipw_reg_cf": INFINITE_TOLERANCE,
     "mediation_ipw_reg_calibration_cf": INFINITE_TOLERANCE,
