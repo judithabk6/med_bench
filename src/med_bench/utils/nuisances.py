@@ -119,10 +119,6 @@ def _estimate_treatment_probabilities(t, m, x, crossfit, clf_t_x, clf_t_xm):
 
     p_x, p_xm = [np.zeros(n) for h in range(2)]
     # compute propensity scores
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if len(m.shape) == 1:
-        m = m.reshape(-1, 1)
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
 
@@ -164,8 +160,6 @@ def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
         probabilities f(M|T=1,X)
     """
     n = len(y)
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
 
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
@@ -228,12 +222,7 @@ def _estimate_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
         conditional mean outcome estimates E[Y|T=1,M,X]
     """
     n = len(y)
-    if len(x.shape) == 1:
-        x = x.reshape(-1, 1)
-    if len(m.shape) == 1:
-        mr = m.reshape(-1, 1)
-    else:
-        mr = np.copy(m)
+    mr = np.copy(m)
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
 
