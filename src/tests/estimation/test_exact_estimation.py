@@ -77,6 +77,13 @@ def effects_chap(x, t, m, y, estimator, config):
 
     try:
         res = get_estimation(x, t, m, y, estimator, config)[0:5]
+
+        # NaN situations
+        if np.all(np.isnan(res)):
+            pytest.xfail("all effects are NaN")
+        elif np.any(np.isnan(res)):
+            pprint("NaN found")
+
     except Exception as e:
         if str(e) in (
             "Estimator only supports 1D binary mediator.",
@@ -90,19 +97,14 @@ def effects_chap(x, t, m, y, estimator, config):
 
         elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
             assert isinstance(e, DependencyNotInstalledError) == True
+            return e
 
         else:
             pytest.fail(f"{e}")
-
-    # NaN situations
-    if np.all(np.isnan(res)):
-        pytest.xfail("all effects are NaN")
-    elif np.any(np.isnan(res)):
-        pprint("NaN found")
 
     return res
 
 
 def test_estimation_exactness(result, effects_chap):
-
-    assert np.all(effects_chap == pytest.approx(result, abs=0.01))
+    if not isinstance(effects_chap, DependencyNotInstalledError):
+        assert np.all(effects_chap == pytest.approx(result, abs=0.01))
