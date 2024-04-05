@@ -17,7 +17,8 @@ import os
 import numpy as np
 
 from med_bench.get_estimation import get_estimation
-from med_bench.utils.utils import check_r_dependencies
+from med_bench.utils.constants import R_DEPENDENT_ESTIMATORS
+from med_bench.utils.utils import DependencyNotInstalledError, check_r_dependencies
 
 current_dir = os.path.dirname(__file__)
 true_estimations_file_path = os.path.join(current_dir, 'tests_results.npy')
@@ -74,20 +75,6 @@ def result(data):
 def effects_chap(x, t, m, y, estimator, config):
     # try whether estimator is implemented or not
 
-    r_dependent_estimators = [
-        "mediation_IPW_R", "simulation_based", "mediation_DML", "mediation_g_estimator"
-    ]
-
-    if estimator in r_dependent_estimators and not check_r_dependencies():
-        warning_message = (
-            "R or some required R packages ('causalweight', 'mediation', 'stats', 'base', "
-            "'grf', 'plmed') not available"
-        )
-        print(warning_message)
-        pytest.skip(
-            f"Skipping {estimator} as the required R environment/packages are not available."
-        )
-
     try:
         res = get_estimation(x, t, m, y, estimator, config)[0:5]
     except Exception as e:
@@ -100,6 +87,9 @@ def effects_chap(x, t, m, y, estimator, config):
         # We skip the test if an error with function from glmet rpy2 package occurs
         elif "glmnet::glmnet" in str(e):
             pytest.skip(f"{e}")
+
+        elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
+            assert isinstance(e, DependencyNotInstalledError) == True
 
         else:
             pytest.fail(f"{e}")
