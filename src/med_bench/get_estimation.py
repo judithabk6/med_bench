@@ -8,9 +8,9 @@ from .mediation import (
     mediation_coefficient_product,
     mediation_g_formula,
     mediation_multiply_robust,
-    mediation_DML,
+    mediation_dml,
     r_mediation_g_estimator,
-    r_mediation_DML,
+    r_mediation_dml,
     r_mediate,
 )
 
@@ -625,11 +625,11 @@ def get_estimation(x, t, m, y, estimator, config):
     elif estimator == "simulation_based":
         if config in (0, 1, 2):
             effects = r_mediate(y, t, m, x, interaction=False)
-    elif estimator == "mediation_DML":
+    elif estimator == "mediation_dml":
         if config > 0:
-            effects = r_mediation_DML(y, t, m, x, trim=0.0, order=1)
-    elif estimator == "mediation_DML_noreg":
-        effects = mediation_DML(
+            effects = r_mediation_dml(y, t, m, x, trim=0.0, order=1)
+    elif estimator == "mediation_dml_noreg":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -638,14 +638,14 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             regularization=False,
             calibration=None)
-    elif estimator == "mediation_DML_reg":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_reg":
+        effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, calibration=None)
-    elif estimator == "mediation_DML_reg_fixed_seed":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_reg_fixed_seed":
+        effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, random_state=321, calibration=None)
-    elif estimator == "mediation_DML_noreg_cf":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_noreg_cf":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -655,14 +655,14 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=2,
             regularization=False,
             calibration=None)
-    elif estimator == "mediation_DML_reg_cf":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_reg_cf":
+        effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, crossfit=2, calibration=None)
-    elif estimator == "mediation_DML_reg_calibration":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_reg_calibration":
+        effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, crossfit=0, calibration='sigmoid')
-    elif estimator == "mediation_DML_forest":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_forest":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -672,8 +672,8 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=0,
             calibration=None,
             forest=True)
-    elif estimator == "mediation_DML_forest_calibration":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_forest_calibration":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -683,8 +683,8 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=0,
             calibration='sigmoid',
             forest=True)
-    elif estimator == "mediation_DML_reg_calibration_cf":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_reg_calibration_cf":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -694,8 +694,8 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=2,
             calibration='sigmoid',
             forest=False)
-    elif estimator == "mediation_DML_forest_cf":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_forest_cf":
+        effects = mediation_dml(
             y,
             t,
             m,
@@ -705,8 +705,8 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=2,
             calibration=None,
             forest=True)
-    elif estimator == "mediation_DML_forest_calibration_cf":
-        effects = mediation_DML(
+    elif estimator == "mediation_dml_forest_calibration_cf":
+        effects = mediation_dml(
             y,
             t,
             m,

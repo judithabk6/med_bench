@@ -667,7 +667,7 @@ def r_mediation_g_estimator(y, t, m, x):
 
 
 @r_dependency_required(['causalweight', 'base'])
-def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
+def r_mediation_dml(y, t, m, x, trim=0.05, order=1):
     """
     This function calls the R Double Machine Learning estimator from the
     package causalweight (https://cran.r-project.org/web/packages/causalweight)
@@ -721,7 +721,7 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
+def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
                   normalized=True, regularization=True, random_state=None,
                   calibration=None):
     """
