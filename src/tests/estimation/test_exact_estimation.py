@@ -97,7 +97,7 @@ def effects_chap(x, t, m, y, estimator, config):
 
         elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
             assert isinstance(e, DependencyNotInstalledError) == True
-            return e
+            pytest.skip(f"{e}")
 
         else:
             pytest.fail(f"{e}")
@@ -106,5 +106,4 @@ def effects_chap(x, t, m, y, estimator, config):
 
 
 def test_estimation_exactness(result, effects_chap):
-    if not isinstance(effects_chap, DependencyNotInstalledError):
-        assert np.all(effects_chap == pytest.approx(result, abs=0.01))
+    assert np.all(effects_chap == pytest.approx(result, abs=0.01))

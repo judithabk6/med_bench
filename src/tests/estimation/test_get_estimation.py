@@ -94,7 +94,7 @@ def effects_chap(x, t, m, y, estimator, config):
 
         elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
             assert isinstance(e, DependencyNotInstalledError) == True
-            return e
+            pytest.skip(f"{e}")
 
         else:
             pytest.fail(f"{e}")
@@ -126,11 +126,10 @@ def test_total_is_direct_plus_indirect(effects_chap):
 def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")
-    if not isinstance(effects_chap, DependencyNotInstalledError):
-        assert np.all(
-            get_estimation(data[0], data[1], data[2],
-                           data[3], estimator, config)[0:5]
-            == pytest.approx(
-                effects_chap, nan_ok=True
-            )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
-        )
+    assert np.all(
+        get_estimation(data[0], data[1], data[2],
+                       data[3], estimator, config)[0:5]
+        == pytest.approx(
+            effects_chap, nan_ok=True
+        )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
+    )
