@@ -56,10 +56,9 @@ jobs:
         pytest --cov=med_bench --cov-report=xml
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4.3.0
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage.xml
-        fail_ci_if_error: true
-        verbose: true
+        # token: ${{ secrets.CODECOV_TOKEN }}
+        token: 'e4829e41-01da-4d08-9e04-04443da957e3'
+        slug: judithabk6/med_bench
         
