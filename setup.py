@@ -17,7 +17,7 @@ setuptools.setup(
     ),
     package_dir={"": "src"},
     install_requires=[
-        'pandas==1.2.1',
+        'pandas>=1.2.1',
         'scikit-learn>=0.22.1',
         'numpy>=1.19.2',
         'rpy2>=2.9.4',
