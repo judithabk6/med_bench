@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/judithabk6/med_bench/graph/badge.svg?token=PASB71N41D)](https://codecov.io/gh/judithabk6/med_bench)
+
 # med_bench
 
 **med_bench** is a Python package designed to wrap the most common estimators for causal mediation analysis in a single framework. We additionally allow for some flexibility in the choice of nuisance parameters models.

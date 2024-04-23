@@ -8,19 +8,9 @@ causal inference, simulate data, and evaluate and compare estimators
 
 import numpy as np
 import pandas as pd
-import rpy2.robjects as robjects
-import rpy2.robjects.packages as rpackages
-from numpy.random import default_rng
-from rpy2.robjects import numpy2ri, pandas2ri
-from scipy import stats
-from scipy.special import expit
-from scipy.stats import bernoulli
 from sklearn.base import clone
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LassoCV, LogisticRegressionCV, RidgeCV
-from sklearn.model_selection import KFold
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import RidgeCV
+
 
 from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_cross_conditional_mean_outcome,
@@ -28,17 +18,7 @@ from .utils.nuisances import (_estimate_conditional_mean_outcome,
                               _estimate_mediator_density,
                               _estimate_treatment_probabilities,
                               _get_classifier, _get_regressor)
-from .utils.utils import _convert_array_to_R
-
-pandas2ri.activate()
-numpy2ri.activate()
-
-causalweight = rpackages.importr('causalweight')
-mediation = rpackages.importr('mediation')
-Rstats = rpackages.importr('stats')
-base = rpackages.importr('base')
-grf = rpackages.importr('grf')
-plmed = rpackages.importr('plmed')
+from .utils.utils import r_dependency_required
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
@@ -46,7 +26,7 @@ TINY = 1.e-12
 
 
 def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
-                  crossfit=0, clip=0.01, calibration='sigmoid'):
+                  crossfit=0, clip=1e-6, calibration='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -89,7 +69,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     crossfit : integer, default=0
              number of folds for cross-fitting
 
-    clip : float, default=0.01
+    clip : float, default=1e-6
             limit to clip for numerical stability (min=clip, max=1-clip)
 
     calibration : str, default=sigmoid
@@ -136,12 +116,12 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
         np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
 
-    return(y1m1 - y0m0,
-           y1m1 - y0m1,
-           y1m0 - y0m0,
-           y1m1 - y1m0,
-           y0m1 - y0m0,
-           np.sum(ind))
+    return (y1m1 - y0m0,
+            y1m1 - y0m1,
+            y1m0 - y0m0,
+            y1m1 - y1m0,
+            y0m1 - y0m0,
+            np.sum(ind))
 
 
 def mediation_coefficient_product(y, t, m, x, interaction=False,
@@ -216,12 +196,12 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
     # return total, direct and indirect effect
     direct_effect = y_reg.coef_[x.shape[1]]
     indirect_effect = sum(y_reg.coef_[x.shape[1] + 1:] * coef_t_m)
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
@@ -297,12 +277,12 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
                                + indirect_effect_i0 * mu_00x).sum() / n
     total_effect = direct_effect_control + indirect_effect_treated
 
-    return [total_effect,
+    return (total_effect,
             direct_effect_treated,
             direct_effect_control,
             indirect_effect_treated,
             indirect_effect_control,
-            None]
+            None)
 
 
 def alternative_estimator(y, t, m, x, regularization=True):
@@ -365,16 +345,16 @@ def alternative_estimator(y, t, m, x, regularization=True):
     # computation of indirect effect
     indirect_effect = total_effect - direct_effect
 
-    return [total_effect,
+    return (total_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
 def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
-                              crossfit=0, clip=0.01, normalized=True,
+                              crossfit=0, clip=1e-6, normalized=True,
                               regularization=True, calibration="sigmoid"):
     """
     Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
@@ -410,7 +390,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is
         applied
 
-    clip : float, default=0.01
+    clip : float, default=1e-6
         Limit to clip p_x and f_mtx for numerical stability (min=clip,
         max=1-clip)
 
@@ -523,28 +503,28 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
                 + E_mu_t0_t0)
         y1m0 = (
-                ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
-                + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
-                + E_mu_t1_t0
+            ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
+            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
+            + E_mu_t1_t0
         )
         y0m1 = (
-                ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
-                / sum_score_t0m1 + t / p_x * (
-                            mu_0mx - E_mu_t0_t1) / sum_score_m1
-                + E_mu_t0_t1
+            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
+            / sum_score_t0m1 + t / p_x * (
+                mu_0mx - E_mu_t0_t1) / sum_score_m1
+            + E_mu_t0_t1
         )
     else:
         y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
         y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
         y1m0 = (
-                (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
-                + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
-                + E_mu_t1_t0
+            (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
+            + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+            + E_mu_t1_t0
         )
         y0m1 = (
-                (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
-                + t / p_x * (mu_0mx - E_mu_t0_t1)
-                + E_mu_t0_t1
+            (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
+            + t / p_x * (mu_0mx - E_mu_t0_t1)
+            + E_mu_t0_t1
         )
 
     # effects computing
@@ -557,6 +537,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
+@r_dependency_required(['mediation', 'stats', 'base'])
 def r_mediate(y, t, m, x, interaction=False):
     """
     This function calls the R function mediate from the package mediation
@@ -581,6 +562,18 @@ def r_mediate(y, t, m, x, interaction=False):
                 whether to include interaction terms in the model
                 interactions are terms XT, TM, MX
     """
+
+    import rpy2.robjects as robjects
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    mediation = rpackages.importr('mediation')
+    Rstats = rpackages.importr('stats')
+    base = rpackages.importr('base')
+
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
@@ -619,11 +612,23 @@ def r_mediate(y, t, m, x, interaction=False):
     return to_return + [None]
 
 
+@r_dependency_required(['plmed', 'base'])
 def r_mediation_g_estimator(y, t, m, x):
     """
     This function calls the R G-estimator from the package plmed
     (https://github.com/ohines/plmed)
     """
+
+    import rpy2.robjects as robjects
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    plmed = rpackages.importr('plmed')
+    base = rpackages.importr('base')
+
     m = m.ravel()
     var_names = [[y, 'y'],
                  [t, 't'],
@@ -653,15 +658,16 @@ def r_mediation_g_estimator(y, t, m, x):
                              data=base.as_symbol('df'))
     direct_effect = res.rx2('coef')[0]
     indirect_effect = res.rx2('coef')[1]
-    return [direct_effect + indirect_effect,
+    return (direct_effect + indirect_effect,
             direct_effect,
             direct_effect,
             indirect_effect,
             indirect_effect,
-            None]
+            None)
 
 
-def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
+@r_dependency_required(['causalweight', 'base'])
+def r_mediation_dml(y, t, m, x, trim=0.05, order=1):
     """
     This function calls the R Double Machine Learning estimator from the
     package causalweight (https://cran.r-project.org/web/packages/causalweight)
@@ -696,6 +702,17 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
             Polynomials/interactions are created using the Generate.
             Powers command of the LARF package.
     """
+
+    import rpy2.robjects.packages as rpackages
+    from rpy2.robjects import numpy2ri, pandas2ri
+    from .utils.utils import _convert_array_to_R
+
+    pandas2ri.activate()
+    numpy2ri.activate()
+
+    causalweight = rpackages.importr('causalweight')
+    base = rpackages.importr('base')
+
     x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
                           (x, t, m, y)]
     res = causalweight.medDML(y_r, t_r, m_r, x_r, trim=trim, order=order)
@@ -704,7 +721,7 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
+def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
                   normalized=True, regularization=True, random_state=None,
                   calibration=None):
     """
@@ -740,6 +757,9 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
 
     trim : float, default=0.05
         Trimming treshold for discarding observations with extreme probability.
+
+    clip : float, default=1e-6
+            limit to clip for numerical stability (min=clip, max=1-clip)
 
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights so they add up to 1,
@@ -807,7 +827,6 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
 
     nobs = 0
 
-
     var_name = [
         "p_x",
         "p_xm",
@@ -845,6 +864,10 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
     for var in var_name:
         exec(f"{var} = {var}[not_trimmed]")
     nobs = np.sum(not_trimmed)
+
+    # clipping
+    p_x = np.clip(p_x, clip, 1 - clip)
+    p_xm = np.clip(p_xm, clip, 1 - clip)
 
     # score computing
     if normalized:
