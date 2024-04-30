@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>med_bench.mediation &mdash; med_bench  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            med_bench
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">med_bench</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">med_bench</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">med_bench.mediation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for med_bench.mediation</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">the objective of this script is to implement estimators for mediation in</span>
+<span class="sd">causal inference, simulate data, and evaluate and compare estimators</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># first step, run r code to have the original implementation by Huber</span>
+<span class="c1"># using rpy2 to have the same data in R and python...</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">sklearn.base</span> <span class="kn">import</span> <span class="n">clone</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">RidgeCV</span>
+
+
+<span class="kn">from</span> <span class="nn">.utils.nuisances</span> <span class="kn">import</span> <span class="p">(</span><span class="n">_estimate_conditional_mean_outcome</span><span class="p">,</span>
+                              <span class="n">_estimate_cross_conditional_mean_outcome</span><span class="p">,</span>
+                              <span class="n">_estimate_cross_conditional_mean_outcome_nesting</span><span class="p">,</span>
+                              <span class="n">_estimate_mediator_density</span><span class="p">,</span>
+                              <span class="n">_estimate_treatment_probabilities</span><span class="p">,</span>
+                              <span class="n">_get_classifier</span><span class="p">,</span> <span class="n">_get_regressor</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.utils.utils</span> <span class="kn">import</span> <span class="n">r_dependency_required</span>
+
+<span class="n">ALPHAS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="n">CV_FOLDS</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">TINY</span> <span class="o">=</span> <span class="mf">1.e-12</span>
+
+
+<div class="viewcode-block" id="mediation_IPW">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.mediation_IPW">[docs]</a>
+<span class="k">def</span> <span class="nf">mediation_IPW</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">trim</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">forest</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">crossfit</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">calibration</span><span class="o">=</span><span class="s1">&#39;sigmoid&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    IPW estimator presented in</span>
+<span class="sd">    HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse</span>
+<span class="sd">    probability weighting. Journal of Applied Econometrics, 2014,</span>
+<span class="sd">    vol. 29, no 6, p. 920-943.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples, n_features_mediator)</span>
+<span class="sd">            mediator value for each unit, can be continuous or binary, and</span>
+<span class="sd">            multidimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    trim : float</span>
+<span class="sd">            Trimming rule for discarding observations with extreme propensity</span>
+<span class="sd">            scores. In the absence of post-treatment confounders (w=NULL),</span>
+<span class="sd">            observations with Pr(D=1|M,X)&lt;trim or Pr(D=1|M,X)&gt;(1-trim) are</span>
+<span class="sd">            dropped. In the presence of post-treatment confounders</span>
+<span class="sd">            (w is defined), observations with Pr(D=1|M,W,X)&lt;trim or</span>
+<span class="sd">            Pr(D=1|M,W,X)&gt;(1-trim) are dropped.</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">                   whether to use regularized models (logistic or</span>
+<span class="sd">                   linear regression). If True, cross-validation is used</span>
+<span class="sd">                   to chose among 8 potential log-spaced values between</span>
+<span class="sd">                   1e-5 and 1e5</span>
+
+<span class="sd">    forest : boolean, default=False</span>
+<span class="sd">            whether to use a random forest model to estimate the propensity</span>
+<span class="sd">            scores instead of logistic regression</span>
+
+<span class="sd">    crossfit : integer, default=0</span>
+<span class="sd">             number of folds for cross-fitting</span>
+
+<span class="sd">    clip : float, default=1e-6</span>
+<span class="sd">            limit to clip for numerical stability (min=clip, max=1-clip)</span>
+
+<span class="sd">    calibration : str, default=sigmoid</span>
+<span class="sd">            calibration mode; for example using a sigmoid function</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">            total effect</span>
+<span class="sd">    float</span>
+<span class="sd">            direct effect treated (\theta(1))</span>
+<span class="sd">    float</span>
+<span class="sd">            direct effect nontreated (\theta(0))</span>
+<span class="sd">    float</span>
+<span class="sd">            indirect effect treated (\delta(1))</span>
+<span class="sd">    float</span>
+<span class="sd">            indirect effect untreated (\delta(0))</span>
+<span class="sd">    int</span>
+<span class="sd">            number of used observations (non trimmed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># estimate propensities</span>
+    <span class="n">classifier_t_x</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">classifier_t_xm</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">p_x</span><span class="p">,</span> <span class="n">p_xm</span> <span class="o">=</span> <span class="n">_estimate_treatment_probabilities</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                                  <span class="n">classifier_t_x</span><span class="p">,</span>
+                                                  <span class="n">classifier_t_xm</span><span class="p">)</span>
+
+   <span class="c1"># trimming. Following causal weight code, not sure I understand</span>
+    <span class="c1"># why we trim only on p_xm and not on p_x</span>
+    <span class="n">ind</span> <span class="o">=</span> <span class="p">((</span><span class="n">p_xm</span> <span class="o">&gt;</span> <span class="n">trim</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">trim</span><span class="p">)))</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">p_x</span><span class="p">,</span> <span class="n">p_xm</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">p_x</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">p_xm</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
+
+    <span class="c1"># note on the names, ytmt&#39; = Y(t, M(t&#39;)), the treatment needs to be</span>
+    <span class="c1"># binary but not the mediator</span>
+    <span class="n">p_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_x</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+    <span class="n">p_xm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_xm</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+
+    <span class="c1"># importance weighting</span>
+    <span class="n">y1m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span>
+    <span class="n">y1m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)))</span> <span class="o">/</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)))</span>
+    <span class="n">y0m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span> <span class="o">/</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span>
+    <span class="n">y0m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_xm</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">))</span> <span class="o">/</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_xm</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">y1m1</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">,</span>
+            <span class="n">y1m1</span> <span class="o">-</span> <span class="n">y0m1</span><span class="p">,</span>
+            <span class="n">y1m0</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">,</span>
+            <span class="n">y1m1</span> <span class="o">-</span> <span class="n">y1m0</span><span class="p">,</span>
+            <span class="n">y0m1</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ind</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="mediation_coefficient_product">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.mediation_coefficient_product">[docs]</a>
+<span class="k">def</span> <span class="nf">mediation_coefficient_product</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">interaction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                  <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    found an R implementation https://cran.r-project.org/package=regmedint</span>
+
+<span class="sd">    implements very simple model of mediation</span>
+<span class="sd">    Y ~ X + T + M</span>
+<span class="sd">    M ~ X + T</span>
+<span class="sd">    estimation method is product of coefficients</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples)</span>
+<span class="sd">            mediator value for each unit, can be continuous or binary, and</span>
+<span class="sd">            is necessary in 1D</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    interaction : boolean, default=False</span>
+<span class="sd">                whether to include interaction terms in the model</span>
+<span class="sd">                not implemented here, just for compatibility of signature</span>
+<span class="sd">                function</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">                   whether to use regularized models (logistic or</span>
+<span class="sd">                   linear regression). If True, cross-validation is used</span>
+<span class="sd">                   to chose among 8 potential log-spaced values between</span>
+<span class="sd">                   1e-5 and 1e5</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">            total effect</span>
+<span class="sd">    float</span>
+<span class="sd">            direct effect treated (\theta(1))</span>
+<span class="sd">    float</span>
+<span class="sd">            direct effect nontreated (\theta(0))</span>
+<span class="sd">    float</span>
+<span class="sd">            indirect effect treated (\delta(1))</span>
+<span class="sd">    float</span>
+<span class="sd">            indirect effect untreated (\delta(0))</span>
+<span class="sd">    int</span>
+<span class="sd">            number of used observations (non trimmed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">regularization</span><span class="p">:</span>
+        <span class="n">alphas</span> <span class="o">=</span> <span class="n">ALPHAS</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">alphas</span> <span class="o">=</span> <span class="p">[</span><span class="n">TINY</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">coef_t_m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">m_reg</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span>\
+            <span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)),</span> <span class="n">m</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+        <span class="n">coef_t_m</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">m_reg</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">y_reg</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span>\
+        <span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">)),</span> <span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+
+    <span class="c1"># return total, direct and indirect effect</span>
+    <span class="n">direct_effect</span> <span class="o">=</span> <span class="n">y_reg</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="n">indirect_effect</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">y_reg</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">coef_t_m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">direct_effect</span> <span class="o">+</span> <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="mediation_g_formula">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.mediation_g_formula">[docs]</a>
+<span class="k">def</span> <span class="nf">mediation_g_formula</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">interaction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">forest</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">crossfit</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">calibration</span><span class="o">=</span><span class="s1">&#39;sigmoid&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Warning : m needs to be binary</span>
+
+<span class="sd">    implementation of the g formula for mediation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples)</span>
+<span class="sd">            mediator value for each unit, here m is necessary binary and uni-</span>
+<span class="sd">            dimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    interaction : boolean, default=False</span>
+<span class="sd">                whether to include interaction terms in the model</span>
+<span class="sd">                interactions are terms XT, TM, MX</span>
+
+<span class="sd">    forest : boolean, default=False</span>
+<span class="sd">            whether to use a random forest model to estimate the propensity</span>
+<span class="sd">            scores instead of logistic regression, and outcome model instead</span>
+<span class="sd">            of linear regression</span>
+
+<span class="sd">    crossfit : integer, default=0</span>
+<span class="sd">             number of folds for cross-fitting</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">                   whether to use regularized models (logistic or</span>
+<span class="sd">                   linear regression). If True, cross-validation is used</span>
+<span class="sd">                   to chose among 8 potential log-spaced values between</span>
+<span class="sd">                   1e-5 and 1e5</span>
+
+<span class="sd">    calibration : str, default=sigmoid</span>
+<span class="sd">            calibration mode; for example using a sigmoid function</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># estimate mediator densities</span>
+    <span class="n">classifier_m</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">f_00x</span><span class="p">,</span> <span class="n">f_01x</span><span class="p">,</span> <span class="n">f_10x</span><span class="p">,</span> <span class="n">f_11x</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_estimate_mediator_density</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span>
+                                                                  <span class="n">crossfit</span><span class="p">,</span>
+                                                                  <span class="n">classifier_m</span><span class="p">,</span>
+                                                                  <span class="n">interaction</span><span class="p">)</span>
+
+    <span class="c1"># estimate conditional mean outcomes</span>
+    <span class="n">regressor_y</span> <span class="o">=</span> <span class="n">_get_regressor</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">)</span>
+    <span class="n">mu_00x</span><span class="p">,</span> <span class="n">mu_01x</span><span class="p">,</span> <span class="n">mu_10x</span><span class="p">,</span> <span class="n">mu_11x</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_estimate_conditional_mean_outcome</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span> <span class="n">regressor_y</span><span class="p">,</span>
+                                           <span class="n">interaction</span><span class="p">))</span>
+
+    <span class="c1"># G computation</span>
+    <span class="n">direct_effect_i1</span> <span class="o">=</span> <span class="n">mu_11x</span> <span class="o">-</span> <span class="n">mu_01x</span>
+    <span class="n">direct_effect_i0</span> <span class="o">=</span> <span class="n">mu_10x</span> <span class="o">-</span> <span class="n">mu_00x</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">direct_effect_treated</span> <span class="o">=</span> <span class="p">(</span><span class="n">direct_effect_i1</span> <span class="o">*</span> <span class="n">f_11x</span>
+                             <span class="o">+</span> <span class="n">direct_effect_i0</span> <span class="o">*</span> <span class="n">f_10x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="n">direct_effect_control</span> <span class="o">=</span> <span class="p">(</span><span class="n">direct_effect_i1</span> <span class="o">*</span> <span class="n">f_01x</span>
+                             <span class="o">+</span> <span class="n">direct_effect_i0</span> <span class="o">*</span> <span class="n">f_00x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="n">indirect_effect_i1</span> <span class="o">=</span> <span class="n">f_11x</span> <span class="o">-</span> <span class="n">f_01x</span>
+    <span class="n">indirect_effect_i0</span> <span class="o">=</span> <span class="n">f_10x</span> <span class="o">-</span> <span class="n">f_00x</span>
+    <span class="n">indirect_effect_treated</span> <span class="o">=</span> <span class="p">(</span><span class="n">indirect_effect_i1</span> <span class="o">*</span> <span class="n">mu_11x</span>
+                               <span class="o">+</span> <span class="n">indirect_effect_i0</span> <span class="o">*</span> <span class="n">mu_10x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="n">indirect_effect_control</span> <span class="o">=</span> <span class="p">(</span><span class="n">indirect_effect_i1</span> <span class="o">*</span> <span class="n">mu_01x</span>
+                               <span class="o">+</span> <span class="n">indirect_effect_i0</span> <span class="o">*</span> <span class="n">mu_00x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="n">total_effect</span> <span class="o">=</span> <span class="n">direct_effect_control</span> <span class="o">+</span> <span class="n">indirect_effect_treated</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">total_effect</span><span class="p">,</span>
+            <span class="n">direct_effect_treated</span><span class="p">,</span>
+            <span class="n">direct_effect_control</span><span class="p">,</span>
+            <span class="n">indirect_effect_treated</span><span class="p">,</span>
+            <span class="n">indirect_effect_control</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="alternative_estimator">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.alternative_estimator">[docs]</a>
+<span class="k">def</span> <span class="nf">alternative_estimator</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    presented in</span>
+<span class="sd">    HUBER, Martin, LECHNER, Michael, et MELLACE, Giovanni.</span>
+<span class="sd">    The finite sample performance of estimators for mediation analysis under</span>
+<span class="sd">    sequential conditional independence.</span>
+<span class="sd">    Journal of Business &amp; Economic Statistics, 2016, vol. 34, no 1, p. 139-160.</span>
+<span class="sd">    section 3.2.2</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples)</span>
+<span class="sd">            mediator value for each unit, here m is necessary binary</span>
+<span class="sd">            and unidimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">                   whether to use regularized models (logistic or</span>
+<span class="sd">                   linear regression). If True, cross-validation is used</span>
+<span class="sd">                   to chose among 8 potential log-spaced values between</span>
+<span class="sd">                   1e-5 and 1e5</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">regularization</span><span class="p">:</span>
+        <span class="n">alphas</span> <span class="o">=</span> <span class="n">ALPHAS</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">alphas</span> <span class="o">=</span> <span class="p">[</span><span class="n">TINY</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">treated</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># computation of direct effect</span>
+    <span class="n">y_treated_reg_m</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="n">treated</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="n">treated</span><span class="p">])),</span> <span class="n">y</span><span class="p">[</span><span class="n">treated</span><span class="p">])</span>
+    <span class="n">y_ctrl_reg_m</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="o">~</span><span class="n">treated</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="o">~</span><span class="n">treated</span><span class="p">])),</span> <span class="n">y</span><span class="p">[</span><span class="o">~</span><span class="n">treated</span><span class="p">])</span>
+    <span class="n">xm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span>
+    <span class="n">direct_effect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y_treated_reg_m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">xm</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="n">y_ctrl_reg_m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">xm</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+    <span class="c1"># computation of total effect</span>
+    <span class="n">y_treated_reg</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">[</span><span class="n">treated</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">treated</span><span class="p">])</span>
+    <span class="n">y_ctrl_reg</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">alphas</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">CV_FOLDS</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">~</span><span class="n">treated</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="o">~</span><span class="n">treated</span><span class="p">])</span>
+    <span class="n">total_effect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y_treated_reg</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                          <span class="o">-</span> <span class="n">y_ctrl_reg</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+    <span class="c1"># computation of indirect effect</span>
+    <span class="n">indirect_effect</span> <span class="o">=</span> <span class="n">total_effect</span> <span class="o">-</span> <span class="n">direct_effect</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">total_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="mediation_multiply_robust">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.mediation_multiply_robust">[docs]</a>
+<span class="k">def</span> <span class="nf">mediation_multiply_robust</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">interaction</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">forest</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                              <span class="n">crossfit</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">normalized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                              <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">calibration</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.</span>
+<span class="sd">    &quot;Semiparametric theory for causal mediation analysis: Efficiency bounds,</span>
+<span class="sd">    multiple robustness and sensitivity analysis.&quot;</span>
+<span class="sd">    Ann. Statist. 40 (3) 1816 - 1845, June 2012.</span>
+<span class="sd">    https://doi.org/10.1214/12-AOS990</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">        Outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">        Treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples)</span>
+<span class="sd">        Mediator value for each unit, binary and unidimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">        Covariates value for each unit, continuous</span>
+
+<span class="sd">    interaction : boolean, default=False</span>
+<span class="sd">        Whether to include interaction terms in the model</span>
+<span class="sd">        interactions are terms XT, TM, MX</span>
+
+<span class="sd">    forest : boolean, default=False</span>
+<span class="sd">        Whether to use a random forest model to estimate the propensity</span>
+<span class="sd">        scores instead of logistic regression, and outcome model instead</span>
+<span class="sd">        of linear regression</span>
+
+<span class="sd">    crossfit : integer, default=0</span>
+<span class="sd">        Number of folds for cross-fitting. If crossfit&lt;2, no cross-fitting is</span>
+<span class="sd">        applied</span>
+
+<span class="sd">    clip : float, default=1e-6</span>
+<span class="sd">        Limit to clip p_x and f_mtx for numerical stability (min=clip,</span>
+<span class="sd">        max=1-clip)</span>
+
+<span class="sd">    normalized : boolean, default=True</span>
+<span class="sd">        Normalizes the inverse probability-based weights so they add up to 1,</span>
+<span class="sd">        as described in &quot;Identifying causal mechanisms (primarily) based on</span>
+<span class="sd">        inverse probability weighting&quot;, Huber (2014),</span>
+<span class="sd">        https://doi.org/10.1002/jae.2341</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">        Whether to use regularized models (logistic or linear regression).</span>
+<span class="sd">        If True, cross-validation is used to chose among 8 potential</span>
+<span class="sd">        log-spaced values between 1e-5 and 1e5</span>
+
+<span class="sd">    calibration : str, default=&quot;sigmoid&quot;</span>
+<span class="sd">        Which calibration method to use.</span>
+<span class="sd">        Implemented calibration methods are &quot;sigmoid&quot; and &quot;isotonic&quot;.</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    total : float</span>
+<span class="sd">        Average total effect.</span>
+<span class="sd">    direct1 : float</span>
+<span class="sd">        Direct effect on the exposed.</span>
+<span class="sd">    direct0 : float</span>
+<span class="sd">        Direct effect on the unexposed,</span>
+<span class="sd">    indirect1 : float</span>
+<span class="sd">        Indirect effect on the exposed.</span>
+<span class="sd">    indirect0 : float</span>
+<span class="sd">        Indirect effect on the unexposed.</span>
+<span class="sd">    n_discarded : int</span>
+<span class="sd">        Number of discarded samples due to trimming.</span>
+
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        - If t or y are multidimensional.</span>
+<span class="sd">        - If x, t, m, or y don&#39;t have the same length.</span>
+<span class="sd">        - If m is not binary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Format checking</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multidimensional y is not supported&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">ravel</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multidimensional t is not supported&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multidimensional m is not supported&quot;</span><span class="p">)</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">dim_m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">*</span> <span class="n">dim_m</span> <span class="o">!=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;m is not binary&quot;</span><span class="p">)</span>
+
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inputs don&#39;t have the same number of observations&quot;</span><span class="p">)</span>
+
+    <span class="c1"># estimate propensities</span>
+    <span class="n">classifier_t_x</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">p_x</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_estimate_treatment_probabilities</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                               <span class="n">classifier_t_x</span><span class="p">,</span>
+                                               <span class="n">clone</span><span class="p">(</span><span class="n">classifier_t_x</span><span class="p">))</span>
+
+    <span class="c1"># estimate mediator densities</span>
+    <span class="n">classifier_m</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">f_00x</span><span class="p">,</span> <span class="n">f_01x</span><span class="p">,</span> <span class="n">f_10x</span><span class="p">,</span> <span class="n">f_11x</span><span class="p">,</span> <span class="n">f_m0x</span><span class="p">,</span> <span class="n">f_m1x</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_estimate_mediator_density</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                   <span class="n">classifier_m</span><span class="p">,</span> <span class="n">interaction</span><span class="p">))</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">f_00x</span><span class="p">,</span> <span class="n">f_01x</span><span class="p">,</span> <span class="n">f_10x</span><span class="p">,</span> <span class="n">f_11x</span>
+
+    <span class="c1"># estimate conditional mean outcomes</span>
+    <span class="n">regressor_y</span> <span class="o">=</span> <span class="n">_get_regressor</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">)</span>
+    <span class="n">regressor_cross_y</span> <span class="o">=</span> <span class="n">_get_regressor</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">)</span>
+    <span class="n">mu_0mx</span><span class="p">,</span> <span class="n">mu_1mx</span><span class="p">,</span> <span class="n">E_mu_t0_t0</span><span class="p">,</span> <span class="n">E_mu_t0_t1</span><span class="p">,</span> <span class="n">E_mu_t1_t0</span><span class="p">,</span> <span class="n">E_mu_t1_t1</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_estimate_cross_conditional_mean_outcome</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                                 <span class="n">regressor_y</span><span class="p">,</span>
+                                                 <span class="n">regressor_cross_y</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span>
+                                                 <span class="n">interaction</span><span class="p">))</span>
+
+    <span class="c1"># clipping</span>
+    <span class="n">p_x_clip</span> <span class="o">=</span> <span class="n">p_x</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_x</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+    <span class="n">f_m0x_clip</span> <span class="o">=</span> <span class="n">f_m0x</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">f_m0x</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+    <span class="n">f_m1x_clip</span> <span class="o">=</span> <span class="n">f_m1x</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">f_m1x</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+    <span class="n">clipped</span> <span class="o">=</span> <span class="n">p_x_clip</span> <span class="o">+</span> <span class="n">f_m0x_clip</span> <span class="o">+</span> <span class="n">f_m1x_clip</span>
+
+    <span class="n">var_name</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;p_x&quot;</span><span class="p">,</span> <span class="s2">&quot;f_m0x&quot;</span><span class="p">,</span> <span class="s2">&quot;f_m1x&quot;</span><span class="p">,</span> <span class="s2">&quot;mu_1mx&quot;</span><span class="p">,</span> <span class="s2">&quot;mu_0mx&quot;</span><span class="p">]</span>
+    <span class="n">var_name</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;E_mu_t1_t1&quot;</span><span class="p">,</span> <span class="s2">&quot;E_mu_t0_t0&quot;</span><span class="p">,</span> <span class="s2">&quot;E_mu_t1_t0&quot;</span><span class="p">,</span> <span class="s2">&quot;E_mu_t0_t1&quot;</span><span class="p">]</span>
+    <span class="n">n_discarded</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">var_name</span><span class="p">:</span>
+        <span class="n">exec</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">[~clipped]&quot;</span><span class="p">)</span>
+    <span class="n">n_discarded</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">clipped</span><span class="p">)</span>
+
+    <span class="c1"># score computing</span>
+    <span class="k">if</span> <span class="n">normalized</span><span class="p">:</span>
+        <span class="n">sum_score_m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span>
+        <span class="n">sum_score_m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span>
+        <span class="n">sum_score_t1m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m0x</span> <span class="o">/</span> <span class="n">f_m1x</span><span class="p">))</span>
+        <span class="n">sum_score_t0m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m1x</span> <span class="o">/</span> <span class="n">f_m0x</span><span class="p">))</span>
+
+        <span class="n">y1m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t1_t1</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m1</span> <span class="o">+</span> <span class="n">E_mu_t1_t1</span>
+        <span class="n">y0m0</span> <span class="o">=</span> <span class="p">(((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t0_t0</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m0</span>
+                <span class="o">+</span> <span class="n">E_mu_t0_t0</span><span class="p">)</span>
+        <span class="n">y1m0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">((</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m0x</span> <span class="o">/</span> <span class="n">f_m1x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_1mx</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_t1m0</span>
+            <span class="o">+</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_1mx</span> <span class="o">-</span> <span class="n">E_mu_t1_t0</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m0</span>
+            <span class="o">+</span> <span class="n">E_mu_t1_t0</span>
+        <span class="p">)</span>
+        <span class="n">y0m1</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m1x</span> <span class="o">/</span> <span class="n">f_m0x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_0mx</span><span class="p">))</span>
+            <span class="o">/</span> <span class="n">sum_score_t0m1</span> <span class="o">+</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="n">mu_0mx</span> <span class="o">-</span> <span class="n">E_mu_t0_t1</span><span class="p">)</span> <span class="o">/</span> <span class="n">sum_score_m1</span>
+            <span class="o">+</span> <span class="n">E_mu_t0_t1</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">y1m1</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t1_t1</span><span class="p">)</span> <span class="o">+</span> <span class="n">E_mu_t1_t1</span>
+        <span class="n">y0m0</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t0_t0</span><span class="p">)</span> <span class="o">+</span> <span class="n">E_mu_t0_t0</span>
+        <span class="n">y1m0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m0x</span> <span class="o">/</span> <span class="n">f_m1x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_1mx</span><span class="p">)</span>
+            <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_1mx</span> <span class="o">-</span> <span class="n">E_mu_t1_t0</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">E_mu_t1_t0</span>
+        <span class="p">)</span>
+        <span class="n">y0m1</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">f_m1x</span> <span class="o">/</span> <span class="n">f_m0x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_0mx</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_0mx</span> <span class="o">-</span> <span class="n">E_mu_t0_t1</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">E_mu_t0_t1</span>
+        <span class="p">)</span>
+
+    <span class="c1"># effects computing</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m1</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">)</span>
+    <span class="n">direct1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m1</span> <span class="o">-</span> <span class="n">y0m1</span><span class="p">)</span>
+    <span class="n">direct0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m0</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">)</span>
+    <span class="n">indirect1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m1</span> <span class="o">-</span> <span class="n">y1m0</span><span class="p">)</span>
+    <span class="n">indirect0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y0m1</span> <span class="o">-</span> <span class="n">y0m0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">direct1</span><span class="p">,</span> <span class="n">direct0</span><span class="p">,</span> <span class="n">indirect1</span><span class="p">,</span> <span class="n">indirect0</span><span class="p">,</span> <span class="n">n_discarded</span></div>
+
+
+
+<span class="nd">@r_dependency_required</span><span class="p">([</span><span class="s1">&#39;mediation&#39;</span><span class="p">,</span> <span class="s1">&#39;stats&#39;</span><span class="p">,</span> <span class="s1">&#39;base&#39;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">r_mediate</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">interaction</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function calls the R function mediate from the package mediation</span>
+<span class="sd">    (https://cran.r-project.org/package=mediation)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples)</span>
+<span class="sd">            mediator value for each unit, here m is necessary binary and</span>
+<span class="sd">            unidimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    interaction : boolean, default=False</span>
+<span class="sd">                whether to include interaction terms in the model</span>
+<span class="sd">                interactions are terms XT, TM, MX</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="kn">import</span> <span class="nn">rpy2.robjects</span> <span class="k">as</span> <span class="nn">robjects</span>
+    <span class="kn">import</span> <span class="nn">rpy2.robjects.packages</span> <span class="k">as</span> <span class="nn">rpackages</span>
+    <span class="kn">from</span> <span class="nn">rpy2.robjects</span> <span class="kn">import</span> <span class="n">numpy2ri</span><span class="p">,</span> <span class="n">pandas2ri</span>
+
+    <span class="n">pandas2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+    <span class="n">numpy2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+
+    <span class="n">mediation</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;mediation&#39;</span><span class="p">)</span>
+    <span class="n">Rstats</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;stats&#39;</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;base&#39;</span><span class="p">)</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">var_names</span> <span class="o">=</span> <span class="p">[[</span><span class="n">y</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">]]</span>
+    <span class="n">df_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">var_names</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">var_dim</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">var_dim</span><span class="p">)]</span>
+            <span class="n">sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_names</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+        <span class="n">df_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">df_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">m_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;y&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s1">&#39;m&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)]</span>
+    <span class="n">y_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;y&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">interaction</span><span class="p">:</span>
+        <span class="n">m_formula</span> <span class="o">=</span> <span class="s1">&#39;m ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">m_features</span><span class="p">)</span>
+        <span class="n">y_formula</span> <span class="o">=</span> <span class="s1">&#39;y ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">y_features</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">m_formula</span> <span class="o">=</span> <span class="s1">&#39;m ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">m_features</span> <span class="o">+</span>
+                                        <span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span>
+                                         <span class="n">combinations</span><span class="p">(</span><span class="n">m_features</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="n">y_formula</span> <span class="o">=</span> <span class="s1">&#39;y ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">y_features</span> <span class="o">+</span>
+                                        <span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span>
+                                         <span class="n">combinations</span><span class="p">(</span><span class="n">y_features</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+    <span class="n">robjects</span><span class="o">.</span><span class="n">globalenv</span><span class="p">[</span><span class="s1">&#39;df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+    <span class="n">mediator_model</span> <span class="o">=</span> <span class="n">Rstats</span><span class="o">.</span><span class="n">lm</span><span class="p">(</span><span class="n">m_formula</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">base</span><span class="o">.</span><span class="n">as_symbol</span><span class="p">(</span><span class="s1">&#39;df&#39;</span><span class="p">))</span>
+    <span class="n">outcome_model</span> <span class="o">=</span> <span class="n">Rstats</span><span class="o">.</span><span class="n">lm</span><span class="p">(</span><span class="n">y_formula</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">base</span><span class="o">.</span><span class="n">as_symbol</span><span class="p">(</span><span class="s1">&#39;df&#39;</span><span class="p">))</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">mediation</span><span class="o">.</span><span class="n">mediate</span><span class="p">(</span><span class="n">mediator_model</span><span class="p">,</span> <span class="n">outcome_model</span><span class="p">,</span> <span class="n">treat</span><span class="o">=</span><span class="s1">&#39;t&#39;</span><span class="p">,</span>
+                            <span class="n">mediator</span><span class="o">=</span><span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="n">boot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sims</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">relevant_variables</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;tau.coef&#39;</span><span class="p">,</span> <span class="s1">&#39;z1&#39;</span><span class="p">,</span> <span class="s1">&#39;z0&#39;</span><span class="p">,</span> <span class="s1">&#39;d1&#39;</span><span class="p">,</span> <span class="s1">&#39;d0&#39;</span><span class="p">]</span>
+    <span class="n">to_return</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">rx2</span><span class="p">(</span><span class="n">v</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">relevant_variables</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">to_return</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+
+
+<span class="nd">@r_dependency_required</span><span class="p">([</span><span class="s1">&#39;plmed&#39;</span><span class="p">,</span> <span class="s1">&#39;base&#39;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">r_mediation_g_estimator</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function calls the R G-estimator from the package plmed</span>
+<span class="sd">    (https://github.com/ohines/plmed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="kn">import</span> <span class="nn">rpy2.robjects</span> <span class="k">as</span> <span class="nn">robjects</span>
+    <span class="kn">import</span> <span class="nn">rpy2.robjects.packages</span> <span class="k">as</span> <span class="nn">rpackages</span>
+    <span class="kn">from</span> <span class="nn">rpy2.robjects</span> <span class="kn">import</span> <span class="n">numpy2ri</span><span class="p">,</span> <span class="n">pandas2ri</span>
+
+    <span class="n">pandas2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+    <span class="n">numpy2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+
+    <span class="n">plmed</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;plmed&#39;</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;base&#39;</span><span class="p">)</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">var_names</span> <span class="o">=</span> <span class="p">[[</span><span class="n">y</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">t</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">],</span>
+                 <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">]]</span>
+    <span class="n">df_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">var_names</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">var_dim</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">col_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">var_dim</span><span class="p">)]</span>
+            <span class="n">sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_names</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+        <span class="n">df_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">df_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">m_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)]</span>
+    <span class="n">y_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)]</span>
+    <span class="n">t_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span> <span class="ow">in</span> <span class="n">c</span><span class="p">)]</span>
+    <span class="n">m_formula</span> <span class="o">=</span> <span class="s1">&#39;m ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">m_features</span><span class="p">)</span>
+    <span class="n">y_formula</span> <span class="o">=</span> <span class="s1">&#39;y ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">y_features</span><span class="p">)</span>
+    <span class="n">t_formula</span> <span class="o">=</span> <span class="s1">&#39;t ~ &#39;</span> <span class="o">+</span> <span class="s1">&#39; + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">t_features</span><span class="p">)</span>
+    <span class="n">robjects</span><span class="o">.</span><span class="n">globalenv</span><span class="p">[</span><span class="s1">&#39;df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">plmed</span><span class="o">.</span><span class="n">G_estimation</span><span class="p">(</span><span class="n">t_formula</span><span class="p">,</span>
+                             <span class="n">m_formula</span><span class="p">,</span>
+                             <span class="n">y_formula</span><span class="p">,</span>
+                             <span class="n">exposure_family</span><span class="o">=</span><span class="s1">&#39;binomial&#39;</span><span class="p">,</span>
+                             <span class="n">data</span><span class="o">=</span><span class="n">base</span><span class="o">.</span><span class="n">as_symbol</span><span class="p">(</span><span class="s1">&#39;df&#39;</span><span class="p">))</span>
+    <span class="n">direct_effect</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">rx2</span><span class="p">(</span><span class="s1">&#39;coef&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">indirect_effect</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">rx2</span><span class="p">(</span><span class="s1">&#39;coef&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">direct_effect</span> <span class="o">+</span> <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">direct_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="n">indirect_effect</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">)</span>
+
+
+<span class="nd">@r_dependency_required</span><span class="p">([</span><span class="s1">&#39;causalweight&#39;</span><span class="p">,</span> <span class="s1">&#39;base&#39;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">r_mediation_dml</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">trim</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function calls the R Double Machine Learning estimator from the</span>
+<span class="sd">    package causalweight (https://cran.r-project.org/web/packages/causalweight)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">            outcome value for each unit, continuous</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">            treatment value for each unit, binary</span>
+
+<span class="sd">    m : array-like, shape (n_samples, n_features_mediator)</span>
+<span class="sd">            mediator value for each unit, can be continuous or binary, and</span>
+<span class="sd">            multi-dimensional</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">            covariates (potential confounders) values</span>
+
+<span class="sd">    trim : float, default=0.05</span>
+<span class="sd">            Trimming rule for discarding observations with extreme</span>
+<span class="sd">            conditional treatment or mediator probabilities</span>
+<span class="sd">            (or products thereof). Observations with (products of)</span>
+<span class="sd">            conditional probabilities that are smaller than trim in any</span>
+<span class="sd">            denominator of the potential outcomes are dropped.</span>
+
+<span class="sd">    order : integer, default=1</span>
+<span class="sd">            If set to an integer larger than 1, then polynomials of that</span>
+<span class="sd">            order and interactions using the power series) rather than the</span>
+<span class="sd">            original control variables are used in the estimation of any</span>
+<span class="sd">            conditional probability or conditional mean outcome.</span>
+<span class="sd">            Polynomials/interactions are created using the Generate.</span>
+<span class="sd">            Powers command of the LARF package.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="kn">import</span> <span class="nn">rpy2.robjects.packages</span> <span class="k">as</span> <span class="nn">rpackages</span>
+    <span class="kn">from</span> <span class="nn">rpy2.robjects</span> <span class="kn">import</span> <span class="n">numpy2ri</span><span class="p">,</span> <span class="n">pandas2ri</span>
+    <span class="kn">from</span> <span class="nn">.utils.utils</span> <span class="kn">import</span> <span class="n">_convert_array_to_R</span>
+
+    <span class="n">pandas2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+    <span class="n">numpy2ri</span><span class="o">.</span><span class="n">activate</span><span class="p">()</span>
+
+    <span class="n">causalweight</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;causalweight&#39;</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">rpackages</span><span class="o">.</span><span class="n">importr</span><span class="p">(</span><span class="s1">&#39;base&#39;</span><span class="p">)</span>
+
+    <span class="n">x_r</span><span class="p">,</span> <span class="n">t_r</span><span class="p">,</span> <span class="n">m_r</span><span class="p">,</span> <span class="n">y_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">base</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">(</span><span class="n">_convert_array_to_R</span><span class="p">(</span><span class="n">uu</span><span class="p">))</span> <span class="k">for</span> <span class="n">uu</span> <span class="ow">in</span>
+                          <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">y</span><span class="p">)]</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">causalweight</span><span class="o">.</span><span class="n">medDML</span><span class="p">(</span><span class="n">y_r</span><span class="p">,</span> <span class="n">t_r</span><span class="p">,</span> <span class="n">m_r</span><span class="p">,</span> <span class="n">x_r</span><span class="p">,</span> <span class="n">trim</span><span class="o">=</span><span class="n">trim</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+    <span class="n">raw_res_R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">rx2</span><span class="p">(</span><span class="s1">&#39;results&#39;</span><span class="p">))</span>
+    <span class="n">ntrimmed</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">rx2</span><span class="p">(</span><span class="s1">&#39;ntrimmed&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">raw_res_R</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:</span><span class="mi">5</span><span class="p">])</span> <span class="o">+</span> <span class="p">[</span><span class="n">ntrimmed</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="mediation_dml">
+<a class="viewcode-back" href="../../modules.html#med_bench.mediation.mediation_dml">[docs]</a>
+<span class="k">def</span> <span class="nf">mediation_dml</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">forest</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">crossfit</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">trim</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+                  <span class="n">normalized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">calibration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Python implementation of Double Machine Learning procedure, as described</span>
+<span class="sd">    in :</span>
+<span class="sd">    Helmut Farbmacher and others, Causal mediation analysis with double</span>
+<span class="sd">    machine learning,</span>
+<span class="sd">    The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,</span>
+<span class="sd">    https://doi.org/10.1093/ectj/utac003</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    y : array-like, shape (n_samples)</span>
+<span class="sd">        Outcome value for each unit.</span>
+
+<span class="sd">    t : array-like, shape (n_samples)</span>
+<span class="sd">        Treatment value for each unit.</span>
+
+<span class="sd">    m : array-like, shape (n_samples, n_features_mediator)</span>
+<span class="sd">        Mediator value for each unit, multidimensional or continuous.</span>
+
+<span class="sd">    x : array-like, shape (n_samples, n_features_covariates)</span>
+<span class="sd">        Covariates value for each unit, multidimensional or continuous.</span>
+
+<span class="sd">    forest : boolean, default=False</span>
+<span class="sd">        Whether to use a random forest model to estimate the propensity</span>
+<span class="sd">        scores instead of logistic regression, and outcome model instead</span>
+<span class="sd">        of linear regression.</span>
+
+<span class="sd">    crossfit : int, default=0</span>
+<span class="sd">        Number of folds for cross-fitting.</span>
+
+<span class="sd">    trim : float, default=0.05</span>
+<span class="sd">        Trimming treshold for discarding observations with extreme probability.</span>
+
+<span class="sd">    clip : float, default=1e-6</span>
+<span class="sd">            limit to clip for numerical stability (min=clip, max=1-clip)</span>
+
+<span class="sd">    normalized : boolean, default=True</span>
+<span class="sd">        Normalizes the inverse probability-based weights so they add up to 1,</span>
+<span class="sd">        as described in &quot;Identifying causal mechanisms (primarily) based on</span>
+<span class="sd">        inverse probability weighting&quot;,</span>
+<span class="sd">        Huber (2014), https://doi.org/10.1002/jae.2341</span>
+
+<span class="sd">    regularization : boolean, default=True</span>
+<span class="sd">        Whether to use regularized models (logistic or linear regression).</span>
+<span class="sd">        If True, cross-validation is used to chose among 8 potential</span>
+<span class="sd">        log-spaced values between 1e-5 and 1e5.</span>
+
+<span class="sd">    random_state : int, default=None</span>
+<span class="sd">        LogisticRegression random state instance.</span>
+
+<span class="sd">    calibration : {None, &quot;sigmoid&quot;, &quot;isotonic&quot;}, default=None</span>
+<span class="sd">        Whether to add a calibration step for the classifier used to estimate</span>
+<span class="sd">        the treatment propensity score and P(T|M,X). &quot;None&quot; means no</span>
+<span class="sd">        calibration.</span>
+<span class="sd">        Calibration ensures the output of the [predict_proba]</span>
+<span class="sd">        (https://scikit-learn.org/stable/glossary.html#term-predict_proba)</span>
+<span class="sd">        method can be directly interpreted as a confidence level.</span>
+<span class="sd">        Implemented calibration methods are &quot;sigmoid&quot; and &quot;isotonic&quot;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    total : float</span>
+<span class="sd">        Average total effect.</span>
+<span class="sd">    direct1 : float</span>
+<span class="sd">        Direct effect on the exposed.</span>
+<span class="sd">    direct0 : float</span>
+<span class="sd">        Direct effect on the unexposed,</span>
+<span class="sd">    indirect1 : float</span>
+<span class="sd">        Indirect effect on the exposed.</span>
+<span class="sd">    indirect0 : float</span>
+<span class="sd">        Indirect effect on the unexposed.</span>
+<span class="sd">    n_discarded : int</span>
+<span class="sd">        Number of discarded samples due to trimming.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        - If t or y are multidimensional.</span>
+<span class="sd">        - If x, t, m, or y don&#39;t have the same length.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># check format</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multidimensional y is not supported&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">ravel</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multidimensional t is not supported&quot;</span><span class="p">)</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inputs don&#39;t have the same number of observations&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">nobs</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">var_name</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;p_x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;p_xm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_1mx&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_0mx&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E_mu_t1_t0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E_mu_t0_t1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E_mu_t1_t1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E_mu_t0_t0&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># estimate propensities</span>
+    <span class="n">classifier_t_x</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">classifier_t_xm</span> <span class="o">=</span> <span class="n">_get_classifier</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">,</span> <span class="n">calibration</span><span class="p">)</span>
+    <span class="n">p_x</span><span class="p">,</span> <span class="n">p_xm</span> <span class="o">=</span> <span class="n">_estimate_treatment_probabilities</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                                  <span class="n">classifier_t_x</span><span class="p">,</span>
+                                                  <span class="n">classifier_t_xm</span><span class="p">)</span>
+
+    <span class="c1"># estimate conditional mean outcomes</span>
+    <span class="n">regressor_y</span> <span class="o">=</span> <span class="n">_get_regressor</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">)</span>
+    <span class="n">regressor_cross_y</span> <span class="o">=</span> <span class="n">_get_regressor</span><span class="p">(</span><span class="n">regularization</span><span class="p">,</span> <span class="n">forest</span><span class="p">)</span>
+
+    <span class="n">mu_0mx</span><span class="p">,</span> <span class="n">mu_1mx</span><span class="p">,</span> <span class="n">E_mu_t0_t0</span><span class="p">,</span> <span class="n">E_mu_t0_t1</span><span class="p">,</span> <span class="n">E_mu_t1_t0</span><span class="p">,</span> <span class="n">E_mu_t1_t1</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_estimate_cross_conditional_mean_outcome_nesting</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">crossfit</span><span class="p">,</span>
+                                                         <span class="n">regressor_y</span><span class="p">,</span>
+                                                         <span class="n">regressor_cross_y</span><span class="p">))</span>
+
+    <span class="c1"># trimming</span>
+    <span class="n">not_trimmed</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">trim</span><span class="p">)</span>
+        <span class="o">*</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">trim</span><span class="p">)</span>
+        <span class="o">*</span> <span class="p">(</span><span class="n">p_x</span> <span class="o">&gt;=</span> <span class="n">trim</span><span class="p">)</span>
+        <span class="o">*</span> <span class="p">((</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">trim</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">var_name</span><span class="p">:</span>
+        <span class="n">exec</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">[not_trimmed]&quot;</span><span class="p">)</span>
+    <span class="n">nobs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">not_trimmed</span><span class="p">)</span>
+
+    <span class="c1"># clipping</span>
+    <span class="n">p_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_x</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+    <span class="n">p_xm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_xm</span><span class="p">,</span> <span class="n">clip</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip</span><span class="p">)</span>
+
+    <span class="c1"># score computing</span>
+    <span class="k">if</span> <span class="n">normalized</span><span class="p">:</span>
+        <span class="n">sum_score_m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span><span class="p">)</span>
+        <span class="n">sum_score_m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span>
+        <span class="n">sum_score_t1m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)))</span>
+        <span class="n">sum_score_t0m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_xm</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">))</span>
+        <span class="n">y1m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t1_t1</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m1</span> <span class="o">+</span> <span class="n">E_mu_t1_t1</span>
+        <span class="n">y0m0</span> <span class="o">=</span> <span class="p">(((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t0_t0</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m0</span>
+                <span class="o">+</span> <span class="n">E_mu_t0_t0</span><span class="p">)</span>
+        <span class="n">y1m0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_1mx</span><span class="p">))</span>
+            <span class="o">/</span> <span class="n">sum_score_t1m0</span> <span class="o">+</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_1mx</span> <span class="o">-</span> <span class="n">E_mu_t1_t0</span><span class="p">))</span>
+            <span class="o">/</span> <span class="n">sum_score_m0</span> <span class="o">+</span> <span class="n">E_mu_t1_t0</span>
+        <span class="p">)</span>
+        <span class="n">y0m1</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_xm</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_0mx</span><span class="p">))</span>
+            <span class="o">/</span> <span class="n">sum_score_t0m1</span>
+            <span class="o">+</span> <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_0mx</span> <span class="o">-</span> <span class="n">E_mu_t0_t1</span><span class="p">))</span> <span class="o">/</span> <span class="n">sum_score_m1</span>
+            <span class="o">+</span> <span class="n">E_mu_t0_t1</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">y1m1</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t1_t1</span><span class="p">)</span> <span class="o">+</span> <span class="n">E_mu_t1_t1</span>
+        <span class="n">y0m0</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">E_mu_t0_t0</span><span class="p">)</span> <span class="o">+</span> <span class="n">E_mu_t0_t0</span>
+        <span class="n">y1m0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p_xm</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_1mx</span><span class="p">)</span>
+            <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_1mx</span> <span class="o">-</span> <span class="n">E_mu_t1_t0</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">E_mu_t1_t0</span>
+        <span class="p">)</span>
+        <span class="n">y0m1</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_xm</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_xm</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">mu_0mx</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">t</span> <span class="o">/</span> <span class="n">p_x</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_0mx</span> <span class="o">-</span> <span class="n">E_mu_t0_t1</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">E_mu_t0_t1</span>
+        <span class="p">)</span>
+
+    <span class="c1"># mean score computing</span>
+    <span class="n">my1m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m1</span><span class="p">)</span>
+    <span class="n">my0m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y0m0</span><span class="p">)</span>
+    <span class="n">my1m0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y1m0</span><span class="p">)</span>
+    <span class="n">my0m1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y0m1</span><span class="p">)</span>
+
+    <span class="c1"># effects computing</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">my1m1</span> <span class="o">-</span> <span class="n">my0m0</span>
+    <span class="n">direct1</span> <span class="o">=</span> <span class="n">my1m1</span> <span class="o">-</span> <span class="n">my0m1</span>
+    <span class="n">direct0</span> <span class="o">=</span> <span class="n">my1m0</span> <span class="o">-</span> <span class="n">my0m0</span>
+    <span class="n">indirect1</span> <span class="o">=</span> <span class="n">my1m1</span> <span class="o">-</span> <span class="n">my1m0</span>
+    <span class="n">indirect0</span> <span class="o">=</span> <span class="n">my0m1</span> <span class="o">-</span> <span class="n">my0m0</span>
+    <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">direct1</span><span class="p">,</span> <span class="n">direct0</span><span class="p">,</span> <span class="n">indirect1</span><span class="p">,</span> <span class="n">indirect0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="n">nobs</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

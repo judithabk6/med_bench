@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>med_bench &mdash; med_bench  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to med_bench’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            med_bench
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">med_bench</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#get-estimation">get_estimation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.get_estimation.get_estimation"><code class="docutils literal notranslate"><span class="pre">get_estimation()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#get-simulated-data">get_simulated_data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.get_simulated_data.simulate_data"><code class="docutils literal notranslate"><span class="pre">simulate_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mediation">mediation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.alternative_estimator"><code class="docutils literal notranslate"><span class="pre">alternative_estimator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.mediation_IPW"><code class="docutils literal notranslate"><span class="pre">mediation_IPW()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.mediation_coefficient_product"><code class="docutils literal notranslate"><span class="pre">mediation_coefficient_product()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.mediation_dml"><code class="docutils literal notranslate"><span class="pre">mediation_dml()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.mediation_g_formula"><code class="docutils literal notranslate"><span class="pre">mediation_g_formula()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.mediation.mediation_multiply_robust"><code class="docutils literal notranslate"><span class="pre">mediation_multiply_robust()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-med_bench.utils.utils">utils</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.utils.utils.DependencyNotInstalledError"><code class="docutils literal notranslate"><span class="pre">DependencyNotInstalledError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.utils.utils.check_r_dependencies"><code class="docutils literal notranslate"><span class="pre">check_r_dependencies()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.utils.utils.check_r_package"><code class="docutils literal notranslate"><span class="pre">check_r_package()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.utils.utils.is_r_installed"><code class="docutils literal notranslate"><span class="pre">is_r_installed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#med_bench.utils.utils.r_dependency_required"><code class="docutils literal notranslate"><span class="pre">r_dependency_required()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#nuisances">nuisances</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">med_bench</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">med_bench</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/modules.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="toctree-wrapper compound">
+</div>
+<section id="module-med_bench">
+<span id="med-bench"></span><h1>med_bench<a class="headerlink" href="#module-med_bench" title="Link to this heading"></a></h1>
+<section id="get-estimation">
+<h2>get_estimation<a class="headerlink" href="#get-estimation" title="Link to this heading"></a></h2>
+<dl class="py function" id="module-med_bench.get_estimation">
+<dt class="sig sig-object py" id="med_bench.get_estimation.get_estimation">
+<span class="sig-prename descclassname"><span class="pre">med_bench.get_estimation.</span></span><span class="sig-name descname"><span class="pre">get_estimation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">estimator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/get_estimation.html#get_estimation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.get_estimation.get_estimation" title="Link to this definition"></a></dt>
+<dd><p>Wrapper estimator fonction ; calls an estimator given mediation data
+in order to estimate total, direct, and indirect effects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – Covariates value for each unit</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Treatment value for each unit</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_mediator</em><em>)</em>) – Mediator value for each unit</p></li>
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Outcome value for each unit</p></li>
+<li><p><strong>estimator</strong> (<em>str</em>) – Label of the estimator</p></li>
+<li><p><strong>config</strong> (<em>int</em>) – Indicates whether the estimator is suited to the data.
+Should be 1 if dim_m=1 and type_m=”binary”, 5 otherwise.
+This is a legacy parameter, will be removed in future updates.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of estimated effects :
+[total effect,
+direct effect on the exposed,
+direct effect on the unexposed,
+indirect effect on the exposed,
+indirect effect on the unexposed,
+number of discarded samples OR non-discarded samples]</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>UserWarning</strong> – If estimator name is misspelled.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="get-simulated-data">
+<h2>get_simulated_data<a class="headerlink" href="#get-simulated-data" title="Link to this heading"></a></h2>
+<dl class="py function" id="module-med_bench.get_simulated_data">
+<dt class="sig sig-object py" id="med_bench.get_simulated_data.simulate_data">
+<span class="sig-prename descclassname"><span class="pre">med_bench.get_simulated_data.</span></span><span class="sig-name descname"><span class="pre">simulate_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mis_spec_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mis_spec_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'binary'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_t_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_m_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/get_simulated_data.html#simulate_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.get_simulated_data.simulate_data" title="Link to this definition"></a></dt>
+<dd><p>Simulate data for mediation analysis</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>,) – Number of samples to generate.</p></li>
+<li><p><strong>rg</strong> (<em>RandomState instance</em><em>,</em>) – Controls the pseudo random number generator used to generate the
+data at fit time.</p></li>
+<li><p><strong>mis_spec_m</strong> (obj:<cite>bool</cite>,) – Whether the mediator generation is misspecified or not
+defaults to False</p></li>
+<li><p><strong>mis_spec_y</strong> (obj:<cite>bool</cite>,) – Whether the output model is misspecified or not
+defaults to False</p></li>
+<li><p><strong>dim_x</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>, optional,) – Number of covariates in the input.
+Defaults to 1</p></li>
+<li><p><strong>dim_m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>, optional,) – Number of mediatiors to generate.
+Defaults to 1</p></li>
+<li><p><strong>seed</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code> or None, optional,) – Controls the pseudo random number generator used to generate the
+coefficients of the model.
+Pass an int for reproducible output across multiple function calls.
+Defaults to None</p></li>
+<li><p><strong>type_m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>,) – Whether the mediator is binary or continuous
+Defaults to ‘binary’,</p></li>
+<li><p><strong>sigma_y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – noise variance on outcome
+Defaults to 0.5,</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>:param sigma_m <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>: noise variance on mediator</dt><dd><p>Defaults to 0.5,</p>
+</dd>
+<dt>:param<span class="classifier">noise variance on mediator</span></dt><dd><p>Defaults to 0.5,</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>beta_t_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – scaling factor on treatment effect,
+Defaults to 1,</p></li>
+<li><p><strong>beta_m_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – scaling factor on mediator,
+Defaults to 1,</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>ndarray of shape (n, dim_x)</em>) – the simulated covariates</p></li>
+<li><p><strong>t</strong> (<em>ndarray of shape (n, 1)</em>) – the simulated treatment</p></li>
+<li><p><strong>m</strong> (<em>ndarray of shape (n, dim_m)</em>) – the simulated mediators</p></li>
+<li><p><strong>y</strong> (<em>ndarray of shape (n, 1)</em>) – the simulated outcome</p></li>
+<li><p><strong>total</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – the total simulated effect</p></li>
+<li><p><strong>theta_1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – the natural direct effect on the treated,</p></li>
+<li><p><strong>theta_0</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – the natural direct effect on the untreated,</p></li>
+<li><p><strong>delta_1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – the natural indirect effect on the treated,</p></li>
+<li><p><strong>delta_0</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>,) – the natural indirect effect on the untreated,</p></li>
+<li><p><strong>p_t</strong> (<em>ndarray of shape (n, 1),</em>) – Propensity score</p></li>
+<li><p><strong>th_p_t_mx</strong> (<em>ndarray of shape (n, 1),</em>) – overlap</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="mediation">
+<h2>mediation<a class="headerlink" href="#mediation" title="Link to this heading"></a></h2>
+<p id="module-med_bench.mediation">the objective of this script is to implement estimators for mediation in
+causal inference, simulate data, and evaluate and compare estimators</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.alternative_estimator">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">alternative_estimator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#alternative_estimator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.alternative_estimator" title="Link to this definition"></a></dt>
+<dd><p>presented in
+HUBER, Martin, LECHNER, Michael, et MELLACE, Giovanni.
+The finite sample performance of estimators for mediation analysis under
+sequential conditional independence.
+Journal of Business &amp; Economic Statistics, 2016, vol. 34, no 1, p. 139-160.
+section 3.2.2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – outcome value for each unit, continuous</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – treatment value for each unit, binary</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – mediator value for each unit, here m is necessary binary
+and unidimensional</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – covariates (potential confounders) values</p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – whether to use regularized models (logistic or
+linear regression). If True, cross-validation is used
+to chose among 8 potential log-spaced values between
+1e-5 and 1e5</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.mediation_IPW">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">mediation_IPW</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossfit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calibration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sigmoid'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#mediation_IPW"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.mediation_IPW" title="Link to this definition"></a></dt>
+<dd><p>IPW estimator presented in
+HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
+probability weighting. Journal of Applied Econometrics, 2014,
+vol. 29, no 6, p. 920-943.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – outcome value for each unit, continuous</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – treatment value for each unit, binary</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_mediator</em><em>)</em>) – mediator value for each unit, can be continuous or binary, and
+multidimensional</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – covariates (potential confounders) values</p></li>
+<li><p><strong>trim</strong> (<em>float</em>) – Trimming rule for discarding observations with extreme propensity
+scores. In the absence of post-treatment confounders (w=NULL),
+observations with Pr(D=1|M,X)&lt;trim or Pr(D=1|M,X)&gt;(1-trim) are
+dropped. In the presence of post-treatment confounders
+(w is defined), observations with Pr(D=1|M,W,X)&lt;trim or
+Pr(D=1|M,W,X)&gt;(1-trim) are dropped.</p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – whether to use regularized models (logistic or
+linear regression). If True, cross-validation is used
+to chose among 8 potential log-spaced values between
+1e-5 and 1e5</p></li>
+<li><p><strong>forest</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – whether to use a random forest model to estimate the propensity
+scores instead of logistic regression</p></li>
+<li><p><strong>crossfit</strong> (<em>integer</em><em>, </em><em>default=0</em>) – number of folds for cross-fitting</p></li>
+<li><p><strong>clip</strong> (<em>float</em><em>, </em><em>default=1e-6</em>) – limit to clip for numerical stability (min=clip, max=1-clip)</p></li>
+<li><p><strong>calibration</strong> (<em>str</em><em>, </em><em>default=sigmoid</em>) – calibration mode; for example using a sigmoid function</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>float</em> – total effect</p></li>
+<li><p><em>float</em> – direct effect treated (     heta(1))</p></li>
+<li><p><em>float</em> – direct effect nontreated (  heta(0))</p></li>
+<li><p><em>float</em> – indirect effect treated (delta(1))</p></li>
+<li><p><em>float</em> – indirect effect untreated (delta(0))</p></li>
+<li><p><em>int</em> – number of used observations (non trimmed)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.mediation_coefficient_product">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">mediation_coefficient_product</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interaction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#mediation_coefficient_product"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.mediation_coefficient_product" title="Link to this definition"></a></dt>
+<dd><p>found an R implementation <a class="reference external" href="https://cran.r-project.org/package=regmedint">https://cran.r-project.org/package=regmedint</a></p>
+<p>implements very simple model of mediation
+Y ~ X + T + M
+M ~ X + T
+estimation method is product of coefficients</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – outcome value for each unit, continuous</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – treatment value for each unit, binary</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – mediator value for each unit, can be continuous or binary, and
+is necessary in 1D</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – covariates (potential confounders) values</p></li>
+<li><p><strong>interaction</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – whether to include interaction terms in the model
+not implemented here, just for compatibility of signature
+function</p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – whether to use regularized models (logistic or
+linear regression). If True, cross-validation is used
+to chose among 8 potential log-spaced values between
+1e-5 and 1e5</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>float</em> – total effect</p></li>
+<li><p><em>float</em> – direct effect treated (     heta(1))</p></li>
+<li><p><em>float</em> – direct effect nontreated (  heta(0))</p></li>
+<li><p><em>float</em> – indirect effect treated (delta(1))</p></li>
+<li><p><em>float</em> – indirect effect untreated (delta(0))</p></li>
+<li><p><em>int</em> – number of used observations (non trimmed)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.mediation_dml">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">mediation_dml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossfit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalized</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calibration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#mediation_dml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.mediation_dml" title="Link to this definition"></a></dt>
+<dd><p>Python implementation of Double Machine Learning procedure, as described
+in :
+Helmut Farbmacher and others, Causal mediation analysis with double
+machine learning,
+The Econometrics Journal, Volume 25, Issue 2, May 2022, Pages 277–300,
+<a class="reference external" href="https://doi.org/10.1093/ectj/utac003">https://doi.org/10.1093/ectj/utac003</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Outcome value for each unit.</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Treatment value for each unit.</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_mediator</em><em>)</em>) – Mediator value for each unit, multidimensional or continuous.</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – Covariates value for each unit, multidimensional or continuous.</p></li>
+<li><p><strong>forest</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – Whether to use a random forest model to estimate the propensity
+scores instead of logistic regression, and outcome model instead
+of linear regression.</p></li>
+<li><p><strong>crossfit</strong> (<em>int</em><em>, </em><em>default=0</em>) – Number of folds for cross-fitting.</p></li>
+<li><p><strong>trim</strong> (<em>float</em><em>, </em><em>default=0.05</em>) – Trimming treshold for discarding observations with extreme probability.</p></li>
+<li><p><strong>clip</strong> (<em>float</em><em>, </em><em>default=1e-6</em>) – limit to clip for numerical stability (min=clip, max=1-clip)</p></li>
+<li><p><strong>normalized</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – Normalizes the inverse probability-based weights so they add up to 1,
+as described in “Identifying causal mechanisms (primarily) based on
+inverse probability weighting”,
+Huber (2014), <a class="reference external" href="https://doi.org/10.1002/jae.2341">https://doi.org/10.1002/jae.2341</a></p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – Whether to use regularized models (logistic or linear regression).
+If True, cross-validation is used to chose among 8 potential
+log-spaced values between 1e-5 and 1e5.</p></li>
+<li><p><strong>random_state</strong> (<em>int</em><em>, </em><em>default=None</em>) – LogisticRegression random state instance.</p></li>
+<li><p><strong>calibration</strong> (<em>{None</em><em>, </em><em>&quot;sigmoid&quot;</em><em>, </em><em>&quot;isotonic&quot;}</em><em>, </em><em>default=None</em>) – Whether to add a calibration step for the classifier used to estimate
+the treatment propensity score and P(T|M,X). “None” means no
+calibration.
+Calibration ensures the output of the [predict_proba]
+(<a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-predict_proba">https://scikit-learn.org/stable/glossary.html#term-predict_proba</a>)
+method can be directly interpreted as a confidence level.
+Implemented calibration methods are “sigmoid” and “isotonic”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>total</strong> (<em>float</em>) – Average total effect.</p></li>
+<li><p><strong>direct1</strong> (<em>float</em>) – Direct effect on the exposed.</p></li>
+<li><p><strong>direct0</strong> (<em>float</em>) – Direct effect on the unexposed,</p></li>
+<li><p><strong>indirect1</strong> (<em>float</em>) – Indirect effect on the exposed.</p></li>
+<li><p><strong>indirect0</strong> (<em>float</em>) – Indirect effect on the unexposed.</p></li>
+<li><p><strong>n_discarded</strong> (<em>int</em>) – Number of discarded samples due to trimming.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – <ul class="simple">
+<li><p>If t or y are multidimensional.
+    - If x, t, m, or y don’t have the same length.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.mediation_g_formula">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">mediation_g_formula</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interaction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossfit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calibration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sigmoid'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#mediation_g_formula"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.mediation_g_formula" title="Link to this definition"></a></dt>
+<dd><p>Warning : m needs to be binary</p>
+<p>implementation of the g formula for mediation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – outcome value for each unit, continuous</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – treatment value for each unit, binary</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – mediator value for each unit, here m is necessary binary and uni-
+dimensional</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – covariates (potential confounders) values</p></li>
+<li><p><strong>interaction</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – whether to include interaction terms in the model
+interactions are terms XT, TM, MX</p></li>
+<li><p><strong>forest</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – whether to use a random forest model to estimate the propensity
+scores instead of logistic regression, and outcome model instead
+of linear regression</p></li>
+<li><p><strong>crossfit</strong> (<em>integer</em><em>, </em><em>default=0</em>) – number of folds for cross-fitting</p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – whether to use regularized models (logistic or
+linear regression). If True, cross-validation is used
+to chose among 8 potential log-spaced values between
+1e-5 and 1e5</p></li>
+<li><p><strong>calibration</strong> (<em>str</em><em>, </em><em>default=sigmoid</em>) – calibration mode; for example using a sigmoid function</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.mediation.mediation_multiply_robust">
+<span class="sig-prename descclassname"><span class="pre">med_bench.mediation.</span></span><span class="sig-name descname"><span class="pre">mediation_multiply_robust</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interaction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossfit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalized</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calibration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sigmoid'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/mediation.html#mediation_multiply_robust"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.mediation.mediation_multiply_robust" title="Link to this definition"></a></dt>
+<dd><p>Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
+“Semiparametric theory for causal mediation analysis: Efficiency bounds,
+multiple robustness and sensitivity analysis.”
+Ann. Statist. 40 (3) 1816 - 1845, June 2012.
+<a class="reference external" href="https://doi.org/10.1214/12-AOS990">https://doi.org/10.1214/12-AOS990</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Outcome value for each unit, continuous</p></li>
+<li><p><strong>t</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Treatment value for each unit, binary</p></li>
+<li><p><strong>m</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>)</em>) – Mediator value for each unit, binary and unidimensional</p></li>
+<li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>shape</em><em> (</em><em>n_samples</em><em>, </em><em>n_features_covariates</em><em>)</em>) – Covariates value for each unit, continuous</p></li>
+<li><p><strong>interaction</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – Whether to include interaction terms in the model
+interactions are terms XT, TM, MX</p></li>
+<li><p><strong>forest</strong> (<em>boolean</em><em>, </em><em>default=False</em>) – Whether to use a random forest model to estimate the propensity
+scores instead of logistic regression, and outcome model instead
+of linear regression</p></li>
+<li><p><strong>crossfit</strong> (<em>integer</em><em>, </em><em>default=0</em>) – Number of folds for cross-fitting. If crossfit&lt;2, no cross-fitting is
+applied</p></li>
+<li><p><strong>clip</strong> (<em>float</em><em>, </em><em>default=1e-6</em>) – Limit to clip p_x and f_mtx for numerical stability (min=clip,
+max=1-clip)</p></li>
+<li><p><strong>normalized</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – Normalizes the inverse probability-based weights so they add up to 1,
+as described in “Identifying causal mechanisms (primarily) based on
+inverse probability weighting”, Huber (2014),
+<a class="reference external" href="https://doi.org/10.1002/jae.2341">https://doi.org/10.1002/jae.2341</a></p></li>
+<li><p><strong>regularization</strong> (<em>boolean</em><em>, </em><em>default=True</em>) – Whether to use regularized models (logistic or linear regression).
+If True, cross-validation is used to chose among 8 potential
+log-spaced values between 1e-5 and 1e5</p></li>
+<li><p><strong>calibration</strong> (<em>str</em><em>, </em><em>default=&quot;sigmoid&quot;</em>) – Which calibration method to use.
+Implemented calibration methods are “sigmoid” and “isotonic”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>total</strong> (<em>float</em>) – Average total effect.</p></li>
+<li><p><strong>direct1</strong> (<em>float</em>) – Direct effect on the exposed.</p></li>
+<li><p><strong>direct0</strong> (<em>float</em>) – Direct effect on the unexposed,</p></li>
+<li><p><strong>indirect1</strong> (<em>float</em>) – Indirect effect on the exposed.</p></li>
+<li><p><strong>indirect0</strong> (<em>float</em>) – Indirect effect on the unexposed.</p></li>
+<li><p><strong>n_discarded</strong> (<em>int</em>) – Number of discarded samples due to trimming.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – <ul class="simple">
+<li><p>If t or y are multidimensional.
+    - If x, t, m, or y don’t have the same length.
+    - If m is not binary.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-med_bench.utils.utils">
+<span id="utils"></span><h2>utils<a class="headerlink" href="#module-med_bench.utils.utils" title="Link to this heading"></a></h2>
+<dl class="py exception">
+<dt class="sig sig-object py" id="med_bench.utils.utils.DependencyNotInstalledError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">med_bench.utils.utils.</span></span><span class="sig-name descname"><span class="pre">DependencyNotInstalledError</span></span><a class="reference internal" href="_modules/med_bench/utils/utils.html#DependencyNotInstalledError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.utils.utils.DependencyNotInstalledError" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.utils.utils.check_r_dependencies">
+<span class="sig-prename descclassname"><span class="pre">med_bench.utils.utils.</span></span><span class="sig-name descname"><span class="pre">check_r_dependencies</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/utils/utils.html#check_r_dependencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.utils.utils.check_r_dependencies" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.utils.utils.check_r_package">
+<span class="sig-prename descclassname"><span class="pre">med_bench.utils.utils.</span></span><span class="sig-name descname"><span class="pre">check_r_package</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/utils/utils.html#check_r_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.utils.utils.check_r_package" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.utils.utils.is_r_installed">
+<span class="sig-prename descclassname"><span class="pre">med_bench.utils.utils.</span></span><span class="sig-name descname"><span class="pre">is_r_installed</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/utils/utils.html#is_r_installed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.utils.utils.is_r_installed" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="med_bench.utils.utils.r_dependency_required">
+<span class="sig-prename descclassname"><span class="pre">med_bench.utils.utils.</span></span><span class="sig-name descname"><span class="pre">r_dependency_required</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">required_packages</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/med_bench/utils/utils.html#r_dependency_required"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#med_bench.utils.utils.r_dependency_required" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="nuisances">
+<h2>nuisances<a class="headerlink" href="#nuisances" title="Link to this heading"></a></h2>
+<p id="module-med_bench.utils.nuisances">the objective of this script is to implement nuisances functions
+used in mediation estimators in causal inference</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to med_bench’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
