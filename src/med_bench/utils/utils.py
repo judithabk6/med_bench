@@ -1,6 +1,6 @@
 import numpy as np
-import rpy2.robjects as robjects
-from sklearn.utils.validation import check_array
+import pandas as pd
+
 
 import subprocess
 import warnings
@@ -46,20 +46,27 @@ def check_r_package(package_name):
         return False
 
 
+class DependencyNotInstalledError(Exception):
+    pass
+
+
 def r_dependency_required(required_packages):
     def decorator(func):
         def wrapper(*args, **kwargs):
             if not is_r_installed():
-                warnings.warn(
+                raise DependencyNotInstalledError(
                     "R is not installed or not found. "
                     "Please install R and set it up correctly in your system."
                 )
-                return None
+
+            # To get rid of the 'DataFrame' object has no attribute 'iteritems' error due to pandas version mismatch in rpy2
+            # https://stackoverflow.com/a/76404841
+            pd.DataFrame.iteritems = pd.DataFrame.items
 
             for package in required_packages:
                 if not check_r_package(package):
                     if package != 'plmed':
-                        warnings.warn(
+                        raise DependencyNotInstalledError(
                             f"The '{package}' R package is not installed. "
                             "Please install it using R by running:\n"
                             "import rpy2.robjects.packages as rpackages\n"
@@ -68,7 +75,7 @@ def r_dependency_required(required_packages):
                             f"utils.install_packages('{package}')"
                         )
                     else:
-                        warnings.warn(
+                        raise DependencyNotInstalledError(
                             "The 'plmed' R package is not installed. "
                             "Please install it using R by running:\n"
                             "import rpy2.robjects.packages as rpackages\n"

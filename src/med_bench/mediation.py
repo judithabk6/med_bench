@@ -26,7 +26,7 @@ TINY = 1.e-12
 
 
 def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
-                  crossfit=0, clip=0.01, calibration='sigmoid'):
+                  crossfit=0, clip=1e-6, calibration='sigmoid'):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -69,7 +69,7 @@ def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
     crossfit : integer, default=0
              number of folds for cross-fitting
 
-    clip : float, default=0.01
+    clip : float, default=1e-6
             limit to clip for numerical stability (min=clip, max=1-clip)
 
     calibration : str, default=sigmoid
@@ -361,7 +361,7 @@ def alternative_estimator(y, t, m, x, regularization=True):
 
 
 def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
-                              crossfit=0, clip=0.01, normalized=True,
+                              crossfit=0, clip=1e-6, normalized=True,
                               regularization=True, calibration="sigmoid"):
     """
     Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
@@ -397,7 +397,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         Number of folds for cross-fitting. If crossfit<2, no cross-fitting is
         applied
 
-    clip : float, default=0.01
+    clip : float, default=1e-6
         Limit to clip p_x and f_mtx for numerical stability (min=clip,
         max=1-clip)
 
@@ -660,7 +660,7 @@ def r_mediation_g_estimator(y, t, m, x):
 
 
 @r_dependency_required(['causalweight', 'base'])
-def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
+def r_mediation_dml(y, t, m, x, trim=0.05, order=1):
     """
     This function calls the R Double Machine Learning estimator from the
     package causalweight (https://cran.r-project.org/web/packages/causalweight)
@@ -717,7 +717,7 @@ def r_mediation_DML(y, t, m, x, trim=0.05, order=1):
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
+def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
                   normalized=True, regularization=True, random_state=None,
                   calibration=None):
     """
@@ -753,6 +753,9 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
 
     trim : float, default=0.05
         Trimming treshold for discarding observations with extreme probability.
+
+    clip : float, default=1e-6
+            limit to clip for numerical stability (min=clip, max=1-clip)
 
     normalized : boolean, default=True
         Normalizes the inverse probability-based weights so they add up to 1,
@@ -841,6 +844,10 @@ def mediation_DML(y, t, m, x, forest=False, crossfit=0, trim=0.05,
     for var in var_name:
         exec(f"{var} = {var}[not_trimmed]")
     nobs = np.sum(not_trimmed)
+
+    # clipping
+    p_x = np.clip(p_x, clip, 1 - clip)
+    p_xm = np.clip(p_xm, clip, 1 - clip)
 
     # score computing
     if normalized:
