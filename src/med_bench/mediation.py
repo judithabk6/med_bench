@@ -329,7 +329,6 @@ def alternative_estimator(y, t, m, x, regularization=True):
 
     # check input
     y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
-    m = m.ravel()
     treated = (t == 1)
 
     # computation of direct effect
@@ -442,7 +441,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     """
     # check input
     y, t, m, x = _check_input(y, t, m, x, setting='binary')
-    m = m.ravel()
+
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
