@@ -53,6 +53,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
+        export LD_LIBRARY_PATH=$(python -m rpy2.situation LD_LIBRARY_PATH):${LD_LIBRARY_PATH}
         pytest --cov=med_bench --cov-report=xml
 
     - name: Upload coverage to Codecov
