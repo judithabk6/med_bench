@@ -122,7 +122,6 @@ def test_total_is_direct_plus_indirect(effects_chap):
             effects_chap[2] + effects_chap[3])
 
 
-#@pytest.mark.xfail
 def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")

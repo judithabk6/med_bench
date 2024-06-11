@@ -164,7 +164,7 @@ def _convert_array_to_R(x):
 def _check_input(y, t, m, x, setting):
     """
     internal function to check inputs
-        Parameters
+    Parameters
     ----------
     y : array-like, shape (n_samples)
         Outcome value for each unit, continuous
