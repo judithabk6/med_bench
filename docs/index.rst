@@ -7,10 +7,14 @@ Welcome to med_bench's documentation!
 =====================================
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
    :caption: Contents:
 
-   modules
+   welcome
+   PythonAPI/modules
+   examples/example1
+   benchmarks
+   references
 
 
 

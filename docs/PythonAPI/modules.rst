@@ -41,6 +41,14 @@ mediation
 utils
 --------
 
+.. automodule:: med_bench.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+utils
+--------
+
 .. automodule:: med_bench.utils.utils
     :members:
     :undoc-members:
