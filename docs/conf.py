@@ -5,9 +5,6 @@ import med_bench
 import med_bench.get_estimation
 import med_bench.get_simulated_data
 import med_bench.mediation
-import med_bench.utils
-import med_bench.utils.utils
-import med_bench.utils.nuisances
 
 
 sys.path.insert(0, os.path.abspath('../'))

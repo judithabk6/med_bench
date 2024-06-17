@@ -1,10 +1,7 @@
-.. _linear_model:
-
 =============
-Linear Models
+Examples
 =============
 
-.. currentmodule:: sklearn.linear_model
 
 The following are a set of methods intended for regression in which
 the target value is expected to be a linear combination of the features.
@@ -16,10 +13,7 @@ value.
 Across the module, we designate the vector :math:`w = (w_1,
 ..., w_p)` as ``coef_`` and :math:`w_0` as ``intercept_``.
 
-To perform classification with generalized linear models, see
-:ref:`Logistic_regression`.
-
-.. _ordinary_least_squares:
+To perform classification with generalized linear models
 
 Ordinary Least Squares
 =======================
@@ -32,9 +26,7 @@ solves a problem of the form:
 
 .. math:: \min_{w} || X w - y||_2^2
 
- .. figure:: /images/linear_reg_ex.png
-   :align: center
-   :scale: 50%
+.. image:: ../images/linear_reg_ex.png
 
 :class:`LinearRegression` will take in its ``fit`` method arrays ``X``, ``y``
 and will store the coefficients :math:`w` of the linear model in its

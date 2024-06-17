@@ -4,7 +4,7 @@
 
 
 med_bench
-=================
+=========
 .. automodule:: med_bench
    :members:
    :undoc-members:
@@ -12,7 +12,7 @@ med_bench
 
 
 get_estimation
---------
+--------------
 
 .. automodule:: med_bench.get_estimation
     :members:
@@ -21,7 +21,7 @@ get_estimation
 
 
 get_simulated_data
---------
+------------------
 
 .. automodule:: med_bench.get_simulated_data
     :members:
@@ -30,36 +30,11 @@ get_simulated_data
 
 
 mediation
---------
+---------
 
 .. automodule:: med_bench.mediation
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-utils
---------
-
-.. automodule:: med_bench.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-utils
---------
-
-.. automodule:: med_bench.utils.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-nuisances
---------
-
-.. automodule:: med_bench.utils.nuisances
-    :members:
-    :undoc-members:
-    :show-inheritance:
 

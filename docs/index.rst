@@ -3,24 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to med_bench's documentation!
-=====================================
+med_bench's documentation
+==========================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
    welcome
    PythonAPI/modules
    examples/example1
-   benchmarks
    references
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
