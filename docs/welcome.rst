@@ -2,17 +2,26 @@ Getting Started
 ===================================
 
 
+`med_bench` is an open-source Python software package for mediation analysis
+task. The goal of `med_bench` is to provide benchmark estimators
+in mediation models, based on a comprehensive study of the causal inference
+litterature. `med_bench` can handle binary treatments, binary, continuous and
+multi-dimensional mediators and provides a simple Python API.
+
+The code is originally written by Judith Abecassis (Inria, Saclay, Soda team).
+
+
 Licence 
 *******
 
 
-med_bench is distributed under BSD-3-Clause license.
+`med_bench` is distributed under BSD-3-Clause license.
 
 
 Installation
 **************
 
-med_bench can be installed by executing::
+`med_bench` can be installed by executing::
 
     python setup.py install
 
@@ -38,3 +47,10 @@ Some estimators rely on their R implementation which requires the installation o
     devtools = rpackages.importr('devtools')
     devtools.install_github('ohines/plmed')
     plmed = rpackages.importr('plmed')
+
+.. image:: logos/inria_logo.png
+   :width: 30%
+.. image:: logos/logo_soda.png
+   :width: 30%
+.. image:: logos/logo_mind.png
+   :width: 20%
