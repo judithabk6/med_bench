@@ -3,7 +3,7 @@
    :caption: Contents:
 
 
-med_bench
+API
 =========
 .. automodule:: med_bench
    :members:
