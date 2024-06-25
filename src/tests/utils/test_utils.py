@@ -2,67 +2,49 @@ import pytest
 import re
 import numpy as np
 from numpy.random import default_rng
+from scipy.special import expit
+
 from med_bench.get_simulated_data import simulate_data
 from med_bench.utils.utils import _check_input
 
 
-@pytest.fixture
-def data():
-    return simulate_data(100,
-                         default_rng(321),
-                         mis_spec_m=False,
-                         mis_spec_y=False,
-                         dim_x=5,
-                         dim_m=1,
-                         seed=None,
-                         type_m='binary',
-                         sigma_y=0.5,
-                         sigma_m=0.5,
-                         beta_t_factor=1,
-                         beta_m_factor=1)
+rg = default_rng(5)
+n = 5
+dim_x = 3
+
+x = rg.standard_normal(n * dim_x).reshape((n, dim_x))
+binary_m_or_t = rg.binomial(1, 0.5, n).reshape(-1, 1)
+y = rg.standard_normal(n).reshape(-1, 1)
 
 
-@pytest.fixture
-def x(data):
-    return data[0]
+testdata = [
+    (x, binary_m_or_t, binary_m_or_t, x, "Multidimensional y (outcome)"),
+    (y, x, binary_m_or_t, x, "Multidimensional t (exposure)"),
+    (y, x[0], binary_m_or_t, x, "Only a binary t (exposure)"),
+    (y, np.vstack([binary_m_or_t, binary_m_or_t]), binary_m_or_t, x, 
+        "same number of observations"),
+    (y, binary_m_or_t, np.vstack([binary_m_or_t, binary_m_or_t]), x, 
+        "same number of observations"),
+    (y, binary_m_or_t, binary_m_or_t, np.vstack([x, x]),
+        "same number of observations"),
+    (y, binary_m_or_t, x, x, "Multidimensional m (mediator)"),
+    (y, binary_m_or_t, x[:, 0], x, "a binary one-dimensional m"),
+    ]
+ids = ['outcome dimension',
+       'exposure dimension',
+       'continuous exposure',
+       'number of observations (t)',
+       'number of observations (m)',
+       'number of observations (x)',
+       'mediator dimension',
+       'binary mediator']
 
+@pytest.mark.parametrize("y, t, m, x, match", testdata, ids=ids)
+def test_dim_input(y, t, m, x, match):
+    with pytest.raises(ValueError, match=re.escape(match)):
+        _check_input(y, t, m, x, 'binary')
 
-@pytest.fixture
-def t(data):
-    return data[1]
-
-
-@pytest.fixture
-def m(data):
-    return data[2]
-
-
-@pytest.fixture
-def y(data):
-    return data[3].ravel()  # same reason as t
-
-
-def test_dim_input(y, t, m, x):
-    with pytest.raises(ValueError,
-                       match=re.escape("Multidimensional y (outcome)")):
-        _check_input(x, t, m, x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("Multidimensional t (exposure)")):
-        _check_input(y, x, m, x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("Only a binary t (exposure)")):
-        _check_input(y, x[:, 0], m, x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("same number of observations")):
-        _check_input(y, np.vstack([t, t]), m, x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("same number of observations")):
-        _check_input(y, t, np.vstack([m, m]), x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("same number of observations")):
-        _check_input(y, t, m, np.vstack([x, x]), 'binary')
-
-
+@pytest.mark.parametrize("y, t, m, x", [(y, binary_m_or_t, binary_m_or_t, x)])
 def test_dim_output(y, t, m, x):
     n = len(y)
     y_converted, t_converted, m_converted, x_converted = \
@@ -77,10 +59,3 @@ def test_dim_output(y, t, m, x):
     assert m_converted.shape == (n, 1)
 
 
-def test_m_type(y, t, m, x):
-    with pytest.raises(ValueError,
-                       match=re.escape("Multidimensional m (mediator)")):
-        _check_input(y, t, x, x, 'binary')
-    with pytest.raises(ValueError,
-                       match=re.escape("a binary one-dimensional m")):
-        _check_input(y, t, x[:, 0], x, 'binary')
