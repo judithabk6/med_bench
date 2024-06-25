@@ -39,6 +39,8 @@ jobs:
         dependencies: 'NA'
         install-pandoc: false
         packages: |
+          Matrix@1.6-5
+          MASS@7.3-60
           grf
           causalweight
           mediation
