@@ -39,6 +39,8 @@ jobs:
         dependencies: 'NA'
         install-pandoc: false
         packages: |
+          Matrix@1.6-5
+          MASS@7.3-60
           grf
           causalweight
           mediation
@@ -53,4 +55,5 @@ jobs:
 
     - name: Run tests
       run: |
+        export LD_LIBRARY_PATH=$(python -m rpy2.situation LD_LIBRARY_PATH):${LD_LIBRARY_PATH}
         pytest
