@@ -163,7 +163,13 @@ def _convert_array_to_R(x):
 
 def _check_input(y, t, m, x, setting):
     """
-    internal function to check inputs
+    internal function to check inputs. `_check_input` adjusts the dimension
+    of the input (matrix or vectors), and raises an error 
+    - if the size of input is not adequate,
+    - or if the type of input is not supported (cotinuous treatment or
+    non-binary one-dimensional mediator if the specified setting parameter
+    is binary)
+
     Parameters
     ----------
     y : array-like, shape (n_samples)
