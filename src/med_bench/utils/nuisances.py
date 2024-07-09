@@ -139,7 +139,7 @@ def _estimate_treatment_probabilities(t, m, x, crossfit, clf_t_x, clf_t_xm):
     return p_x, p_xm
 
 
-def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
+def _estimate_mediator_density(y, t, m, x, crossfit, clf_m, interaction):
     """
     Estimate mediator density f(M|T,X)
     with train test lists from crossfitting
@@ -200,7 +200,7 @@ def _estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction):
     return f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x
 
 
-def _estimate_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
+def _estimate_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
                                        interaction):
     """
     Estimate conditional mean outcome E[Y|T,M,X]
@@ -264,7 +264,7 @@ def _estimate_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
     return mu_00x, mu_01x, mu_10x, mu_11x, mu_0mx, mu_1mx
 
 
-def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
+def _estimate_cross_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
                                              reg_cross_y, f, interaction):
     """
     Estimate the conditional mean outcome,
@@ -386,7 +386,7 @@ def _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
 
 
-def _estimate_cross_conditional_mean_outcome_nesting(t, m, x, y, crossfit,
+def _estimate_cross_conditional_mean_outcome_nesting(y, t, m, x, crossfit,
                                                      reg_y, reg_cross_y):
     """
     Estimate treatment probabilities and the conditional mean outcome,

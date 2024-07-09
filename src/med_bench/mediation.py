@@ -257,7 +257,7 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
 
     # estimate mediator densities
     classifier_m = _get_classifier(regularization, forest, calibration)
-    f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(t, m, x, y,
+    f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(y, t, m, x,
                                                                   crossfit,
                                                                   classifier_m,
                                                                   interaction)
@@ -265,7 +265,7 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
     # estimate conditional mean outcomes
     regressor_y = _get_regressor(regularization, forest)
     mu_00x, mu_01x, mu_10x, mu_11x, _, _ = (
-        _estimate_conditional_mean_outcome(t, m, x, y, crossfit, regressor_y,
+        _estimate_conditional_mean_outcome(y, t, m, x, crossfit, regressor_y,
                                            interaction))
 
     # G computation
@@ -452,7 +452,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     # estimate mediator densities
     classifier_m = _get_classifier(regularization, forest, calibration)
     f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x = (
-        _estimate_mediator_density(t, m, x, y, crossfit,
+        _estimate_mediator_density(y, t, m, x, crossfit,
                                    classifier_m, interaction))
     f = f_00x, f_01x, f_10x, f_11x
 
@@ -460,7 +460,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     regressor_y = _get_regressor(regularization, forest)
     regressor_cross_y = _get_regressor(regularization, forest)
     mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-        _estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit,
+        _estimate_cross_conditional_mean_outcome(y, t, m, x, crossfit,
                                                  regressor_y,
                                                  regressor_cross_y, f,
                                                  interaction))
@@ -829,7 +829,7 @@ def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
     regressor_cross_y = _get_regressor(regularization, forest)
 
     mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-        _estimate_cross_conditional_mean_outcome_nesting(t, m, x, y, crossfit,
+        _estimate_cross_conditional_mean_outcome_nesting(y, t, m, x, crossfit,
                                                          regressor_y,
                                                          regressor_cross_y))
 
