@@ -27,6 +27,8 @@ testdata = [
         "same number of observations"),
     (y, binary_m_or_t, binary_m_or_t, np.vstack([x, x]),
         "same number of observations"),
+    # the check should raise when a non-binary mediator is passed while a
+    # binary mediator is expected (last argument of the input_check function)
     (y, binary_m_or_t, x, x, "Multidimensional m (mediator)"),
     (y, binary_m_or_t, x[:, 0], x, "a binary one-dimensional m"),
     ]
