@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 import subprocess
 import warnings
 
@@ -158,3 +159,82 @@ def _convert_array_to_R(x):
     elif len(x.shape) == 2:
         return robjects.r.matrix(robjects.FloatVector(x.ravel()),
                                  nrow=x.shape[0], byrow='TRUE')
+
+
+def _check_input(y, t, m, x, setting):
+    """
+    internal function to check inputs. `_check_input` adjusts the dimension
+    of the input (matrix or vectors), and raises an error 
+    - if the size of input is not adequate,
+    - or if the type of input is not supported (cotinuous treatment or
+    non-binary one-dimensional mediator if the specified setting parameter
+    is binary)
+
+    Parameters
+    ----------
+    y : array-like, shape (n_samples)
+        Outcome value for each unit, continuous
+
+    t : array-like, shape (n_samples)
+        Treatment value for each unit, binary
+
+    m : array-like, shape (n_samples, n_mediators)
+        Mediator value for each unit, binary and unidimensional
+
+    x : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit, continuous
+
+    setting : string
+    ('binary', 'continuous', 'multidimensional') value for the mediator
+
+    Returns
+    -------
+    y_converted : array-like, shape (n_samples,)
+        Outcome value for each unit, continuous
+
+    t_converted : array-like, shape (n_samples,)
+        Treatment value for each unit, binary
+
+    m_converted : array-like, shape (n_samples, n_mediators)
+        Mediator value for each unit, binary and unidimensional
+
+    x_converted : array-like, shape (n_samples, n_features_covariates)
+        Covariates value for each unit, continuous
+    """
+    # check format
+    if len(y) != len(y.ravel()):
+        raise ValueError("Multidimensional y (outcome) is not supported")
+
+    if len(t) != len(t.ravel()):
+        raise ValueError("Multidimensional t (exposure) is not supported")
+
+    if len(np.unique(t)) != 2:
+        raise ValueError("Only a binary t (exposure) is supported")
+
+    n = len(y)
+    t_converted = t.ravel()
+    y_converted = y.ravel()
+
+    if n != len(x) or n != len(m) or n != len(t):
+        raise ValueError("Inputs don't have the same number of observations")
+
+    if len(x.shape) == 1:
+        x_converted = x.reshape(n, 1)
+    else:
+        x_converted = x
+
+    if len(m.shape) == 1:
+        m_converted = m.reshape(n, 1)
+    else:
+        m_converted = m
+
+    if (m_converted.shape[1] >1) and (setting != 'multidimensional'):
+        raise ValueError("Multidimensional m (mediator) is not supported")
+
+    if (setting == 'binary') and (len(np.unique(m)) != 2):
+        raise ValueError(
+            "Only a binary one-dimensional m (mediator) is supported")
+
+    return y_converted, t_converted, m_converted, x_converted
+
+
