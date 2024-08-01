@@ -12,7 +12,7 @@ from sklearn.model_selection import KFold
 from .utils import check_r_dependencies, _get_interactions
 
 if check_r_dependencies():
-    from .utils import _convert_array_to_R
+    pass
 
 
 ALPHAS = np.logspace(-5, 5, 8)
