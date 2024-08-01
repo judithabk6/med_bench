@@ -156,3 +156,7 @@ PARAMETER_LIST.extend(
         )
     )
 )
+
+ALPHAS = np.logspace(-5, 5, 8)
+CV_FOLDS = 5
+TINY = 1.e-12
