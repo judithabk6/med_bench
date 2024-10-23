@@ -14,14 +14,15 @@ class Estimator:
     """General abstract class for causal mediation Estimator
     """
     __metaclass__ = ABCMeta
-    def __init__(self, mediator_type : str, regressor : RegressorMixin, classifier : ClassifierMixin,
-                  verbose : bool=True):
+
+    def __init__(self, mediator_type: str, regressor: RegressorMixin, classifier: ClassifierMixin,
+                 verbose: bool = True):
         """Initialize Estimator base class
 
         Parameters
         ----------
         mediator_type : str
-            mediator type (binary or continuous)
+            mediator type (binary or continuous, continuous only can be multidimensional)
         regressor : RegressorMixin
             Scikit-Learn Regressor used for mu estimation
         classifier : ClassifierMixin
@@ -31,23 +32,20 @@ class Estimator:
         """
         self.rng = np.random.RandomState(123)
 
+        assert mediator_type in [
+            'binary', 'continuous'], "mediator_type must be 'binary' or 'continuous'"
         self.mediator_type = mediator_type
 
-        # TBD inside an Issue
         self.regressor = regressor
-        #self.regressor_params_dict = regressor_params_dict
 
         self.classifier = classifier
-        #self.classifier_params_dict = classifier_params_dict
 
         self._verbose = verbose
         self._fitted = False
 
-
     @property
     def verbose(self):
         return self._verbose
-
 
     @abstractmethod
     def fit(self, t, m, x, y):
@@ -70,7 +68,6 @@ class Estimator:
 
         """
         pass
-
 
     @abstractmethod
     @fitted
@@ -96,10 +93,10 @@ class Estimator:
         """
         pass
 
-
-    def fit_score_nuisances(self, t, m, x, y, *args, **kwargs):
+    def _fit_nuisance(self, t, m, x, y, *args, **kwargs):
         """ Fits the score of the nuisance parameters
         """
+        # How do we want to specify gridsearch parameters ? As a function param, a constant or hardcoded here ?
         clf_param_grid = {}
         reg_param_grid = {}
 
@@ -111,38 +108,40 @@ class Estimator:
 
         self._hat_m = regressor_y.fit(x, y.squeeze())
 
+        return self
 
     @fitted
-    def score(self, t, m, x, y, hat_tau):
+    def score(self, t, m, x, y, tau_):
         """Predicts score on data samples
 
         Parameters
         ----------
 
-        hat_tau array-like, shape (n_samples)
+        tau_ array-like, shape (n_samples)
                 estimated risk
         """
 
         hat_e = self._hat_e.predict_proba(x)[:, 1]
         hat_m = self._hat_m.predict(x)
-        score = r_risk(y.squeeze(), t.squeeze(), hat_m, hat_e, hat_tau)
+        score = r_risk(y.squeeze(), t.squeeze(), hat_m, hat_e, tau_)
         return score
-    
 
-    def fit_treatment_propensity_x_nuisance(self, t, x):
+    def _fit_treatment_propensity_x_nuisance(self, t, x):
         """ Fits the nuisance parameter for the propensity P(T=1|X)
         """
         self._classifier_t_x = self.classifier.fit(x, t)
 
+        return self
 
-    def fit_treatment_propensity_xm_nuisance(self, t, m, x):
+    def _fit_treatment_propensity_xm_nuisance(self, t, m, x):
         """ Fits the nuisance parameter for the propensity P(T=1|X, M)
         """
         xm = np.hstack((x, m))
         self._classifier_t_xm = self.classifier.fit(xm, t)
 
+        return self
 
-    def fit_mediator_nuisance(self, t, m, x):
+    def _fit_mediator_nuisance(self, t, m, x):
         """ Fits the nuisance parameter for the density f(M=m|T, X)
         """
         # estimate mediator densities
@@ -154,8 +153,9 @@ class Estimator:
         # Fit classifier
         self._classifier_m = classifier_m.fit(t_x, m.ravel())
 
+        return self
 
-    def fit_conditional_mean_outcome_nuisance(self, t, m, x, y):
+    def _fit_conditional_mean_outcome_nuisance(self, t, m, x, y):
         """ Fits the nuisance for the conditional mean outcome for the density f(M=m|T, X)
         """
         if len(m.shape) == 1:
@@ -171,8 +171,9 @@ class Estimator:
 
         self._regressor_y = regressor_y.fit(x_t_mr, y)
 
+        return self
 
-    def fit_cross_conditional_mean_outcome_nuisance(self, t, m, x, y):
+    def _fit_cross_conditional_mean_outcome_nuisance(self, t, m, x, y):
         """ Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]
         """
 
@@ -206,20 +207,24 @@ class Estimator:
         # predict E[Y|T=1,M,X]
         self.regressors['y_t1_mx'] = clone(regressor_y)
         self.regressors['y_t1_mx'].fit(xm[train_mean1], y[train_mean1])
-        mu_1mx_nested[train_nested] = self.regressors['y_t1_mx'].predict(xm[train_nested])
+        mu_1mx_nested[train_nested] = self.regressors['y_t1_mx'].predict(
+            xm[train_nested])
 
         # predict E[Y|T=0,M,X]
         self.regressors['y_t0_mx'] = clone(regressor_y)
         self.regressors['y_t0_mx'].fit(xm[train_mean0], y[train_mean0])
-        mu_0mx_nested[train_nested] = self.regressors['y_t0_mx'].predict(xm[train_nested])
+        mu_0mx_nested[train_nested] = self.regressors['y_t0_mx'].predict(
+            xm[train_nested])
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
         self.regressors['y_t1_x_t0'] = clone(regressor_y)
-        self.regressors['y_t1_x_t0'].fit(x[train_nested0], mu_1mx_nested[train_nested0])
+        self.regressors['y_t1_x_t0'].fit(
+            x[train_nested0], mu_1mx_nested[train_nested0])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
         self.regressors['y_t0_x_t1'] = clone(regressor_y)
-        self.regressors['y_t0_x_t1'].fit(x[train_nested1], mu_0mx_nested[train_nested1])
+        self.regressors['y_t0_x_t1'].fit(
+            x[train_nested1], mu_0mx_nested[train_nested1])
 
         # predict E[Y|T=1,X]
         self.regressors['y_t1_x'] = clone(regressor_y)
@@ -229,8 +234,12 @@ class Estimator:
         self.regressors['y_t0_x'] = clone(regressor_y)
         self.regressors['y_t0_x'].fit(x[train0], y[train0])
 
+        return self
 
-    def fit_cross_conditional_mean_outcome_nuisance_discrete(self, t, m, x, y):
+    def _fit_cross_conditional_mean_outcome_nuisance_discrete(self, t, m, x, y):
+        """
+        Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X] discrete
+        """
         n = len(y)
 
         # Initialisation
@@ -260,8 +269,10 @@ class Estimator:
         self.regressors['y_t_mx'] = clone(regressor_y).fit(x_t_m, y)
 
         # predict E[Y|T=t,M,X]
-        mu_1mx[test_index] = self.regressors['y_t_mx'].predict(x_t1_m[test_index, :])
-        mu_0mx[test_index] = self.regressors['y_t_mx'].predict(x_t0_m[test_index, :])
+        mu_1mx[test_index] = self.regressors['y_t_mx'].predict(
+            x_t1_m[test_index, :])
+        mu_0mx[test_index] = self.regressors['y_t_mx'].predict(
+            x_t0_m[test_index, :])
 
         for i, b in enumerate(np.unique(m)):
             mb = m1 * b
@@ -293,3 +304,4 @@ class Estimator:
                 x[test_index, :][~ind_t0, :],
                 mu_0bx[test_index][~ind_t0])
 
+        return self
