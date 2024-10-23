@@ -9,20 +9,16 @@ from med_bench.utils.decorators import fitted
 
 class CoefficientProduct(Estimator):
 
-    def __init__(self, clip : float, trim : float, regularize : bool, **kwargs):
+    def __init__(self, regularize: bool, **kwargs):
         """Coefficient product estimator
 
         Attributes:
-            clip (float):  clipping the propensities
-            trim (float): remove propensities which are below the trim threshold
             regularize (bool) : regularization parameter
 
         """
         super().__init__(**kwargs)
         self._crossfit = 0
         self._regularize = regularize
-        self._clip = clip
-        self._trim = trim 
 
     def fit(self, t, m, x, y):
         """Fits nuisance parameters to data
@@ -72,7 +68,6 @@ class CoefficientProduct(Estimator):
         if self.verbose:
             print("Nuisance models fitted")
 
-
     @fitted
     def estimate(self, t, m, x, y):
         """Estimates causal effect on data
@@ -80,7 +75,8 @@ class CoefficientProduct(Estimator):
         """
         direct_effect_treated = self._coef_y[x.shape[1]]
         direct_effect_control = direct_effect_treated
-        indirect_effect_treated = sum(self._coef_y[x.shape[1] + 1:] * self._coef_t_m)
+        indirect_effect_treated = sum(
+            self._coef_y[x.shape[1] + 1:] * self._coef_t_m)
         indirect_effect_control = indirect_effect_treated
 
         causal_effects = {
