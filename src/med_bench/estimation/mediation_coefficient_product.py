@@ -1,5 +1,4 @@
 import numpy as np
-
 from sklearn.linear_model import RidgeCV
 
 from med_bench.estimation.base import Estimator
@@ -39,7 +38,7 @@ class CoefficientProduct(Estimator):
                 outcome value for each unit, continuous
 
         """
-        self.fit_score_nuisances(t, m, x, y)
+        self._fit_nuisance(t, m, x, y)
         # estimate mediator densities
 
         if self._regularize:

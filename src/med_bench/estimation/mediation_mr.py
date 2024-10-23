@@ -20,7 +20,7 @@ class MultiplyRobust(Estimator):
         verbose (int): in {0, 1}
     """
 
-    def __init__(self, procedure : str, ratio : str, density_estimation_method : str, clip : float, normalized, **kwargs):
+    def __init__(self, procedure: str, ratio: str, density_estimation_method: str, clip: float, normalized, **kwargs):
         super().__init__(**kwargs)
 
         self._crossfit = 0
@@ -30,79 +30,30 @@ class MultiplyRobust(Estimator):
         self._clip = clip
         self._normalized = normalized
 
-    def resize(self, t, m, x, y):
-        """Resize data for the right shape
-
-        Parameters
-        ----------
-        t       array-like, shape (n_samples)
-                treatment value for each unit, binary
-
-        m       array-like, shape (n_samples)
-                mediator value for each unit, here m is necessary binary and uni-
-                dimensional
-
-        x       array-like, shape (n_samples, n_features_covariates)
-                covariates (potential confounders) values
-
-        y       array-like, shape (n_samples)
-                outcome value for each unit, continuous
-        """
-        if len(y) != len(y.ravel()):
-            raise ValueError("Multidimensional y is not supported")
-        if len(t) != len(t.ravel()):
-            raise ValueError("Multidimensional t is not supported")
-
-        n = len(y)
-        if len(x.shape) == 1:
-            x.reshape(n, 1)
-        if len(m.shape) == 1:
-            m.reshape(n, 1)
-
-        if n != len(x) or n != len(m) or n != len(t):
-            raise ValueError(
-                "Inputs don't have the same number of observations")
-
-        y = y.ravel()
-        t = t.ravel()
-        # m = m.ravel()
-
-        return t, m, x, y
-
-
     def fit(self, t, m, x, y):
         """Fits nuisance parameters to data
 
         """
         # bucketize if needed
-        t, m, x, y = self.resize(t, m, x, y)
+        t, m, x, y = self._resize(t, m, x, y)
 
         # fit nuisance functions
-        self.fit_score_nuisances(t, m, x, y)
+        self._fit_nuisance(t, m, x, y)
 
         if self._ratio == 'density':
-            self.fit_treatment_propensity_x_nuisance(t, x)
-            self.fit_mediator_nuisance(t, m, x)
+            self._fit_treatment_propensity_x_nuisance(t, x)
+            self._fit_mediator_nuisance(t, m, x)
 
         elif self._ratio == 'propensities':
-            self.fit_treatment_propensity_x_nuisance(t, x)
-            self.fit_treatment_propensity_xm_nuisance(t, m, x)
+            self._fit_treatment_propensity_x_nuisance(t, x)
+            self._fit_treatment_propensity_xm_nuisance(t, m, x)
 
         else:
             raise NotImplementedError
-        
+
         if self._procedure == 'nesting':
-            self.fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
+            self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
 
-        elif self._procedure == 'discrete':
-
-            if not is_array_integer(m):
-                self._bucketizer = KMeans(n_clusters=10, random_state=self.rng,
-                                          n_init="auto").fit(m)
-                m = self._bucketizer.predict(m)
-            self.fit_mediator_nuisance(t, m, x)
-            self.fit_cross_conditional_mean_outcome_nuisance_discrete(t, m, x, y)
-        
         else:
             raise NotImplementedError
 
@@ -111,6 +62,7 @@ class MultiplyRobust(Estimator):
         if self.verbose:
             print("Nuisance models fitted")
 
+        return self
 
     @fitted
     def estimate(self, t, m, x, y):
@@ -119,32 +71,20 @@ class MultiplyRobust(Estimator):
         """
         # Format checking
         t, m, x, y = self.resize(t, m, x, y)
-            
+
         if self._ratio == 'density':
-            f_m0x, f_m1x = estimate_mediator_density(t, m, x, y,
-                                                                self._crossfit,
-                                                                self._classifier_m,
-                                                                False)
-            p_x = estimate_treatment_propensity_x(t,
-                                                       m,
-                                                       x,
-                                                       self._crossfit,
-                                                       self._classifier_t_x)
+            f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
+
+            p_x = self._estimate_treatment_propensity_x(t, m, x)
             ratio_t1_m0 = f_m0x / (p_x * f_m1x)
             ratio_t0_m1 = f_m1x / ((1 - p_x) * f_m0x)
 
         elif self._ratio == 'propensities':
-            p_x, p_xm = estimate_treatment_probabilities(t,
-                                                    m,
-                                                    x,
-                                                    self._crossfit,
-                                                    self._classifier_t_x,
-                                                    self._classifier_t_xm)
+            p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
             ratio_t1_m0 = (1-p_xm) / ((1 - p_x) * p_xm)
             ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
         if self._procedure == 'nesting':
-            
 
             # p_x = estimate_treatment_propensity_x(t,
             #                                         m,
@@ -161,31 +101,7 @@ class MultiplyRobust(Estimator):
             #                                                         False)
 
             mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-                estimate_cross_conditional_mean_outcome_nesting(m, x, y, self.regressors))
-
-
-        else:
-            if not is_array_integer(m):
-                m = self._bucketizer.predict(m)
-
-            # p_x = estimate_treatment_propensity_x(t,
-            #                                        m,
-            #                                        x,
-            #                                        self._crossfit,
-            #                                        self._classifier_t_x)
-
-            f_t0, f_t1 = estimate_mediators_probabilities(t,
-                                                                           m,
-                                                                           x,
-                                                                           y,
-                                                                   self._crossfit,
-                                                                   self._classifier_m,
-                                                                   False)
-
-            f = f_t0, f_t1
-            mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-                estimate_cross_conditional_mean_outcome_discrete(m, x, y, f, self.regressors))
-
+                self._estimate_cross_conditional_mean_outcome_nesting(m, x, y))
 
         # clipping
         # p_x_clip = p_x != np.clip(p_x, self._clip, 1 - self._clip)
@@ -220,11 +136,11 @@ class MultiplyRobust(Estimator):
             #         + E_mu_t1_t0
             # )
             y1m0 = (
-                    (t * ratio_t1_m0 * (
-                                y - mu_1mx)) / sum_score_t1m0
-                    + ((1 - t) / (1 - p_x) * (
-                        mu_1mx - E_mu_t1_t0)) / sum_score_m0
-                    + E_mu_t1_t0
+                (t * ratio_t1_m0 * (
+                    y - mu_1mx)) / sum_score_t1m0
+                + ((1 - t) / (1 - p_x) * (
+                    mu_1mx - E_mu_t1_t0)) / sum_score_m0
+                + E_mu_t1_t0
             )
             # y0m1 = (
             #         ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
@@ -233,10 +149,10 @@ class MultiplyRobust(Estimator):
             #         + E_mu_t0_t1
             # )
             y0m1 = (
-                    ((1 - t) * ratio_t0_m1 * (y - mu_0mx))
-                    / sum_score_t0m1 + t / p_x * (
-                            mu_0mx - E_mu_t0_t1) / sum_score_m1
-                    + E_mu_t0_t1
+                ((1 - t) * ratio_t0_m1 * (y - mu_0mx))
+                / sum_score_t0m1 + t / p_x * (
+                    mu_0mx - E_mu_t0_t1) / sum_score_m1
+                + E_mu_t0_t1
             )
         else:
             y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
@@ -252,14 +168,14 @@ class MultiplyRobust(Estimator):
             #         + E_mu_t0_t1
             # )
             y1m0 = (
-                    t * ratio_t1_m0 * (y - mu_1mx)
-                    + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
-                    + E_mu_t1_t0
+                t * ratio_t1_m0 * (y - mu_1mx)
+                + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+                + E_mu_t1_t0
             )
             y0m1 = (
-                    (1 - t) * ratio_t0_m1 * (y - mu_0mx)
-                    + t / p_x * (mu_0mx - E_mu_t0_t1)
-                    + E_mu_t0_t1
+                (1 - t) * ratio_t0_m1 * (y - mu_0mx)
+                + t / p_x * (mu_0mx - E_mu_t0_t1)
+                + E_mu_t0_t1
             )
 
         # effects computing

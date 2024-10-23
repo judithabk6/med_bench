@@ -7,7 +7,7 @@ from sklearn.base import clone, RegressorMixin, ClassifierMixin
 
 from med_bench.utils.decorators import fitted
 from med_bench.utils.scores import r_risk
-from med_bench.utils.utils import _get_interactions
+from med_bench.utils.utils import _get_interactions, _get_train_test_lists
 
 
 class Estimator:
@@ -92,6 +92,44 @@ class Estimator:
         nuisances
         """
         pass
+
+    def _resize(self, t, m, x, y):
+        """Resize data for the right shape
+
+        Parameters
+        ----------
+        t       array-like, shape (n_samples)
+                treatment value for each unit, binary
+
+        m       array-like, shape (n_samples)
+                mediator value for each unit, here m is necessary binary and uni-
+                dimensional
+
+        x       array-like, shape (n_samples, n_features_covariates)
+                covariates (potential confounders) values
+
+        y       array-like, shape (n_samples)
+                outcome value for each unit, continuous
+        """
+        if len(y) != len(y.ravel()):
+            raise ValueError("Multidimensional y is not supported")
+        if len(t) != len(t.ravel()):
+            raise ValueError("Multidimensional t is not supported")
+
+        n = len(y)
+        if len(x.shape) == 1:
+            x.reshape(n, 1)
+        if len(m.shape) == 1:
+            m = m.reshape(n, 1)
+
+        if n != len(x) or n != len(m) or n != len(t):
+            raise ValueError(
+                "Inputs don't have the same number of observations")
+
+        y = y.ravel()
+        t = t.ravel()
+
+        return t, m, x, y
 
     def _fit_nuisance(self, t, m, x, y, *args, **kwargs):
         """ Fits the score of the nuisance parameters
@@ -305,3 +343,284 @@ class Estimator:
                 mu_0bx[test_index][~ind_t0])
 
         return self
+
+    def _estimate_mediator_probability(self, t, m, x, y):
+        """
+        Estimate mediator density f(M|T,X)
+        with train test lists from crossfitting
+
+        Returns
+        -------
+        f_m0x, array-like, shape (n_samples)
+            probabilities f(M|T=0,X)
+        f_m1x, array-like, shape (n_samples)
+            probabilities f(M|T=1,X)
+        """
+        n = len(y)
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+
+        m = m.ravel()
+
+        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+
+        f_m0x, f_m1x = [np.zeros(n) for h in range(2)]
+
+        t_x = _get_interactions(False, t, x)
+        t0_x = _get_interactions(False, t0, x)
+        t1_x = _get_interactions(False, t1, x)
+
+        for _, test_index in train_test_list:
+
+            test_ind = np.arange(len(test_index))
+
+            fm_0 = self._classifier_m.predict_proba(t0_x[test_index, :])
+            fm_1 = self._classifier_m.predict_proba(t1_x[test_index, :])
+
+            # predict f(M|T=t,X)
+            f_m0x[test_index] = fm_0[test_ind, m[test_index]]
+            f_m1x[test_index] = fm_1[test_ind, m[test_index]]
+
+            for i, b in enumerate(np.unique(m)):
+                f_0bx, f_1bx = [np.zeros(n) for h in range(2)]
+
+                # predict f(M=m|T=t,X)
+                f_0bx[test_index] = fm_0[:, i]
+                f_1bx[test_index] = fm_1[:, i]
+
+        return f_m0x, f_m1x
+
+    def _estimate_mediators_probabilities(self, t, m, x, y):
+        """
+        Estimate mediator density f(M|T,X)
+        with train test lists from crossfitting
+
+        Returns
+        -------
+        f_t0: list
+            contains array-like, shape (n_samples) probabilities f(M=m|T=0,X)
+        f_t1, list
+            contains array-like, shape (n_samples) probabilities f(M=m|T=1,X)
+        """
+        n = len(y)
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+
+        m = m.ravel()
+
+        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+
+        f_t1, f_t0 = [], []
+
+        t_x = _get_interactions(False, t, x)
+        t0_x = _get_interactions(False, t0, x)
+        t1_x = _get_interactions(False, t1, x)
+
+        for _, test_index in train_test_list:
+
+            fm_0 = self._classifier_m.predict_proba(t0_x[test_index, :])
+            fm_1 = self._classifier_m.predict_proba(t1_x[test_index, :])
+
+            for i, b in enumerate(np.unique(m)):
+                f_0bx, f_1bx = [np.zeros(n) for h in range(2)]
+
+                # predict f(M=m|T=t,X)
+                f_0bx[test_index] = fm_0[:, i]
+                f_1bx[test_index] = fm_1[:, i]
+
+                f_t0.append(f_0bx)
+                f_t1.append(f_1bx)
+
+        return f_t0, f_t1
+
+    def _estimate_treatment_propensity_x(self, t, m, x):
+        """
+        Estimate treatment probabilities P(T=1|X) with train
+        test lists from crossfitting
+
+        Returns
+        -------
+        p_x : array-like, shape (n_samples)
+            probabilities P(T=1|X)
+        p_xm : array-like, shape (n_samples)
+            probabilities P(T=1|X, M)
+        """
+        n = len(t)
+
+        p_x, p_xm = [np.zeros(n) for h in range(2)]
+        # compute propensity scores
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+        if len(m.shape) == 1:
+            m = m.reshape(-1, 1)
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+
+        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+
+        for _, test_index in train_test_list:
+
+            # predict P(T=1|X), P(T=1|X, M)
+            p_x[test_index] = self._classifier_t_x.predict_proba(x[test_index, :])[
+                :, 1]
+
+        return p_x
+
+    def _estimate_treatment_probabilities(self, t, m, x):
+        """
+        Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train
+        test lists from crossfitting
+
+        Returns
+        -------
+        p_x : array-like, shape (n_samples)
+            probabilities P(T=1|X)
+        p_xm : array-like, shape (n_samples)
+            probabilities P(T=1|X, M)
+        """
+        n = len(t)
+
+        p_x, p_xm = [np.zeros(n) for h in range(2)]
+        # compute propensity scores
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+        if len(m.shape) == 1:
+            m = m.reshape(-1, 1)
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+
+        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+
+        xm = np.hstack((x, m))
+
+        for _, test_index in train_test_list:
+
+            # predict P(T=1|X), P(T=1|X, M)
+            p_x[test_index] = self._classifier_t_x.predict_proba(x[test_index, :])[
+                :, 1]
+            p_xm[test_index] = self._classifier_t_xm.predict_proba(xm[test_index, :])[
+                :, 1]
+
+        return p_x, p_xm
+
+    def _estimate_conditional_mean_outcome(self, t, m, x, y):
+        """
+        Estimate conditional mean outcome E[Y|T,M,X]
+        with train test lists from crossfitting
+
+        Returns
+        -------
+        mu_t0: list
+            contains array-like, shape (n_samples) conditional mean outcome estimates E[Y|T=0,M=m,X]
+        mu_t1, list
+            contains array-like, shape (n_samples) conditional mean outcome estimates E[Y|T=1,M=m,X]
+        mu_m0x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M,X]
+        mu_m1x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M,X]
+        """
+        n = len(y)
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+        if len(m.shape) == 1:
+            mr = m.reshape(-1, 1)
+        else:
+            mr = np.copy(m)
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+        m1 = np.ones((n, 1))
+
+        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+
+        mu_1mx, mu_0mx = [np.zeros(n) for _ in range(2)]
+        mu_t1, mu_t0 = [], []
+
+        m1 = np.ones((n, 1))
+
+        x_t_mr = _get_interactions(False, x, t, mr)
+        x_t1_m = _get_interactions(False, x, t1, m)
+        x_t0_m = _get_interactions(False, x, t0, m)
+
+        for _, test_index in train_test_list:
+
+            # predict E[Y|T=t,M,X]
+            mu_0mx[test_index] = self._regressor_y.predict(
+                x_t0_m[test_index, :]).squeeze()
+            mu_1mx[test_index] = self._regressor_y.predict(
+                x_t1_m[test_index, :]).squeeze()
+
+            for i, b in enumerate(np.unique(m)):
+                mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
+                mb = m1 * b
+
+                # predict E[Y|T=t,M=m,X]
+                mu_0bx[test_index] = self._regressor_y.predict(
+                    _get_interactions(False, x, t0, mb)[test_index,
+                                                        :]).squeeze()
+                mu_1bx[test_index] = self._regressor_y.predict(
+                    _get_interactions(False, x, t1, mb)[test_index,
+                                                        :]).squeeze()
+
+                mu_t0.append(mu_0bx)
+                mu_t1.append(mu_1bx)
+
+        return mu_t0, mu_t1, mu_0mx, mu_1mx
+
+    def _estimate_cross_conditional_mean_outcome_nesting(self, m, x, y):
+        """
+        Estimate the conditional mean outcome,
+        the cross conditional mean outcome
+
+        Returns
+        -------
+        mu_m0x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M,X]
+        mu_m1x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M,X]
+        mu_0x, array-like, shape (n_samples)
+            cross conditional mean outcome estimates E[E[Y|T=0,M,X]|T=0,X]
+        E_mu_t0_t1, array-like, shape (n_samples)
+            cross conditional mean outcome estimates E[E[Y|T=0,M,X]|T=1,X]
+        E_mu_t1_t0, array-like, shape (n_samples)
+            cross conditional mean outcome estimates E[E[Y|T=1,M,X]|T=0,X]
+        mu_1x, array-like, shape (n_samples)
+            cross conditional mean outcome estimates E[E[Y|T=1,M,X]|T=1,X]
+        """
+        n = len(y)
+
+        xm = np.hstack((x, m))
+
+        # predict E[Y|T=1,M,X]
+        mu_1mx = self.regressors['y_t1_mx'].predict(xm)
+
+        # predict E[Y|T=0,M,X]
+        mu_0mx = self.regressors['y_t0_mx'].predict(xm)
+
+        # predict E[E[Y|T=1,M,X]|T=0,X]
+        E_mu_t1_t0 = self.regressors['y_t1_x_t0'].predict(x)
+
+        # predict E[E[Y|T=0,M,X]|T=1,X]
+        E_mu_t0_t1 = self.regressors['y_t0_x_t1'].predict(x)
+
+        # predict E[Y|T=1,X]
+        mu_1x = self.regressors['y_t1_x'].predict(x)
+
+        # predict E[Y|T=0,X]
+        mu_0x = self.regressors['y_t0_x'].predict(x)
+
+        return mu_0mx, mu_1mx, mu_0x, E_mu_t0_t1, E_mu_t1_t0, mu_1x
