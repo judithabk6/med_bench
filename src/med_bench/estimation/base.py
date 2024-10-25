@@ -7,7 +7,7 @@ from sklearn.base import clone, RegressorMixin, ClassifierMixin
 
 from med_bench.utils.decorators import fitted
 from med_bench.utils.scores import r_risk
-from med_bench.utils.utils import _get_interactions, _get_train_test_lists
+from med_bench.utils.utils import _get_train_test_lists
 
 
 class Estimator:
@@ -131,6 +131,18 @@ class Estimator:
 
         return t, m, x, y
 
+    def _input_reshape(self, t, m, x):
+        """Reshape data for the right shape
+        """
+        if len(t.shape) == 1:
+            t = t.reshape(-1, 1)
+        if len(m.shape) == 1:
+            m = m.reshape(-1, 1)
+        if len(x.shape) == 1:
+            x = x.reshape(-1, 1)
+
+        return t, m, x
+
     def _fit_nuisance(self, t, m, x, y, *args, **kwargs):
         """ Fits the score of the nuisance parameters
         """
@@ -179,6 +191,7 @@ class Estimator:
 
         return self
 
+    # TODO : Enable any sklearn object as classifier or regressor
     def _fit_mediator_nuisance(self, t, m, x):
         """ Fits the nuisance parameter for the density f(M=m|T, X)
         """
@@ -186,7 +199,8 @@ class Estimator:
         clf_param_grid = {}
         classifier_m = GridSearchCV(self.classifier, clf_param_grid)
 
-        t_x = _get_interactions(False, t, x)
+        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                        == 1 else var for var in [t, x]])
 
         # Fit classifier
         self._classifier_m = classifier_m.fit(t_x, m.ravel())
@@ -199,8 +213,11 @@ class Estimator:
         if len(m.shape) == 1:
             mr = m.reshape(-1, 1)
         else:
+            # TODO : Why are we doing this ?
             mr = np.copy(m)
-        x_t_mr = _get_interactions(False, x, t, mr)
+
+        x_t_mr = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, mr]])
 
         reg_param_grid = {}
 
@@ -289,9 +306,12 @@ class Estimator:
         t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
         t1, m1 = np.ones((n, 1)), np.ones((n, 1))
 
-        x_t_m = _get_interactions(False, x, t, m)
-        x_t1_m = _get_interactions(False, x, t1, m)
-        x_t0_m = _get_interactions(False, x, t0, m)
+        x_t_m = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                          == 1 else var for var in [x, t, m]])
+        x_t1_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
+        x_t0_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]])
 
         test_index = np.arange(n)
         ind_t0 = t[test_index] == 0
@@ -318,10 +338,15 @@ class Estimator:
             mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
 
             # predict E[Y|T=t,M=m,X]
+            x_t1_mb = np.hstack(
+                [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, mb]])
+            x_t0_mb = np.hstack(
+                [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, mb]])
+
             mu_0bx[test_index] = self.regressors['y_t_mx'].predict(
-                _get_interactions(False, x, t0, mb)[test_index, :])
+                x_t0_mb[test_index, :])
             mu_1bx[test_index] = self.regressors['y_t_mx'].predict(
-                _get_interactions(False, x, t1, mb)[test_index, :])
+                x_t1_mb[test_index, :])
 
             # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
             self.regressors['reg_y_t1m{}_t0'.format(i)] = clone(
@@ -372,9 +397,12 @@ class Estimator:
 
         f_m0x, f_m1x = [np.zeros(n) for h in range(2)]
 
-        t_x = _get_interactions(False, t, x)
-        t0_x = _get_interactions(False, t0, x)
-        t1_x = _get_interactions(False, t1, x)
+        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                        == 1 else var for var in [t, x]])
+        t0_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                         == 1 else var for var in [t0, x]])
+        t1_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                         == 1 else var for var in [t1, x]])
 
         for _, test_index in train_test_list:
 
@@ -424,9 +452,12 @@ class Estimator:
 
         f_t1, f_t0 = [], []
 
-        t_x = _get_interactions(False, t, x)
-        t0_x = _get_interactions(False, t0, x)
-        t1_x = _get_interactions(False, t1, x)
+        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                        == 1 else var for var in [t, x]])
+        t0_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                         == 1 else var for var in [t0, x]])
+        t1_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
+                         == 1 else var for var in [t1, x]])
 
         for _, test_index in train_test_list:
 
@@ -461,12 +492,7 @@ class Estimator:
 
         p_x, p_xm = [np.zeros(n) for h in range(2)]
         # compute propensity scores
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-        if len(m.shape) == 1:
-            m = m.reshape(-1, 1)
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
+        t, m, x = self._input_reshape(t, m, x)
 
         train_test_list = _get_train_test_lists(self._crossfit, n, x)
 
@@ -494,12 +520,7 @@ class Estimator:
 
         p_x, p_xm = [np.zeros(n) for h in range(2)]
         # compute propensity scores
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-        if len(m.shape) == 1:
-            m = m.reshape(-1, 1)
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
+        t, m, x = self._input_reshape(t, m, x)
 
         train_test_list = _get_train_test_lists(self._crossfit, n, x)
 
@@ -552,9 +573,12 @@ class Estimator:
 
         m1 = np.ones((n, 1))
 
-        x_t_mr = _get_interactions(False, x, t, mr)
-        x_t1_m = _get_interactions(False, x, t1, m)
-        x_t0_m = _get_interactions(False, x, t0, m)
+        x_t_mr = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, mr]])
+        x_t1_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
+        x_t0_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]])
 
         for _, test_index in train_test_list:
 
@@ -568,13 +592,16 @@ class Estimator:
                 mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
                 mb = m1 * b
 
+                x_t1_mb = np.hstack(
+                    [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, mb]])
+                x_t0_mb = np.hstack(
+                    [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, mb]])
+
                 # predict E[Y|T=t,M=m,X]
                 mu_0bx[test_index] = self._regressor_y.predict(
-                    _get_interactions(False, x, t0, mb)[test_index,
-                                                        :]).squeeze()
+                    x_t0_mb[test_index, :]).squeeze()
                 mu_1bx[test_index] = self._regressor_y.predict(
-                    _get_interactions(False, x, t1, mb)[test_index,
-                                                        :]).squeeze()
+                    x_t1_mb[test_index, :]).squeeze()
 
                 mu_t0.append(mu_0bx)
                 mu_t1.append(mu_1bx)
