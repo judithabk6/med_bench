@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.cluster import KMeans
 
 from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted

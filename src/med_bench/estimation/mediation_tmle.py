@@ -4,7 +4,6 @@ from sklearn.linear_model import LinearRegression
 
 from med_bench.estimation.base import Estimator
 from med_bench.nuisances.utils import _get_regressor
-from med_bench.utils.utils import _get_interactions
 from med_bench.utils.decorators import fitted
 
 ALPHA = 10
@@ -50,7 +49,8 @@ class TMLE(Estimator):
 
         h_corrector = t * ratio - (1 - t)/(1 - p_x)
 
-        x_t_mr = _get_interactions(False, x, t, m)
+        x_t_mr = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]])
         mu_tmx = self._regressor_y.predict(x_t_mr)
         # import pdb; pdb.set_trace()
         reg = LinearRegression(fit_intercept=False).fit(
@@ -59,11 +59,14 @@ class TMLE(Estimator):
         # epsilon_h = 0
         print(epsilon_h)
 
-        mu_t0_mx = self._regressor_y.predict(
-            _get_interactions(False, x, t0, m))
+        x_t0_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]])
+        x_t1_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
+
+        mu_t0_mx = self._regressor_y.predict(x_t0_m)
         h_corrector_t0 = t0 * ratio - (1 - t0)/(1 - p_x)
-        mu_t1_mx = self._regressor_y.predict(
-            _get_interactions(False, x, t1, m))
+        mu_t1_mx = self._regressor_y.predict(x_t1_m)
         h_corrector_t1 = t1 * ratio - (1 - t1)/(1 - p_x)
         mu_t0_mx_star = mu_t0_mx + epsilon_h * h_corrector_t0
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
@@ -104,7 +107,8 @@ class TMLE(Estimator):
 
         h_corrector = t / p_x - t * ratio
 
-        x_t_mr = _get_interactions(False, x, t, m)
+        x_t_mr = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]])
         mu_tmx = self._regressor_y.predict(x_t_mr)
         reg = LinearRegression(fit_intercept=False).fit(
             h_corrector.reshape(-1, 1), (y-mu_tmx).squeeze())
@@ -114,8 +118,11 @@ class TMLE(Estimator):
 
         # mu_t0_mx = self._regressor_y.predict(_get_interactions(False, x, t0, m))
         # h_corrector_t0 = t0 * f_t0 / (p_x * f_t1) - (1 - t0)/(1 - p_x)
-        mu_t1_mx = self._regressor_y.predict(
-            _get_interactions(False, x, t1, m))
+
+        x_t1_m = np.hstack(
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
+
+        mu_t1_mx = self._regressor_y.predict(x_t1_m)
         h_corrector_t1 = t1 / p_x - t1 * ratio
         # mu_t0_mx_star = mu_t0_mx + epsilon_h * h_corrector_t0
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1

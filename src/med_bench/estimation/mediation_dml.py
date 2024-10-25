@@ -43,9 +43,7 @@ class DoubleMachineLearning(Estimator):
         """
         t, m, x, y = self._resize(t, m, x, y)
 
-        p_x, p_xm = self._estimate_treatment_probabilities(t,
-                                                           m,
-                                                           x)
+        p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
 
         mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = self._estimate_cross_conditional_mean_outcome_nesting(
             m, x, y)

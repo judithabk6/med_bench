@@ -45,12 +45,7 @@ class CoefficientProduct(Estimator):
             alphas = ALPHAS
         else:
             alphas = [TINY]
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-        if len(m.shape) == 1:
-            m = m.reshape(-1, 1)
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
+        t, m, x = self._input_reshape(t, m, x)
 
         self._coef_t_m = np.zeros(m.shape[1])
         for i in range(m.shape[1]):

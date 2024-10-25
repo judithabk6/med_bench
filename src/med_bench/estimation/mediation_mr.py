@@ -1,12 +1,7 @@
 import numpy as np
-from sklearn.cluster import KMeans
 
 from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted
-from med_bench.utils.utils import (is_array_integer)
-from med_bench.nuisances.cross_conditional_outcome import estimate_cross_conditional_mean_outcome_discrete, estimate_cross_conditional_mean_outcome_nesting
-from med_bench.nuisances.propensities import estimate_treatment_propensity_x, estimate_treatment_probabilities
-from med_bench.nuisances.density import estimate_mediator_density, estimate_mediators_probabilities
 
 
 class MultiplyRobust(Estimator):
@@ -20,13 +15,12 @@ class MultiplyRobust(Estimator):
         verbose (int): in {0, 1}
     """
 
-    def __init__(self, procedure: str, ratio: str, density_estimation_method: str, clip: float, normalized, **kwargs):
+    def __init__(self, procedure: str, ratio: str, clip: float, normalized, **kwargs):
         super().__init__(**kwargs)
 
         self._crossfit = 0
         self._procedure = procedure
         self._ratio = ratio
-        self._density_estimation = density_estimation_method
         self._clip = clip
         self._normalized = normalized
 

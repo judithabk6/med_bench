@@ -230,7 +230,7 @@ def _check_input(y, t, m, x, setting):
     else:
         m_converted = m
 
-    if (m_converted.shape[1] >1) and (setting != 'multidimensional'):
+    if (m_converted.shape[1] > 1) and (setting != 'multidimensional'):
         raise ValueError("Multidimensional m (mediator) is not supported")
 
     if (setting == 'binary') and (len(np.unique(m)) != 2):
@@ -241,7 +241,7 @@ def _check_input(y, t, m, x, setting):
 
 
 def is_array_integer(array):
-    if array.shape[1]>1:
+    if array.shape[1] > 1:
         return False
     return all(list((array == array.astype(int)).squeeze()))
 
@@ -250,15 +250,16 @@ def str_to_bool(string):
     if bool(string) == string:
         return string
     elif string == 'True':
-         return True
+        return True
     elif string == 'False':
-         return False
+        return False
     else:
-         raise ValueError # evil ValueError that doesn't tell you what the wrong value was
+        raise ValueError  # evil ValueError that doesn't tell you what the wrong value was
 
 
 def bucketize_mediators(m, n_buckets=10, random_state=42):
-    kmeans = KMeans(n_clusters=n_buckets, random_state=random_state, n_init="auto").fit(m)
+    kmeans = KMeans(n_clusters=n_buckets,
+                    random_state=random_state, n_init="auto").fit(m)
     return kmeans.predict(m)
 
 
@@ -274,6 +275,7 @@ def train_test_split_data(causal_data, test_size=0.33, random_state=42):
     causal_data_train = x_train, t_train, m_train, y_train
     causal_data_test = x_test, t_test, m_test, y_test
     return causal_data_train, causal_data_test
+
 
 def _get_train_test_lists(crossfit, n, x):
     """
@@ -292,56 +294,3 @@ def _get_train_test_lists(crossfit, n, x):
         for train_index, test_index in kf.split(x):
             train_test_list.append([train_index, test_index])
     return train_test_list
-
-def _get_interactions(interaction, *args):
-    """
-    this function provides interaction terms between different groups of
-    variables (confounders, treatment, mediators)
-
-    Parameters
-    ----------
-    interaction : boolean
-                    whether to compute interaction terms
-
-    *args : flexible, one or several arrays
-                    blocks of variables between which interactions should be
-                    computed
-
-
-    Returns
-    --------
-    array_like
-        interaction terms
-
-    Examples
-    --------
-    >>> x = np.arange(6).reshape(3, 2)
-    >>> t = np.ones((3, 1))
-    >>> m = 2 * np.ones((3, 1))
-    >>> get_interactions(False, x, t, m)
-    array([[0., 1., 1., 2.],
-           [2., 3., 1., 2.],
-           [4., 5., 1., 2.]])
-    >>> get_interactions(True, x, t, m)
-    array([[ 0.,  1.,  1.,  2.,  0.,  1.,  0.,  2.,  2.],
-           [ 2.,  3.,  1.,  2.,  2.,  3.,  4.,  6.,  2.],
-           [ 4.,  5.,  1.,  2.,  4.,  5.,  8., 10.,  2.]])
-    """
-    variables = list(args)
-    for index, var in enumerate(variables):
-        if len(var.shape) == 1:
-            variables[index] = var.reshape(-1,1)
-    pre_inter_variables = np.hstack(variables)
-    if not interaction:
-        return pre_inter_variables
-    new_cols = list()
-    for i, var in enumerate(variables[:]):
-        for j, var2 in enumerate(variables[i+1:]):
-            for ii in range(var.shape[1]):
-                for jj in range(var2.shape[1]):
-                    new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
-    new_vars = np.hstack(new_cols)
-    result = np.hstack((pre_inter_variables, new_vars))
-    return result
-
-
