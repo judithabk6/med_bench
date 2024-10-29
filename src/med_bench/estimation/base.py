@@ -15,37 +15,54 @@ class Estimator:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, mediator_type: str, regressor: RegressorMixin, classifier: ClassifierMixin,
-                 verbose: bool = True):
+    def __init__(self, regressor, classifier, verbose: bool = True, crossfit: int = 0):
         """Initialize Estimator base class
 
         Parameters
         ----------
-        mediator_type : str
-            mediator type (binary or continuous, continuous only can be multidimensional)
-        regressor : RegressorMixin
-            Scikit-Learn Regressor used for mu estimation
-        classifier : ClassifierMixin
-            Scikit-Learn Classifier used for propensity estimation
+        regressor 
+            Regressor used for mu estimation, can be any object with a fit and predict method
+        classifier 
+            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         verbose : bool
             will print some logs if True
+        crossfit : int
+            number of crossfit folds, if 0 no crossfit is performed
         """
-        self.rng = np.random.RandomState(123)
-
-        assert mediator_type in [
-            'binary', 'continuous'], "mediator_type must be 'binary' or 'continuous'"
-        self.mediator_type = mediator_type
-
+        assert hasattr(
+            regressor, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, 'predict'), "The model does not have a 'predict' method."
+        assert hasattr(
+            classifier, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
         self.regressor = regressor
-
         self.classifier = classifier
 
+        self._crossfit = crossfit
+        self._crossfit_check()
+
         self._verbose = verbose
+
         self._fitted = False
 
     @property
     def verbose(self):
         return self._verbose
+
+    def _crossfit_check(self):
+        """Checks if the estimator inputs are valid
+        """
+        if self._crossfit > 0:
+            raise NotImplementedError("""Crossfit is not implemented yet
+                                      You should perform something like this on your side : 
+                                        cf_iterator = KFold(k=5)
+                                        for data_train, data_test in cf_iterator:
+                                            result.append(DML(...., cross_fitting=False)
+                                                .fit(train_data.X, train_data.t, train_data.m, train_data.y)\
+                                                .estimate(test_data.X, test_data.t, test_data.m, test_data.y))
+                                        np.mean(result)""")
 
     @abstractmethod
     def fit(self, t, m, x, y):
@@ -199,8 +216,7 @@ class Estimator:
         clf_param_grid = {}
         classifier_m = GridSearchCV(self.classifier, clf_param_grid)
 
-        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                        == 1 else var for var in [t, x]])
+        t_x = np.hstack([t.reshape(-1, 1), x])
 
         # Fit classifier
         self._classifier_m = classifier_m.fit(t_x, m.ravel())
@@ -210,21 +226,14 @@ class Estimator:
     def _fit_conditional_mean_outcome_nuisance(self, t, m, x, y):
         """ Fits the nuisance for the conditional mean outcome for the density f(M=m|T, X)
         """
-        if len(m.shape) == 1:
-            mr = m.reshape(-1, 1)
-        else:
-            # TODO : Why are we doing this ?
-            mr = np.copy(m)
-
-        x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, mr]])
+        x_t_m = np.hstack([x, t.reshape(-1, 1), m])
 
         reg_param_grid = {}
 
         # estimate conditional mean outcomes
         regressor_y = GridSearchCV(self.regressor, reg_param_grid)
 
-        self._regressor_y = regressor_y.fit(x_t_mr, y)
+        self._regressor_y = regressor_y.fit(x_t_m, y)
 
         return self
 
@@ -306,12 +315,9 @@ class Estimator:
         t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
         t1, m1 = np.ones((n, 1)), np.ones((n, 1))
 
-        x_t_m = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                          == 1 else var for var in [x, t, m]])
-        x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
-        x_t0_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]])
+        x_t_m = np.hstack([x, t.reshape(-1, 1), m])
+        x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
+        x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
 
         test_index = np.arange(n)
         ind_t0 = t[test_index] == 0
@@ -338,10 +344,9 @@ class Estimator:
             mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
 
             # predict E[Y|T=t,M=m,X]
-            x_t1_mb = np.hstack(
-                [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, mb]])
-            x_t0_mb = np.hstack(
-                [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, mb]])
+
+            x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
+            x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
 
             mu_0bx[test_index] = self.regressors['y_t_mx'].predict(
                 x_t0_mb[test_index, :])
@@ -382,47 +387,19 @@ class Estimator:
             probabilities f(M|T=1,X)
         """
         n = len(y)
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
 
         m = m.ravel()
 
-        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+        t0_x = np.hstack([t0.reshape(-1, 1), x])
+        t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_m0x, f_m1x = [np.zeros(n) for h in range(2)]
+        fm_0 = self._classifier_m.predict_proba(t0_x)
+        fm_1 = self._classifier_m.predict_proba(t1_x)
 
-        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                        == 1 else var for var in [t, x]])
-        t0_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                         == 1 else var for var in [t0, x]])
-        t1_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                         == 1 else var for var in [t1, x]])
-
-        for _, test_index in train_test_list:
-
-            test_ind = np.arange(len(test_index))
-
-            fm_0 = self._classifier_m.predict_proba(t0_x[test_index, :])
-            fm_1 = self._classifier_m.predict_proba(t1_x[test_index, :])
-
-            # predict f(M|T=t,X)
-            f_m0x[test_index] = fm_0[test_ind, m[test_index]]
-            f_m1x[test_index] = fm_1[test_ind, m[test_index]]
-
-            for i, b in enumerate(np.unique(m)):
-                f_0bx, f_1bx = [np.zeros(n) for h in range(2)]
-
-                # predict f(M=m|T=t,X)
-                f_0bx[test_index] = fm_0[:, i]
-                f_1bx[test_index] = fm_1[:, i]
-
-        return f_m0x, f_m1x
+        return fm_0, fm_1
 
     def _estimate_mediators_probabilities(self, t, m, x, y):
         """
@@ -437,70 +414,36 @@ class Estimator:
             contains array-like, shape (n_samples) probabilities f(M=m|T=1,X)
         """
         n = len(y)
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
 
         m = m.ravel()
 
-        train_test_list = _get_train_test_lists(self._crossfit, n, x)
+        t0_x = np.hstack([t0.reshape(-1, 1), x])
+        t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_t1, f_t0 = [], []
-
-        t_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                        == 1 else var for var in [t, x]])
-        t0_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                         == 1 else var for var in [t0, x]])
-        t1_x = np.hstack([var.reshape(-1, 1) if len(var.shape)
-                         == 1 else var for var in [t1, x]])
-
-        for _, test_index in train_test_list:
-
-            fm_0 = self._classifier_m.predict_proba(t0_x[test_index, :])
-            fm_1 = self._classifier_m.predict_proba(t1_x[test_index, :])
-
-            for i, b in enumerate(np.unique(m)):
-                f_0bx, f_1bx = [np.zeros(n) for h in range(2)]
-
-                # predict f(M=m|T=t,X)
-                f_0bx[test_index] = fm_0[:, i]
-                f_1bx[test_index] = fm_1[:, i]
-
-                f_t0.append(f_0bx)
-                f_t1.append(f_1bx)
+        f_t0 = self._classifier_m.predict_proba(t0_x)
+        f_t1 = self._classifier_m.predict_proba(t1_x)
 
         return f_t0, f_t1
 
     def _estimate_treatment_propensity_x(self, t, m, x):
         """
-        Estimate treatment probabilities P(T=1|X) with train
-        test lists from crossfitting
+        Estimate treatment propensity P(T=1|X)
 
         Returns
         -------
         p_x : array-like, shape (n_samples)
             probabilities P(T=1|X)
-        p_xm : array-like, shape (n_samples)
-            probabilities P(T=1|X, M)
         """
         n = len(t)
 
-        p_x, p_xm = [np.zeros(n) for h in range(2)]
         # compute propensity scores
         t, m, x = self._input_reshape(t, m, x)
 
-        train_test_list = _get_train_test_lists(self._crossfit, n, x)
-
-        for _, test_index in train_test_list:
-
-            # predict P(T=1|X), P(T=1|X, M)
-            p_x[test_index] = self._classifier_t_x.predict_proba(x[test_index, :])[
-                :, 1]
+        # predict P(T=1|X), P(T=1|X, M)
+        p_x = self._classifier_t_x.predict_proba(x)
 
         return p_x
 
@@ -516,23 +459,14 @@ class Estimator:
         p_xm : array-like, shape (n_samples)
             probabilities P(T=1|X, M)
         """
-        n = len(t)
-
-        p_x, p_xm = [np.zeros(n) for h in range(2)]
         # compute propensity scores
         t, m, x = self._input_reshape(t, m, x)
 
-        train_test_list = _get_train_test_lists(self._crossfit, n, x)
-
         xm = np.hstack((x, m))
 
-        for _, test_index in train_test_list:
-
-            # predict P(T=1|X), P(T=1|X, M)
-            p_x[test_index] = self._classifier_t_x.predict_proba(x[test_index, :])[
-                :, 1]
-            p_xm[test_index] = self._classifier_t_xm.predict_proba(xm[test_index, :])[
-                :, 1]
+        # predict P(T=1|X), P(T=1|X, M)
+        p_x = self._classifier_t_x.predict_proba(x)
+        p_xm = self._classifier_t_xm.predict_proba(xm)
 
         return p_x, p_xm
 
@@ -553,58 +487,31 @@ class Estimator:
             conditional mean outcome estimates E[Y|T=1,M,X]
         """
         n = len(y)
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
-        if len(m.shape) == 1:
-            mr = m.reshape(-1, 1)
-        else:
-            mr = np.copy(m)
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
         m1 = np.ones((n, 1))
 
-        train_test_list = _get_train_test_lists(self._crossfit, n, x)
-
-        mu_1mx, mu_0mx = [np.zeros(n) for _ in range(2)]
         mu_t1, mu_t0 = [], []
 
         m1 = np.ones((n, 1))
 
-        x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, mr]])
-        x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]])
-        x_t0_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]])
+        x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
+        x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
 
-        for _, test_index in train_test_list:
+        # predict E[Y|T=t,M,X] for all indices
+        mu_0mx = self._regressor_y.predict(x_t0_m).squeeze()
+        mu_1mx = self._regressor_y.predict(x_t1_m).squeeze()
 
-            # predict E[Y|T=t,M,X]
-            mu_0mx[test_index] = self._regressor_y.predict(
-                x_t0_m[test_index, :]).squeeze()
-            mu_1mx[test_index] = self._regressor_y.predict(
-                x_t1_m[test_index, :]).squeeze()
-
-            for i, b in enumerate(np.unique(m)):
-                mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
-                mb = m1 * b
-
-                x_t1_mb = np.hstack(
-                    [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, mb]])
-                x_t0_mb = np.hstack(
-                    [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, mb]])
-
-                # predict E[Y|T=t,M=m,X]
-                mu_0bx[test_index] = self._regressor_y.predict(
-                    x_t0_mb[test_index, :]).squeeze()
-                mu_1bx[test_index] = self._regressor_y.predict(
-                    x_t1_mb[test_index, :]).squeeze()
-
-                mu_t0.append(mu_0bx)
-                mu_t1.append(mu_1bx)
+        for i, b in enumerate(np.unique(m)):
+            mb = m1 * b
+            x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
+            x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
+            # predict E[Y|T=t,M=m,X] for all indices
+            mu_0bx = self._regressor_y.predict(x_t0_mb).squeeze()
+            mu_1bx = self._regressor_y.predict(x_t1_mb).squeeze()
+            mu_t0.append(mu_0bx)
+            mu_t1.append(mu_1bx)
 
         return mu_t0, mu_t1, mu_0mx, mu_1mx
 
@@ -628,8 +535,6 @@ class Estimator:
         mu_1x, array-like, shape (n_samples)
             cross conditional mean outcome estimates E[E[Y|T=1,M,X]|T=1,X]
         """
-        n = len(y)
-
         xm = np.hstack((x, m))
 
         # predict E[Y|T=1,M,X]
