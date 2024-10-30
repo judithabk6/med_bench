@@ -2,30 +2,39 @@ import numpy as np
 
 from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted
-from med_bench.utils.utils import is_array_integer
 
 
 class MultiplyRobust(Estimator):
-    """Implementation of multiply robust estimator
+    """Implementation of multiply robust
+
+    Args:
+        settings (dict): dictionnary of parameters
+        lbda (float): regularization parameter
+        support_vec_tol (float): tolerance for discarding non-supporting vectors
+            if |alpha_i| < support_vec_tol * lbda then vector is discarded
+        verbose (int): in {0, 1}
     """
 
-    def __init__(self, ratio: str, clip: float, normalized, **kwargs):
+    def __init__(self, procedure: str, ratio: str, clip: float, normalized, **kwargs):
         super().__init__(**kwargs)
 
-        assert ratio in ['density', 'propensities']
+        self._crossfit = 0
+        self._procedure = procedure
         self._ratio = ratio
         self._clip = clip
         self._normalized = normalized
 
     def fit(self, t, m, x, y):
         """Fits nuisance parameters to data
+
         """
+        # bucketize if needed
         t, m, x, y = self._resize(t, m, x, y)
 
         # fit nuisance functions
         self._fit_nuisance(t, m, x, y)
 
-        if self._ratio == 'density' and is_array_integer(m):
+        if self._ratio == 'density':
             self._fit_treatment_propensity_x_nuisance(t, x)
             self._fit_mediator_nuisance(t, m, x)
 
@@ -33,11 +42,14 @@ class MultiplyRobust(Estimator):
             self._fit_treatment_propensity_x_nuisance(t, x)
             self._fit_treatment_propensity_xm_nuisance(t, m, x)
 
-        elif self._ratio == 'density' and not is_array_integer(m):
-            raise NotImplementedError("""Continuous mediator cannot use the density ratio method, 
-                                      use a discrete mediator or set the ratio to 'propensities'""")
+        else:
+            raise NotImplementedError
 
-        self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
+        if self._procedure == 'nesting':
+            self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
+
+        else:
+            raise NotImplementedError
 
         self._fitted = True
 
@@ -56,6 +68,7 @@ class MultiplyRobust(Estimator):
 
         if self._ratio == 'density':
             f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
+
             p_x = self._estimate_treatment_propensity_x(t, m, x)
             ratio_t1_m0 = f_m0x / (p_x * f_m1x)
             ratio_t0_m1 = f_m1x / ((1 - p_x) * f_m0x)
@@ -65,20 +78,57 @@ class MultiplyRobust(Estimator):
             ratio_t1_m0 = (1-p_xm) / ((1 - p_x) * p_xm)
             ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
-        mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-            self._estimate_cross_conditional_mean_outcome_nesting(m, x, y))
+        if self._procedure == 'nesting':
+
+            # p_x = estimate_treatment_propensity_x(t,
+            #                                         m,
+            #                                         x,
+            #                                         self._crossfit,
+            #                                         self._classifier_t_x)
+
+            # _, _, f_m0x, f_m1x = estimate_mediator_density(t,
+            #                                                                 m,
+            #                                                                 x,
+            #                                                                 y,
+            #                                                         self._crossfit,
+            #                                                         self._classifier_m,
+            #                                                         False)
+
+            mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
+                self._estimate_cross_conditional_mean_outcome_nesting(m, x, y))
+
+        # clipping
+        # p_x_clip = p_x != np.clip(p_x, self._clip, 1 - self._clip)
+        # f_m0x_clip = f_m0x != np.clip(f_m0x, self._clip, 1 - self._clip)
+        # f_m1x_clip = f_m1x != np.clip(f_m1x, self._clip, 1 - self._clip)
+        # clipped = p_x_clip + f_m0x_clip + f_m1x_clip
+
+        # var_name = ["t", "y", "p_x", "f_m0x", "f_m1x", "mu_1mx", "mu_0mx"]
+        # var_name += ["E_mu_t1_t1", "E_mu_t0_t0", "E_mu_t1_t0", "E_mu_t0_t1"]
+        # n_discarded = 0
+        # for var in var_name:
+        #     exec(f"{var} = {var}[~clipped]")
+        # n_discarded += np.sum(clipped)
 
         # score computing
         if self._normalized:
             sum_score_m1 = np.mean(t / p_x)
             sum_score_m0 = np.mean((1 - t) / (1 - p_x))
+            # sum_score_t1m0 = np.mean((t / p_x) * (f_m0x / f_m1x))
+            # sum_score_t0m1 = np.mean((1 - t) / (1 - p_x) * (f_m1x / f_m0x))
             sum_score_t1m0 = np.mean(t * ratio_t1_m0)
             sum_score_t0m1 = np.mean((1 - t) * ratio_t0_m1)
 
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
             y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
                     + E_mu_t0_t0)
-
+            # y1m0 = (
+            #         ((t / p_x) * (f_m0x / f_m1x) * (
+            #                     y - mu_1mx)) / sum_score_t1m0
+            #         + ((1 - t) / (1 - p_x) * (
+            #             mu_1mx - E_mu_t1_t0)) / sum_score_m0
+            #         + E_mu_t1_t0
+            # )
             y1m0 = (
                 (t * ratio_t1_m0 * (
                     y - mu_1mx)) / sum_score_t1m0
@@ -86,7 +136,12 @@ class MultiplyRobust(Estimator):
                     mu_1mx - E_mu_t1_t0)) / sum_score_m0
                 + E_mu_t1_t0
             )
-
+            # y0m1 = (
+            #         ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
+            #         / sum_score_t0m1 + t / p_x * (
+            #                 mu_0mx - E_mu_t0_t1) / sum_score_m1
+            #         + E_mu_t0_t1
+            # )
             y0m1 = (
                 ((1 - t) * ratio_t0_m1 * (y - mu_0mx))
                 / sum_score_t0m1 + t / p_x * (
@@ -96,7 +151,16 @@ class MultiplyRobust(Estimator):
         else:
             y1m1 = t / p_x * (y - E_mu_t1_t1) + E_mu_t1_t1
             y0m0 = (1 - t) / (1 - p_x) * (y - E_mu_t0_t0) + E_mu_t0_t0
-
+            # y1m0 = (
+            #         (t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)
+            #         + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
+            #         + E_mu_t1_t0
+            # )
+            # y0m1 = (
+            #         (1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)
+            #         + t / p_x * (mu_0mx - E_mu_t0_t1)
+            #         + E_mu_t0_t1
+            # )
             y1m0 = (
                 t * ratio_t1_m0 * (y - mu_1mx)
                 + (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)
