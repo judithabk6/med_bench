@@ -21,7 +21,7 @@ if __name__ == "__main__":
     print("get simulated data")
     (x, t, m, y,
      theta_1_delta_0, theta_1, theta_0, delta_1, delta_0,
-     p_t, th_p_t_mx) = simulate_data(n=1000, rg=default_rng(321))
+     p_t, th_p_t_mx) = simulate_data(n=1000, rg=default_rng(321), dim_x=5)
 
     (x_train, x_test, t_train, t_test,
         m_train, m_test, y_train, y_test) = train_test_split(x, t, m, y, test_size=0.33, random_state=42)
@@ -37,14 +37,12 @@ if __name__ == "__main__":
         n_estimators=100, min_samples_leaf=10, random_state=42)
 
     reg2 = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-    RandomForestRegressor(
-        n_estimators=100, min_samples_leaf=10, random_state=42)
 
     # Step 4: Define estimators (modularized and non-modularized)
     estimators = {
         "CoefficientProduct": {
             "modular": CoefficientProduct(
-                mediator_type="binary", regressor=reg, classifier=clf, regularize=True
+                regressor=reg, classifier=clf, regularize=True
             ),
             "non_modular": mediation_coefficient_product
         },
@@ -56,7 +54,8 @@ if __name__ == "__main__":
         },
         "GComputation": {
             "modular": GComputation(
-                crossfit=0, procedure="discrete", regressor=reg2, classifier=CalibratedClassifierCV(clf2, method="sigmoid")
+                regressor=reg2, classifier=CalibratedClassifierCV(
+                    clf2, method="sigmoid")
             ),
             "non_modular": mediation_g_formula
         },
@@ -94,7 +93,6 @@ if __name__ == "__main__":
                 "Direct Effect (Control)": direct_effect2,
                 "Indirect Effect (Treated)": indirect_effect1,
                 "Indirect Effect (Control)": indirect_effect2,
-                "R Risk Score": None  # R risk only for modularized
             })
 
         # Modularized Estimation
@@ -102,8 +100,6 @@ if __name__ == "__main__":
         modular_estimator.fit(t_train, m_train, x_train, y_train)
         causal_effects = modular_estimator.estimate(
             t_test, m_test, x_test, y_test)
-        r_risk_score = modular_estimator.score(
-            t_test, m_test, x_test, y_test, causal_effects['total_effect'])
 
         # Append modularized results
         results.append({
@@ -114,7 +110,6 @@ if __name__ == "__main__":
             "Direct Effect (Control)": causal_effects['direct_effect_control'],
             "Indirect Effect (Treated)": causal_effects['indirect_effect_treated'],
             "Indirect Effect (Control)": causal_effects['indirect_effect_control'],
-            "R Risk Score": r_risk_score
         })
 
     # Convert results to DataFrame
