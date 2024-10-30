@@ -16,7 +16,6 @@ class CoefficientProduct(Estimator):
 
         """
         super().__init__(**kwargs)
-        self._crossfit = 0
         self._regularize = regularize
 
     def fit(self, t, m, x, y):
@@ -45,7 +44,7 @@ class CoefficientProduct(Estimator):
             alphas = ALPHAS
         else:
             alphas = [TINY]
-        t, m, x = self._input_reshape(t, m, x)
+        t, m, x, y = self._resize(t, m, x, y)
 
         self._coef_t_m = np.zeros(m.shape[1])
         for i in range(m.shape[1]):
