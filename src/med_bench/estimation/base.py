@@ -160,39 +160,6 @@ class Estimator:
 
         return t, m, x
 
-    def _fit_nuisance(self, t, m, x, y, *args, **kwargs):
-        """ Fits the score of the nuisance parameters
-        """
-        # How do we want to specify gridsearch parameters ? As a function param, a constant or hardcoded here ?
-        clf_param_grid = {}
-        reg_param_grid = {}
-
-        classifier_x = GridSearchCV(self.classifier, clf_param_grid)
-
-        self._hat_e = classifier_x.fit(x, t.squeeze())
-
-        regressor_y = GridSearchCV(self.regressor, reg_param_grid)
-
-        self._hat_m = regressor_y.fit(x, y.squeeze())
-
-        return self
-
-    @fitted
-    def score(self, t, m, x, y, tau_):
-        """Predicts score on data samples
-
-        Parameters
-        ----------
-
-        tau_ array-like, shape (n_samples)
-                estimated risk
-        """
-
-        hat_e = self._hat_e.predict_proba(x)[:, 1]
-        hat_m = self._hat_m.predict(x)
-        score = r_risk(y.squeeze(), t.squeeze(), hat_m, hat_e, tau_)
-        return score
-
     def _fit_treatment_propensity_x_nuisance(self, t, x):
         """ Fits the nuisance parameter for the propensity P(T=1|X)
         """

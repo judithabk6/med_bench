@@ -18,8 +18,6 @@ class GComputation(Estimator):
         """Fits nuisance parameters to data
 
         """
-
-        self._fit_nuisance(t, m, x, y)
         t, m, x, y = self._resize(t, m, x, y)
 
         self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)

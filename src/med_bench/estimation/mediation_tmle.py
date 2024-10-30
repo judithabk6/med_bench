@@ -168,9 +168,6 @@ class TMLE(Estimator):
         # bucketize if needed
         t, m, x, y = self._resize(t, m, x, y)
 
-        # fit nuisance functions
-        self._fit_nuisance(t, m, x, y)
-
         self._fit_treatment_propensity_x_nuisance(t, x)
         self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
 

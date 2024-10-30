@@ -22,9 +22,6 @@ class MultiplyRobust(Estimator):
         """
         t, m, x, y = self._resize(t, m, x, y)
 
-        # fit nuisance functions
-        self._fit_nuisance(t, m, x, y)
-
         if self._ratio == 'density' and is_array_integer(m):
             self._fit_treatment_propensity_x_nuisance(t, x)
             self._fit_mediator_nuisance(t, m, x)

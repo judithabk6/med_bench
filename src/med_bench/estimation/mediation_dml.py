@@ -24,7 +24,6 @@ class DoubleMachineLearning(Estimator):
         """Fits nuisance parameters to data
 
         """
-        self._fit_nuisance(t, m, x, y)
         t, m, x, y = self._resize(t, m, x, y)
 
         self._fit_treatment_propensity_x_nuisance(t, x)

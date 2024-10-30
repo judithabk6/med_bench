@@ -37,9 +37,6 @@ class CoefficientProduct(Estimator):
                 outcome value for each unit, continuous
 
         """
-        self._fit_nuisance(t, m, x, y)
-        # estimate mediator densities
-
         if self._regularize:
             alphas = ALPHAS
         else:
