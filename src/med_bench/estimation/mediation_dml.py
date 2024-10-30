@@ -13,11 +13,9 @@ class DoubleMachineLearning(Estimator):
             if |alpha_i| < support_vec_tol * alpha then vector is discarded
     """
 
-    def __init__(self, procedure: str, clip: float, trim: float, normalized: bool, **kwargs):
+    def __init__(self, clip: float, trim: float, normalized: bool, **kwargs):
         super().__init__(**kwargs)
 
-        self._crossfit = 0
-        self._procedure = procedure
         self._clip = clip
         self._trim = trim
         self._normalized = normalized
