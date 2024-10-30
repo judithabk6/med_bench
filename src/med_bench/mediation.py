@@ -25,7 +25,7 @@ CV_FOLDS = 5
 TINY = 1.e-12
 
 
-def mediation_IPW(y, t, m, x, trim, regularization=True, forest=False,
+def mediation_IPW(y, t, m, x, trim=0.05, regularization=True, forest=False,
                   crossfit=0, clip=1e-6, calibration='sigmoid'):
     """
     IPW estimator presented in
@@ -184,7 +184,7 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
         alphas = [TINY]
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional') 
+    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
 
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
@@ -441,7 +441,6 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     """
     # check input
     y, t, m, x = _check_input(y, t, m, x, setting='binary')
-
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
