@@ -163,7 +163,8 @@ class Estimator:
     def _fit_treatment_propensity_x_nuisance(self, t, x):
         """ Fits the nuisance parameter for the propensity P(T=1|X)
         """
-        self._classifier_t_x = self.classifier.fit(x, t)
+        classifier = clone(self.classifier)
+        self._classifier_t_x = classifier.fit(x, t)
 
         return self
 
@@ -348,9 +349,9 @@ class Estimator:
 
         Returns
         -------
-        f_m0x, array-like, shape (n_samples)
+        f_m0, array-like, shape (n_samples)
             probabilities f(M|T=0,X)
-        f_m1x, array-like, shape (n_samples)
+        f_m1, array-like, shape (n_samples)
             probabilities f(M|T=1,X)
         """
         n = len(y)
@@ -363,8 +364,8 @@ class Estimator:
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        fm_0 = self._classifier_m.predict_proba(t0_x)
-        fm_1 = self._classifier_m.predict_proba(t1_x)
+        fm_0 = self._classifier_m.predict_proba(t0_x)[:, 1]
+        fm_1 = self._classifier_m.predict_proba(t1_x)[:, 1]
 
         return fm_0, fm_1
 
@@ -390,8 +391,8 @@ class Estimator:
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_t0 = self._classifier_m.predict_proba(t0_x)
-        f_t1 = self._classifier_m.predict_proba(t1_x)
+        f_t0 = self._classifier_m.predict_proba(t0_x)[:, 1]
+        f_t1 = self._classifier_m.predict_proba(t1_x)[:, 1]
 
         return f_t0, f_t1
 
@@ -410,7 +411,7 @@ class Estimator:
         t, m, x = self._input_reshape(t, m, x)
 
         # predict P(T=1|X), P(T=1|X, M)
-        p_x = self._classifier_t_x.predict_proba(x)
+        p_x = self._classifier_t_x.predict_proba(x)[:, 1]
 
         return p_x
 
@@ -432,8 +433,8 @@ class Estimator:
         xm = np.hstack((x, m))
 
         # predict P(T=1|X), P(T=1|X, M)
-        p_x = self._classifier_t_x.predict_proba(x)
-        p_xm = self._classifier_t_xm.predict_proba(xm)
+        p_x = self._classifier_t_x.predict_proba(x)[:, 1]
+        p_xm = self._classifier_t_xm.predict_proba(xm)[:, 1]
 
         return p_x, p_xm
 
