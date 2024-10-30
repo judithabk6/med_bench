@@ -1,12 +1,21 @@
 from numpy.random import default_rng
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import RidgeCV
+import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LogisticRegressionCV, RidgeCV
 from sklearn.model_selection import train_test_split
 
+from med_bench.mediation import (mediation_IPW, mediation_coefficient_product, mediation_dml,
+                                 mediation_g_formula, mediation_multiply_robust)
 from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
+from med_bench.estimation.mediation_dml import DoubleMachineLearning
+from med_bench.estimation.mediation_g_computation import GComputation
+from med_bench.estimation.mediation_ipw import ImportanceWeighting
+from med_bench.estimation.mediation_mr import MultiplyRobust
 from med_bench.get_simulated_data import simulate_data
 from med_bench.nuisances.utils import _get_regularization_parameters
 from med_bench.utils.constants import CV_FOLDS
+
 
 if __name__ == "__main__":
     print("get simulated data")
@@ -22,22 +31,94 @@ if __name__ == "__main__":
     clf = RandomForestClassifier(
         random_state=42, n_estimators=100, min_samples_leaf=10)
 
-    reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+    clf2 = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
 
-    coef_prod_estimator = CoefficientProduct(
-        mediator_type="binary", regressor=reg, classifier=clf, clip=0.01, trim=0.01, regularize=True)
+    reg = RandomForestRegressor(
+        n_estimators=100, min_samples_leaf=10, random_state=42)
 
-    coef_prod_estimator.fit(t_train, m_train, x_train, y_train)
-    causal_effects = coef_prod_estimator.estimate(
-        t_test, m_test, x_test, y_test)
+    reg2 = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+    RandomForestRegressor(
+        n_estimators=100, min_samples_leaf=10, random_state=42)
 
-    r_risk_score = coef_prod_estimator.score(
-        t_test, m_test, x_test, y_test, causal_effects['total_effect'])
+    # Step 4: Define estimators (modularized and non-modularized)
+    estimators = {
+        "CoefficientProduct": {
+            "modular": CoefficientProduct(
+                mediator_type="binary", regressor=reg, classifier=clf, regularize=True
+            ),
+            "non_modular": mediation_coefficient_product
+        },
+        "DoubleMachineLearning": {
+            "modular": DoubleMachineLearning(
+                clip=1e-6, trim=0.05, normalized=True, regressor=reg2, classifier=clf2
+            ),
+            "non_modular": mediation_dml
+        },
+        "GComputation": {
+            "modular": GComputation(
+                crossfit=0, procedure="discrete", regressor=reg2, classifier=CalibratedClassifierCV(clf2, method="sigmoid")
+            ),
+            "non_modular": mediation_g_formula
+        },
+        "ImportanceWeighting": {
+            "modular": ImportanceWeighting(
+                clip=1e-6, trim=0.01, regressor=reg2, classifier=CalibratedClassifierCV(clf2, method="sigmoid")
+            ),
+            "non_modular": mediation_IPW
+        },
+        "MultiplyRobust": {
+            "modular": MultiplyRobust(
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg2,
+                classifier=CalibratedClassifierCV(clf2, method="sigmoid")
+            ),
+            "non_modular": mediation_multiply_robust
+        }
+    }
 
-    print('R risk score: {}'.format(r_risk_score))
-    print('Total effect error: {}'.format(
-        abs(causal_effects['total_effect']-theta_1_delta_0)))
-    print('Direct effect error: {}'.format(
-        abs(causal_effects['direct_effect_control']-theta_0)))
-    print('Indirect effect error: {}'.format(
-        abs(causal_effects['indirect_effect_treated']-delta_1)))
+    # Step 5: Initialize results DataFrame
+    results = []
+
+    # Step 6: Iterate over each estimator
+    for estimator_name, estimator_dict in estimators.items():
+        # Non-Modularized Estimation
+        # Check if non-modular is a function
+        if callable(estimator_dict["non_modular"]):
+            (total_effect, direct_effect1, direct_effect2, indirect_effect1, indirect_effect2, _) = estimator_dict["non_modular"](
+                y, t, m, x)
+
+            results.append({
+                "Estimator": estimator_name,
+                "Method": "Non-Modularized",
+                "Total Effect": total_effect,
+                "Direct Effect (Treated)": direct_effect1,
+                "Direct Effect (Control)": direct_effect2,
+                "Indirect Effect (Treated)": indirect_effect1,
+                "Indirect Effect (Control)": indirect_effect2,
+                "R Risk Score": None  # R risk only for modularized
+            })
+
+        # Modularized Estimation
+        modular_estimator = estimator_dict["modular"]
+        modular_estimator.fit(t_train, m_train, x_train, y_train)
+        causal_effects = modular_estimator.estimate(
+            t_test, m_test, x_test, y_test)
+        r_risk_score = modular_estimator.score(
+            t_test, m_test, x_test, y_test, causal_effects['total_effect'])
+
+        # Append modularized results
+        results.append({
+            "Estimator": estimator_name,
+            "Method": "Modularized",
+            "Total Effect": causal_effects['total_effect'],
+            "Direct Effect (Treated)": causal_effects['direct_effect_treated'],
+            "Direct Effect (Control)": causal_effects['direct_effect_control'],
+            "Indirect Effect (Treated)": causal_effects['indirect_effect_treated'],
+            "Indirect Effect (Control)": causal_effects['indirect_effect_control'],
+            "R Risk Score": r_risk_score
+        })
+
+    # Convert results to DataFrame
+    results_df = pd.DataFrame(results)
+
+    # Display or save the DataFrame
+    print(results_df)

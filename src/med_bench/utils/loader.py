@@ -1,8 +1,9 @@
-from med_bench.estimation.ipw import ImportanceWeighting
-from med_bench.estimation.g_computation import GComputation
-from med_bench.estimation.dml import DoubleMachineLearning
-from med_bench.estimation.mr import MultiplyRobust
-from med_bench.estimation.tmle import TMLE
+from med_bench.estimation.mediation_ipw import ImportanceWeighting
+from med_bench.estimation.mediation_g_computation import GComputation
+from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
+from med_bench.estimation.mediation_dml import DoubleMachineLearning
+from med_bench.estimation.mediation_mr import MultiplyRobust
+from med_bench.estimation.mediation_tmle import TMLE
 
 
 def get_estimator_by_name(settings):
@@ -10,8 +11,8 @@ def get_estimator_by_name(settings):
         return ImportanceWeighting
     elif settings['estimator'] == 'g_computation':
         return GComputation
-    elif settings['estimator'] == 'linear':
-        return Linear
+    elif settings['estimator'] == 'coefficient_product':
+        return CoefficientProduct
     elif settings['estimator'] == 'mr':
         return MultiplyRobust
     elif settings['estimator'] == 'dml':
