@@ -45,27 +45,6 @@ class DoubleMachineLearning(Estimator):
         mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = self._estimate_cross_conditional_mean_outcome_nesting(
             m, x, y)
 
-        not_trimmed = (
-            (((1 - p_xm) * p_x) >= self._trim)
-            * ((1 - p_x) >= self._trim)
-            * (p_x >= self._trim)
-            * ((p_xm * (1 - p_x)) >= self._trim)
-        )
-
-        var_name = [
-            "p_x",
-            "p_xm",
-            "mu_1mx",
-            "mu_0mx",
-            "E_mu_t1_t0",
-            "E_mu_t0_t1",
-            "E_mu_t1_t1",
-            "E_mu_t0_t0",
-        ]
-        for var in var_name:
-            exec(f"{var} = {var}[not_trimmed]")
-        nobs = np.sum(not_trimmed)
-
         # score computing
         if self._normalized:
             sum_score_m1 = np.mean(t / p_x)
