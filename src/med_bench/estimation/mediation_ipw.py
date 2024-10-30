@@ -15,6 +15,7 @@ class ImportanceWeighting(Estimator):
 
         """
         super().__init__(**kwargs)
+        self._crossfit = 0
         self._clip = clip
         self._trim = trim
 
@@ -40,7 +41,7 @@ class ImportanceWeighting(Estimator):
         """Estimates causal effect on data
 
         """
-        t, m, x, y = self._resize(t, m, x, y)
+        t, m, x, y = self.resize(t, m, x, y)
         p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
 
         ind = ((p_xm > self._trim) & (p_xm < (1 - self._trim)))
