@@ -49,7 +49,7 @@ class MultiplyRobust(Estimator):
 
         """
         # Format checking
-        t, m, x, y = self.resize(t, m, x, y)
+        t, m, x, y = self._resize(t, m, x, y)
 
         if self._ratio == 'density':
             f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
