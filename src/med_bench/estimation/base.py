@@ -454,11 +454,9 @@ class Estimator:
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
-        m1 = np.ones((n, 1))
+        intercept = np.ones((n, 1))
 
         mu_t1, mu_t0 = [], []
-
-        m1 = np.ones((n, 1))
 
         x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
         x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
@@ -468,7 +466,7 @@ class Estimator:
         mu_1mx = self._regressor_y.predict(x_t1_m).squeeze()
 
         for i, b in enumerate(np.unique(m)):
-            mb = m1 * b
+            mb = intercept * b
             x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
             x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
             # predict E[Y|T=t,M=m,X] for all indices
