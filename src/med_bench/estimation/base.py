@@ -345,7 +345,6 @@ class Estimator:
     def _estimate_mediator_probability(self, t, m, x, y):
         """
         Estimate mediator density f(M|T,X)
-        with train test lists from crossfitting
 
         Returns
         -------
@@ -372,7 +371,6 @@ class Estimator:
     def _estimate_mediators_probabilities(self, t, m, x, y):
         """
         Estimate mediator density f(M|T,X)
-        with train test lists from crossfitting
 
         Returns
         -------
@@ -418,7 +416,6 @@ class Estimator:
     def _estimate_treatment_probabilities(self, t, m, x):
         """
         Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train
-        test lists from crossfitting
 
         Returns
         -------
@@ -441,7 +438,6 @@ class Estimator:
     def _estimate_conditional_mean_outcome(self, t, m, x, y):
         """
         Estimate conditional mean outcome E[Y|T,M,X]
-        with train test lists from crossfitting
 
         Returns
         -------
