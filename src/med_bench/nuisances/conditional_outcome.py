@@ -8,8 +8,9 @@ import numpy as np
 from med_bench.utils.utils import _get_train_test_lists, _get_interactions
 
 
-def estimate_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
-                                                interaction, fit=False):
+def estimate_conditional_mean_outcome(
+    t, m, x, y, crossfit, reg_y, interaction, fit=False
+):
     """
     Estimate conditional mean outcome E[Y|T,M,X]
     with train test lists from crossfitting
@@ -67,11 +68,11 @@ def estimate_conditional_mean_outcome(t, m, x, y, crossfit, reg_y,
 
             # predict E[Y|T=t,M=m,X]
             mu_0bx[test_index] = reg_y.predict(
-                _get_interactions(interaction, x, t0, mb)[test_index,
-                :]).squeeze()
+                _get_interactions(interaction, x, t0, mb)[test_index, :]
+            ).squeeze()
             mu_1bx[test_index] = reg_y.predict(
-                _get_interactions(interaction, x, t1, mb)[test_index,
-                :]).squeeze()
+                _get_interactions(interaction, x, t1, mb)[test_index, :]
+            ).squeeze()
 
             mu_t0.append(mu_0bx)
             mu_t1.append(mu_1bx)

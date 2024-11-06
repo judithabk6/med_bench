@@ -9,6 +9,7 @@ from sklearn.base import clone
 
 from med_bench.utils.utils import _get_train_test_lists, _get_interactions
 
+
 def estimate_cross_conditional_mean_outcome_discrete(m, x, y, f, regressors):
     """
     Estimate the conditional mean outcome,
@@ -53,8 +54,8 @@ def estimate_cross_conditional_mean_outcome_discrete(m, x, y, f, regressors):
     test_index = np.arange(n)
 
     # predict E[Y|T=t,M,X]
-    mu_1mx[test_index] = regressors['y_t_mx'].predict(x_t1_m[test_index, :])
-    mu_0mx[test_index] = regressors['y_t_mx'].predict(x_t0_m[test_index, :])
+    mu_1mx[test_index] = regressors["y_t_mx"].predict(x_t1_m[test_index, :])
+    mu_0mx[test_index] = regressors["y_t_mx"].predict(x_t0_m[test_index, :])
 
     for i, b in enumerate(np.unique(m)):
 
@@ -62,28 +63,31 @@ def estimate_cross_conditional_mean_outcome_discrete(m, x, y, f, regressors):
         f_0bx, f_1bx = f_t0[i], f_t1[i]
 
         # predict E[E[Y|T=1,M=m,X]|T=t,X]
-        E_mu_t1_t0[test_index] += regressors['reg_y_t1m{}_t0'.format(i)].predict(
-            x[test_index, :]) * \
-                                    f_0bx[test_index]
-        E_mu_t1_t1[test_index] += regressors['reg_y_t1m{}_t1'.format(i)].predict(
-            x[test_index, :]) * \
-                                    f_1bx[test_index]
+        E_mu_t1_t0[test_index] += (
+            regressors["reg_y_t1m{}_t0".format(i)].predict(x[test_index, :])
+            * f_0bx[test_index]
+        )
+        E_mu_t1_t1[test_index] += (
+            regressors["reg_y_t1m{}_t1".format(i)].predict(x[test_index, :])
+            * f_1bx[test_index]
+        )
 
         # predict E[E[Y|T=0,M=m,X]|T=t,X]
-        E_mu_t0_t0[test_index] += regressors['reg_y_t0m{}_t0'.format(i)].predict(
-            x[test_index, :]) * \
-                                    f_0bx[test_index]
-        E_mu_t0_t1[test_index] += regressors['reg_y_t0m{}_t1'.format(i)].predict(
-            x[test_index, :]) * \
-                                    f_1bx[test_index]
+        E_mu_t0_t0[test_index] += (
+            regressors["reg_y_t0m{}_t0".format(i)].predict(x[test_index, :])
+            * f_0bx[test_index]
+        )
+        E_mu_t0_t1[test_index] += (
+            regressors["reg_y_t0m{}_t1".format(i)].predict(x[test_index, :])
+            * f_1bx[test_index]
+        )
 
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
 
 
-def estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit,
-                                                      reg_y,
-                                                      reg_cross_y, f,
-                                                      interaction):
+def estimate_cross_conditional_mean_outcome(
+    t, m, x, y, crossfit, reg_y, reg_cross_y, f, interaction
+):
     """
     Estimate the conditional mean outcome,
     the cross conditional mean outcome
@@ -148,33 +152,43 @@ def estimate_cross_conditional_mean_outcome(t, m, x, y, crossfit,
 
             # predict E[Y|T=t,M=m,X]
             mu_0bx[test_index] = reg_y.predict(
-                _get_interactions(interaction, x, t0, mb)[test_index, :])
+                _get_interactions(interaction, x, t0, mb)[test_index, :]
+            )
             mu_1bx[test_index] = reg_y.predict(
-                _get_interactions(interaction, x, t1, mb)[test_index, :])
+                _get_interactions(interaction, x, t1, mb)[test_index, :]
+            )
 
             # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-            reg_y_t1mb_t0 = clone(reg_cross_y).fit(x[test_index, :][ind_t0, :],
-                                                   mu_1bx[test_index][ind_t0])
+            reg_y_t1mb_t0 = clone(reg_cross_y).fit(
+                x[test_index, :][ind_t0, :], mu_1bx[test_index][ind_t0]
+            )
             reg_y_t1mb_t1 = clone(reg_cross_y).fit(
-                x[test_index, :][~ind_t0, :], mu_1bx[test_index][~ind_t0])
+                x[test_index, :][~ind_t0, :], mu_1bx[test_index][~ind_t0]
+            )
 
             # predict E[E[Y|T=1,M=m,X]|T=t,X]
-            E_mu_t1_t0[test_index] += reg_y_t1mb_t0.predict(x[test_index, :]) * \
-                                      f_0bx[test_index]
-            E_mu_t1_t1[test_index] += reg_y_t1mb_t1.predict(x[test_index, :]) * \
-                                      f_1bx[test_index]
+            E_mu_t1_t0[test_index] += (
+                reg_y_t1mb_t0.predict(x[test_index, :]) * f_0bx[test_index]
+            )
+            E_mu_t1_t1[test_index] += (
+                reg_y_t1mb_t1.predict(x[test_index, :]) * f_1bx[test_index]
+            )
 
             # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-            reg_y_t0mb_t0 = clone(reg_cross_y).fit(x[test_index, :][ind_t0, :],
-                                                   mu_0bx[test_index][ind_t0])
+            reg_y_t0mb_t0 = clone(reg_cross_y).fit(
+                x[test_index, :][ind_t0, :], mu_0bx[test_index][ind_t0]
+            )
             reg_y_t0mb_t1 = clone(reg_cross_y).fit(
-                x[test_index, :][~ind_t0, :], mu_0bx[test_index][~ind_t0])
+                x[test_index, :][~ind_t0, :], mu_0bx[test_index][~ind_t0]
+            )
 
             # predict E[E[Y|T=0,M=m,X]|T=t,X]
-            E_mu_t0_t0[test_index] += reg_y_t0mb_t0.predict(x[test_index, :]) * \
-                                      f_0bx[test_index]
-            E_mu_t0_t1[test_index] += reg_y_t0mb_t1.predict(x[test_index, :]) * \
-                                      f_1bx[test_index]
+            E_mu_t0_t0[test_index] += (
+                reg_y_t0mb_t0.predict(x[test_index, :]) * f_0bx[test_index]
+            )
+            E_mu_t0_t1[test_index] += (
+                reg_y_t0mb_t1.predict(x[test_index, :]) * f_1bx[test_index]
+            )
 
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
 
@@ -204,21 +218,21 @@ def estimate_cross_conditional_mean_outcome_nesting(m, x, y, regressors):
     xm = np.hstack((x, m))
 
     # predict E[Y|T=1,M,X]
-    mu_1mx = regressors['y_t1_mx'].predict(xm)
+    mu_1mx = regressors["y_t1_mx"].predict(xm)
 
     # predict E[Y|T=0,M,X]
-    mu_0mx = regressors['y_t0_mx'].predict(xm)
+    mu_0mx = regressors["y_t0_mx"].predict(xm)
 
     # predict E[E[Y|T=1,M,X]|T=0,X]
-    E_mu_t1_t0 = regressors['y_t1_x_t0'].predict(x)
+    E_mu_t1_t0 = regressors["y_t1_x_t0"].predict(x)
 
     # predict E[E[Y|T=0,M,X]|T=1,X]
-    E_mu_t0_t1 = regressors['y_t0_x_t1'].predict(x)
+    E_mu_t0_t1 = regressors["y_t0_x_t1"].predict(x)
 
     # predict E[Y|T=1,X]
-    mu_1x = regressors['y_t1_x'].predict(x)
+    mu_1x = regressors["y_t1_x"].predict(x)
 
     # predict E[Y|T=0,X]
-    mu_0x = regressors['y_t0_x'].predict(x)
+    mu_0x = regressors["y_t0_x"].predict(x)
 
     return mu_0mx, mu_1mx, mu_0x, E_mu_t0_t1, E_mu_t1_t0, mu_1x

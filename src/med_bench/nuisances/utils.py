@@ -46,11 +46,11 @@ def _get_classifier(regularization, forest, calibration, random_state=42):
     cs, _ = _get_regularization_parameters(regularization)
 
     if not forest:
-        clf = LogisticRegressionCV(random_state=random_state, Cs=cs,
-                                   cv=CV_FOLDS)
+        clf = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS)
     else:
-        clf = RandomForestClassifier(random_state=random_state,
-                                     n_estimators=100, min_samples_leaf=10)
+        clf = RandomForestClassifier(
+            random_state=random_state, n_estimators=100, min_samples_leaf=10
+        )
     if calibration in {"sigmoid", "isotonic"}:
         clf = CalibratedClassifierCV(clf, method=calibration)
 
@@ -73,11 +73,3 @@ def _get_regressor(regularization, forest, random_state=42):
         reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10)
 
     return reg
-
-
-
-
-
-
-
-

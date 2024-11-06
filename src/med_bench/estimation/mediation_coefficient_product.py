@@ -45,11 +45,9 @@ class CoefficientProduct(Estimator):
 
         self._coef_t_m = np.zeros(m.shape[1])
         for i in range(m.shape[1]):
-            m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS) \
-                .fit(np.hstack((x, t)), m[:, i])
+            m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t)), m[:, i])
             self._coef_t_m[i] = m_reg.coef_[-1]
-        y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS) \
-            .fit(np.hstack((x, t, m)), y.ravel())
+        y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t, m)), y.ravel())
 
         self._coef_y = y_reg.coef_
 
@@ -60,20 +58,17 @@ class CoefficientProduct(Estimator):
 
     @fitted
     def estimate(self, t, m, x, y):
-        """Estimates causal effect on data
-
-        """
+        """Estimates causal effect on data"""
         direct_effect_treated = self._coef_y[x.shape[1]]
         direct_effect_control = direct_effect_treated
-        indirect_effect_treated = sum(
-            self._coef_y[x.shape[1] + 1:] * self._coef_t_m)
+        indirect_effect_treated = sum(self._coef_y[x.shape[1] + 1 :] * self._coef_t_m)
         indirect_effect_control = indirect_effect_treated
 
         causal_effects = {
-            'total_effect': direct_effect_treated+indirect_effect_control,
-            'direct_effect_treated': direct_effect_treated,
-            'direct_effect_control': direct_effect_control,
-            'indirect_effect_treated': indirect_effect_treated,
-            'indirect_effect_control': indirect_effect_control
+            "total_effect": direct_effect_treated + indirect_effect_control,
+            "direct_effect_treated": direct_effect_treated,
+            "direct_effect_control": direct_effect_control,
+            "indirect_effect_treated": indirect_effect_treated,
+            "indirect_effect_control": indirect_effect_control,
         }
         return causal_effects

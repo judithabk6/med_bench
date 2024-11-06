@@ -101,7 +101,10 @@ TOLERANCE_DICT = {
 ESTIMATORS = list(TOLERANCE_DICT.keys())
 
 R_DEPENDENT_ESTIMATORS = [
-    "mediation_IPW_R", "simulation_based", "mediation_dml", "mediation_g_estimator"
+    "mediation_IPW_R",
+    "simulation_based",
+    "mediation_dml",
+    "mediation_g_estimator",
 ]
 
 # PARAMETERS VALUES FOR DATA GENERATION
@@ -159,4 +162,4 @@ PARAMETER_LIST.extend(
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
-TINY = 1.e-12
+TINY = 1.0e-12
