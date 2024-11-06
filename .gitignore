@@ -137,3 +137,7 @@ src/.DS_Store
 
 # Ignore PDFs
 *.pdf
+
+# Ignore local scripts
+
+scripts/
