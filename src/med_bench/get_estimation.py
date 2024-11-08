@@ -14,18 +14,17 @@ from .mediation import (
     r_mediate,
 )
 
-from estimation.mediation_coefficient_product import CoefficientProduct
-from estimation.mediation_dml import DoubleMachineLearning
-from estimation.mediation_g_computation import GComputation
-from estimation.mediation_ipw import ImportanceWeighting
-from estimation.mediation_mr import MultiplyRobust
-from estimation.mediation_tmle import TMLE
+from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
+from med_bench.estimation.mediation_dml import DoubleMachineLearning
+from med_bench.estimation.mediation_g_computation import GComputation
+from med_bench.estimation.mediation_ipw import ImportanceWeighting
+from med_bench.estimation.mediation_mr import MultiplyRobust
+from med_bench.nuisances.utils import _get_regularization_parameters
+from med_bench.utils.constants import CV_FOLDS
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegressionCV, RidgeCV
 from sklearn.calibration import CalibratedClassifierCV
-from med_bench.utils.constants import CV_FOLDS
-from med_bench.nuisances.utils import _get_regularization_parameters
 
 def transform_outputs(causal_effects):
     """Transforms outputs in the old format
@@ -92,7 +91,9 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = mediation_coefficient_product(y, t, m, x)
         clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
         reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-        causal_effects = CoefficientProduct(regressor=reg, classifier=clf, regularize=True)
+        estimator = CoefficientProduct(regressor=reg, classifier=clf, regularize=True)
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
     elif estimator == "mediation_ipw_noreg":
