@@ -6,8 +6,7 @@ from med_bench.utils.utils import is_array_integer
 
 
 class GComputation(Estimator):
-    """GComputation estimation method class
-    """
+    """GComputation estimation method class"""
 
     def __init__(self, regressor, classifier, **kwargs):
         """Initializes GComputation estimation method
@@ -33,9 +32,7 @@ class GComputation(Estimator):
         self.classifier = classifier
 
     def fit(self, t, m, x, y):
-        """Fits nuisance parameters to data
-
-        """
+        """Fits nuisance parameters to data"""
         t, m, x, y = self._resize(t, m, x, y)
 
         if is_array_integer(m):
@@ -97,11 +94,11 @@ class GComputation(Estimator):
             indirect_effect_control = eta_t0t1 - eta_t0t0
 
         causal_effects = {
-            'total_effect': total_effect,
-            'direct_effect_treated': direct_effect_treated,
-            'direct_effect_control': direct_effect_control,
-            'indirect_effect_treated': indirect_effect_treated,
-            'indirect_effect_control': indirect_effect_control
+            "total_effect": total_effect,
+            "direct_effect_treated": direct_effect_treated,
+            "direct_effect_control": direct_effect_control,
+            "indirect_effect_treated": indirect_effect_treated,
+            "indirect_effect_control": indirect_effect_control,
         }
 
         return causal_effects

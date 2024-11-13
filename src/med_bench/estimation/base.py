@@ -7,8 +7,8 @@ from med_bench.utils.decorators import fitted
 
 
 class Estimator:
-    """General abstract class for causal mediation Estimator
-    """
+    """General abstract class for causal mediation Estimator"""
+
     __metaclass__ = ABCMeta
 
     def __init__(self, verbose: bool = True, crossfit: int = 0):
@@ -33,17 +33,18 @@ class Estimator:
         return self._verbose
 
     def _crossfit_check(self):
-        """Checks if the estimator inputs are valid
-        """
+        """Checks if the estimator inputs are valid"""
         if self._crossfit > 0:
-            raise NotImplementedError("""Crossfit is not implemented yet
+            raise NotImplementedError(
+                """Crossfit is not implemented yet
                                       You should perform something like this on your side : 
                                         cf_iterator = KFold(k=5)
                                         for data_train, data_test in cf_iterator:
                                             result.append(DML(...., cross_fitting=False)
                                                 .fit(train_data.X, train_data.t, train_data.m, train_data.y)\
                                                 .estimate(test_data.X, test_data.t, test_data.m, test_data.y))
-                                        np.mean(result)""")
+                                        np.mean(result)"""
+            )
 
     @abstractmethod
     def fit(self, t, m, x, y):
@@ -130,8 +131,7 @@ class Estimator:
         return t, m, x, y
 
     def _input_reshape(self, t, m, x):
-        """Reshape data for the right shape
-        """
+        """Reshape data for the right shape"""
         if len(t.shape) == 1:
             t = t.reshape(-1, 1)
         if len(m.shape) == 1:
@@ -142,16 +142,14 @@ class Estimator:
         return t, m, x
 
     def _fit_treatment_propensity_x_nuisance(self, t, x):
-        """ Fits the nuisance parameter for the propensity P(T=1|X)
-        """
+        """Fits the nuisance parameter for the propensity P(T=1|X)"""
         classifier = clone(self.classifier)
         self._classifier_t_x = classifier.fit(x, t)
 
         return self
 
     def _fit_treatment_propensity_xm_nuisance(self, t, m, x):
-        """ Fits the nuisance parameter for the propensity P(T=1|X, M)
-        """
+        """Fits the nuisance parameter for the propensity P(T=1|X, M)"""
         xm = np.hstack((x, m))
         self._classifier_t_xm = self.classifier.fit(xm, t)
 
@@ -159,8 +157,7 @@ class Estimator:
 
     # TODO : Enable any sklearn object as classifier or regressor
     def _fit_mediator_nuisance(self, t, m, x):
-        """ Fits the nuisance parameter for the density f(M=m|T, X)
-        """
+        """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
         clf_param_grid = {}
         classifier_m = GridSearchCV(self.classifier, clf_param_grid)
@@ -173,8 +170,7 @@ class Estimator:
         return self
 
     def _fit_conditional_mean_outcome_nuisance(self, t, m, x, y):
-        """ Fits the nuisance for the conditional mean outcome for the density f(M=m|T, X)
-        """
+        """Fits the nuisance for the conditional mean outcome for the density f(M=m|T, X)"""
         x_t_m = np.hstack([x, t.reshape(-1, 1), m])
 
         reg_param_grid = {}
@@ -187,8 +183,7 @@ class Estimator:
         return self
 
     def _fit_cross_conditional_mean_outcome_nuisance(self, t, m, x, y):
-        """ Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]
-        """
+        """Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]"""
 
         xm = np.hstack((x, m))
 
@@ -218,34 +213,36 @@ class Estimator:
         self.regressors = {}
 
         # predict E[Y|T=1,M,X]
-        self.regressors['y_t1_mx'] = clone(regressor_y)
-        self.regressors['y_t1_mx'].fit(xm[train_mean1], y[train_mean1])
-        mu_1mx_nested[train_nested] = self.regressors['y_t1_mx'].predict(
-            xm[train_nested])
+        self.regressors["y_t1_mx"] = clone(regressor_y)
+        self.regressors["y_t1_mx"].fit(xm[train_mean1], y[train_mean1])
+        mu_1mx_nested[train_nested] = self.regressors["y_t1_mx"].predict(
+            xm[train_nested]
+        )
 
         # predict E[Y|T=0,M,X]
-        self.regressors['y_t0_mx'] = clone(regressor_y)
-        self.regressors['y_t0_mx'].fit(xm[train_mean0], y[train_mean0])
-        mu_0mx_nested[train_nested] = self.regressors['y_t0_mx'].predict(
-            xm[train_nested])
+        self.regressors["y_t0_mx"] = clone(regressor_y)
+        self.regressors["y_t0_mx"].fit(xm[train_mean0], y[train_mean0])
+        mu_0mx_nested[train_nested] = self.regressors["y_t0_mx"].predict(
+            xm[train_nested]
+        )
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        self.regressors['y_t1_x_t0'] = clone(regressor_y)
-        self.regressors['y_t1_x_t0'].fit(
+        self.regressors["y_t1_x_t0"] = clone(regressor_y)
+        self.regressors["y_t1_x_t0"].fit(
             x[train_nested0], mu_1mx_nested[train_nested0])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        self.regressors['y_t0_x_t1'] = clone(regressor_y)
-        self.regressors['y_t0_x_t1'].fit(
+        self.regressors["y_t0_x_t1"] = clone(regressor_y)
+        self.regressors["y_t0_x_t1"].fit(
             x[train_nested1], mu_0mx_nested[train_nested1])
 
         # predict E[Y|T=1,X]
-        self.regressors['y_t1_x'] = clone(regressor_y)
-        self.regressors['y_t1_x'].fit(x[train1], y[train1])
+        self.regressors["y_t1_x"] = clone(regressor_y)
+        self.regressors["y_t1_x"].fit(x[train1], y[train1])
 
         # predict E[Y|T=0,X]
-        self.regressors['y_t0_x'] = clone(regressor_y)
-        self.regressors['y_t0_x'].fit(x[train0], y[train0])
+        self.regressors["y_t0_x"] = clone(regressor_y)
+        self.regressors["y_t0_x"].fit(x[train0], y[train0])
 
         return self
 
@@ -279,12 +276,12 @@ class Estimator:
         self.regressors = {}
 
         # mu_tm model fitting
-        self.regressors['y_t_mx'] = clone(regressor_y).fit(x_t_m, y)
+        self.regressors["y_t_mx"] = clone(regressor_y).fit(x_t_m, y)
 
         # predict E[Y|T=t,M,X]
-        mu_1mx[test_index] = self.regressors['y_t_mx'].predict(
+        mu_1mx[test_index] = self.regressors["y_t_mx"].predict(
             x_t1_m[test_index, :])
-        mu_0mx[test_index] = self.regressors['y_t_mx'].predict(
+        mu_0mx[test_index] = self.regressors["y_t_mx"].predict(
             x_t0_m[test_index, :])
 
         for i, b in enumerate(np.unique(m)):
@@ -297,29 +294,28 @@ class Estimator:
             x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
             x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
 
-            mu_0bx[test_index] = self.regressors['y_t_mx'].predict(
-                x_t0_mb[test_index, :])
-            mu_1bx[test_index] = self.regressors['y_t_mx'].predict(
-                x_t1_mb[test_index, :])
+            mu_0bx[test_index] = self.regressors["y_t_mx"].predict(
+                x_t0_mb[test_index, :]
+            )
+            mu_1bx[test_index] = self.regressors["y_t_mx"].predict(
+                x_t1_mb[test_index, :]
+            )
 
             # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-            self.regressors['reg_y_t1m{}_t0'.format(i)] = clone(
-                regressor_y).fit(
-                x[test_index, :][ind_t0, :],
-                mu_1bx[test_index][ind_t0])
-            self.regressors['reg_y_t1m{}_t1'.format(i)] = clone(
-                regressor_y).fit(
-                x[test_index, :][~ind_t0, :], mu_1bx[test_index][~ind_t0])
+            self.regressors["reg_y_t1m{}_t0".format(i)] = clone(regressor_y).fit(
+                x[test_index, :][ind_t0, :], mu_1bx[test_index][ind_t0]
+            )
+            self.regressors["reg_y_t1m{}_t1".format(i)] = clone(regressor_y).fit(
+                x[test_index, :][~ind_t0, :], mu_1bx[test_index][~ind_t0]
+            )
 
             # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-            self.regressors['reg_y_t0m{}_t0'.format(i)] = clone(
-                regressor_y).fit(
-                x[test_index, :][ind_t0, :],
-                mu_0bx[test_index][ind_t0])
-            self.regressors['reg_y_t0m{}_t1'.format(i)] = clone(
-                regressor_y).fit(
-                x[test_index, :][~ind_t0, :],
-                mu_0bx[test_index][~ind_t0])
+            self.regressors["reg_y_t0m{}_t0".format(i)] = clone(regressor_y).fit(
+                x[test_index, :][ind_t0, :], mu_0bx[test_index][ind_t0]
+            )
+            self.regressors["reg_y_t0m{}_t1".format(i)] = clone(regressor_y).fit(
+                x[test_index, :][~ind_t0, :], mu_0bx[test_index][~ind_t0]
+            )
 
         return self
 
@@ -480,21 +476,21 @@ class Estimator:
         xm = np.hstack((x, m))
 
         # predict E[Y|T=1,M,X]
-        mu_1mx = self.regressors['y_t1_mx'].predict(xm)
+        mu_1mx = self.regressors["y_t1_mx"].predict(xm)
 
         # predict E[Y|T=0,M,X]
-        mu_0mx = self.regressors['y_t0_mx'].predict(xm)
+        mu_0mx = self.regressors["y_t0_mx"].predict(xm)
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        E_mu_t1_t0 = self.regressors['y_t1_x_t0'].predict(x)
+        E_mu_t1_t0 = self.regressors["y_t1_x_t0"].predict(x)
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        E_mu_t0_t1 = self.regressors['y_t0_x_t1'].predict(x)
+        E_mu_t0_t1 = self.regressors["y_t0_x_t1"].predict(x)
 
         # predict E[Y|T=1,X]
-        mu_1x = self.regressors['y_t1_x'].predict(x)
+        mu_1x = self.regressors["y_t1_x"].predict(x)
 
         # predict E[Y|T=0,X]
-        mu_0x = self.regressors['y_t0_x'].predict(x)
+        mu_0x = self.regressors["y_t0_x"].predict(x)
 
         return mu_0mx, mu_1mx, mu_0x, E_mu_t0_t1, E_mu_t1_t0, mu_1x

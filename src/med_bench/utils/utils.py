@@ -17,8 +17,14 @@ def check_r_dependencies():
 
         # Assuming reaching here means R is accessible, now try importing rpy2 packages
         import rpy2.robjects.packages as rpackages
+
         required_packages = [
-            'causalweight', 'mediation', 'stats', 'base', 'grf', 'plmed'
+            "causalweight",
+            "mediation",
+            "stats",
+            "base",
+            "grf",
+            "plmed",
         ]
 
         for package in required_packages:
@@ -42,6 +48,7 @@ def is_r_installed():
 def check_r_package(package_name):
     try:
         import rpy2.robjects.packages as rpackages
+
         rpackages.importr(package_name)
         return True
     except:
@@ -67,7 +74,7 @@ def r_dependency_required(required_packages):
 
             for package in required_packages:
                 if not check_r_package(package):
-                    if package != 'plmed':
+                    if package != "plmed":
                         raise DependencyNotInstalledError(
                             f"The '{package}' R package is not installed. "
                             "Please install it using R by running:\n"
@@ -89,7 +96,9 @@ def r_dependency_required(required_packages):
                         )
                     return None
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -140,7 +149,7 @@ def _get_interactions(interaction, *args):
         return pre_inter_variables
     new_cols = list()
     for i, var in enumerate(variables[:]):
-        for j, var2 in enumerate(variables[i+1:]):
+        for j, var2 in enumerate(variables[i + 1 :]):
             for ii in range(var.shape[1]):
                 for jj in range(var2.shape[1]):
                     new_cols.append((var[:, ii] * var2[:, jj]).reshape(-1, 1))
@@ -159,14 +168,15 @@ def _convert_array_to_R(x):
     if len(x.shape) == 1:
         return robjects.FloatVector(x)
     elif len(x.shape) == 2:
-        return robjects.r.matrix(robjects.FloatVector(x.ravel()),
-                                 nrow=x.shape[0], byrow='TRUE')
+        return robjects.r.matrix(
+            robjects.FloatVector(x.ravel()), nrow=x.shape[0], byrow="TRUE"
+        )
 
 
 def _check_input(y, t, m, x, setting):
     """
     internal function to check inputs. `_check_input` adjusts the dimension
-    of the input (matrix or vectors), and raises an error 
+    of the input (matrix or vectors), and raises an error
     - if the size of input is not adequate,
     - or if the type of input is not supported (cotinuous treatment or
     non-binary one-dimensional mediator if the specified setting parameter
@@ -230,12 +240,11 @@ def _check_input(y, t, m, x, setting):
     else:
         m_converted = m
 
-    if (m_converted.shape[1] > 1) and (setting != 'multidimensional'):
+    if (m_converted.shape[1] > 1) and (setting != "multidimensional"):
         raise ValueError("Multidimensional m (mediator) is not supported")
 
-    if (setting == 'binary') and (len(np.unique(m)) != 2):
-        raise ValueError(
-            "Only a binary one-dimensional m (mediator) is supported")
+    if (setting == "binary") and (len(np.unique(m)) != 2):
+        raise ValueError("Only a binary one-dimensional m (mediator) is supported")
 
     return y_converted, t_converted, m_converted, x_converted
 
@@ -249,29 +258,26 @@ def is_array_integer(array):
 def str_to_bool(string):
     if bool(string) == string:
         return string
-    elif string == 'True':
+    elif string == "True":
         return True
-    elif string == 'False':
+    elif string == "False":
         return False
     else:
         raise ValueError  # evil ValueError that doesn't tell you what the wrong value was
 
 
 def bucketize_mediators(m, n_buckets=10, random_state=42):
-    kmeans = KMeans(n_clusters=n_buckets,
-                    random_state=random_state, n_init="auto").fit(m)
+    kmeans = KMeans(n_clusters=n_buckets, random_state=random_state, n_init="auto").fit(
+        m
+    )
     return kmeans.predict(m)
 
 
 def train_test_split_data(causal_data, test_size=0.33, random_state=42):
     x, t, m, y = causal_data
     x_train, x_test, t_train, t_test, m_train, m_test, y_train, y_test = (
-        train_test_split(x,
-                         t,
-                         m,
-                         y,
-                         test_size=test_size,
-                         random_state=random_state))
+        train_test_split(x, t, m, y, test_size=test_size, random_state=random_state)
+    )
     causal_data_train = x_train, t_train, m_train, y_train
     causal_data_test = x_test, t_test, m_test, y_test
     return causal_data_train, causal_data_test

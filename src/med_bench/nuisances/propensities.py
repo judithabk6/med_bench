@@ -41,6 +41,7 @@ def estimate_treatment_propensity_x(t, m, x, crossfit, clf_t_x):
 
     return p_x
 
+
 def estimate_treatment_probabilities(t, m, x, crossfit, clf_t_x, clf_t_xm, fit=False):
     """
     Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train

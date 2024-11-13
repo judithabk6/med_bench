@@ -62,7 +62,7 @@ class InversePropensityWeighting(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
         p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
 
-        ind = ((p_xm > self._trim) & (p_xm < (1 - self._trim)))
+        ind = (p_xm > self._trim) & (p_xm < (1 - self._trim))
         y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
 
         # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
@@ -72,12 +72,13 @@ class InversePropensityWeighting(Estimator):
 
         # importance weighting
         y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-        y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
-            np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
-        y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-            np.sum((1 - t) / (1 - p_x))
-        y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
-            np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
+        y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) / np.sum(
+            t * (1 - p_xm) / (p_xm * (1 - p_x))
+        )
+        y0m0 = np.sum(y * (1 - t) / (1 - p_x)) / np.sum((1 - t) / (1 - p_x))
+        y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) / np.sum(
+            (1 - t) * p_xm / ((1 - p_xm) * p_x)
+        )
 
         total_effect = y1m1 - y0m0
         direct_effect_treated = y1m1 - y0m1
@@ -86,11 +87,11 @@ class InversePropensityWeighting(Estimator):
         indirect_effect_control = y0m1 - y0m0
 
         causal_effects = {
-            'total_effect': total_effect,
-            'direct_effect_treated': direct_effect_treated,
-            'direct_effect_control': direct_effect_control,
-            'indirect_effect_treated': indirect_effect_treated,
-            'indirect_effect_control': indirect_effect_control
+            "total_effect": total_effect,
+            "direct_effect_treated": direct_effect_treated,
+            "direct_effect_control": direct_effect_control,
+            "indirect_effect_treated": indirect_effect_treated,
+            "indirect_effect_control": indirect_effect_control,
         }
 
         return causal_effects

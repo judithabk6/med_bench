@@ -39,9 +39,7 @@ class DoubleMachineLearning(Estimator):
         self._normalized = normalized
 
     def fit(self, t, m, x, y):
-        """Fits nuisance parameters to data
-
-        """
+        """Fits nuisance parameters to data"""
         t, m, x, y = self._resize(t, m, x, y)
 
         self._fit_treatment_propensity_x_nuisance(t, x)
@@ -53,15 +51,14 @@ class DoubleMachineLearning(Estimator):
             print("Nuisance models fitted")
 
     def estimate(self, t, m, x, y):
-        """Estimates causal effect on data
-
-        """
+        """Estimates causal effect on data"""
         t, m, x, y = self._resize(t, m, x, y)
 
         p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
 
-        mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = self._estimate_cross_conditional_mean_outcome_nesting(
-            m, x, y)
+        mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
+            self._estimate_cross_conditional_mean_outcome_nesting(m, x, y)
+        )
 
         # score computing
         if self._normalized:
@@ -70,17 +67,14 @@ class DoubleMachineLearning(Estimator):
             sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
             sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-            y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
-                    + E_mu_t0_t0)
+            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
             y1m0 = (
-                (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx))
-                / sum_score_t1m0 + (
-                    (1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0))
-                / sum_score_m0 + E_mu_t1_t0
+                (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
+                + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
+                + E_mu_t1_t0
             )
             y0m1 = (
-                ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx))
-                / sum_score_t0m1
+                ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sum_score_t0m1
                 + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sum_score_m1
                 + E_mu_t0_t1
             )
@@ -113,11 +107,11 @@ class DoubleMachineLearning(Estimator):
         indirect_effect_control = eta_t0t1 - eta_t0t0
 
         causal_effects = {
-            'total_effect': total_effect,
-            'direct_effect_treated': direct_effect_treated,
-            'direct_effect_control': direct_effect_control,
-            'indirect_effect_treated': indirect_effect_treated,
-            'indirect_effect_control': indirect_effect_control
+            "total_effect": total_effect,
+            "direct_effect_treated": direct_effect_treated,
+            "direct_effect_control": direct_effect_control,
+            "indirect_effect_treated": indirect_effect_treated,
+            "indirect_effect_control": indirect_effect_control,
         }
 
         return causal_effects

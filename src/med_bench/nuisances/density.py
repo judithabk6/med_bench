@@ -12,8 +12,8 @@ from sklearn.neighbors import NearestNeighbors, KernelDensity
 from sklearn.base import BaseEstimator
 from joblib import Parallel, delayed
 
-def estimate_mediator_density(t, m, x, y, crossfit, clf_m,
-                                        interaction, fit=False):
+
+def estimate_mediator_density(t, m, x, y, crossfit, clf_m, interaction, fit=False):
     """
     Estimate mediator density f(M|T,X)
     with train test lists from crossfitting
@@ -32,12 +32,14 @@ def estimate_mediator_density(t, m, x, y, crossfit, clf_m,
     # if not is_array_integer(m):
     #     return estimate_mediator_density_kde(t, m, x, y, crossfit, interaction)
     # else:
-    return estimate_mediator_probability(t, m, x, y, crossfit, clf_m,
-                                        interaction, fit=False)
+    return estimate_mediator_probability(
+        t, m, x, y, crossfit, clf_m, interaction, fit=False
+    )
 
 
-def estimate_mediators_probabilities(t, m, x, y, crossfit, clf_m,
-                                        interaction, fit=False):
+def estimate_mediators_probabilities(
+    t, m, x, y, crossfit, clf_m, interaction, fit=False
+):
     """
     Estimate mediator density f(M|T,X)
     with train test lists from crossfitting
@@ -71,14 +73,12 @@ def estimate_mediators_probabilities(t, m, x, y, crossfit, clf_m,
 
     for train_index, test_index in train_test_list:
 
-
         # f_mtx model fitting
         if fit == True:
             clf_m = clf_m.fit(t_x[train_index, :], m[train_index])
 
         fm_0 = clf_m.predict_proba(t0_x[test_index, :])
         fm_1 = clf_m.predict_proba(t1_x[test_index, :])
-
 
         for i, b in enumerate(np.unique(m)):
             f_0bx, f_1bx = [np.zeros(n) for h in range(2)]
@@ -92,8 +92,8 @@ def estimate_mediators_probabilities(t, m, x, y, crossfit, clf_m,
 
     return f_t0, f_t1
 
-def estimate_mediator_probability(t, m, x, y, crossfit, clf_m,
-                                        interaction, fit=False):
+
+def estimate_mediator_probability(t, m, x, y, crossfit, clf_m, interaction, fit=False):
     """
     Estimate mediator density f(M|T,X)
     with train test lists from crossfitting
@@ -148,6 +148,7 @@ def estimate_mediator_probability(t, m, x, y, crossfit, clf_m,
             f_1bx[test_index] = fm_1[:, i]
 
     return f_m0x, f_m1x
+
 
 class ConditionalNearestNeighborsKDE(BaseEstimator):
     """Conditional Kernel Density Estimation using nearest neighbors.
@@ -206,14 +207,12 @@ class ConditionalNearestNeighborsKDE(BaseEstimator):
         _, ind_X = self.nn_estimator_.kneighbors(X)
         if self.kde_estimator is None:
             kernel_density_list = [
-                KernelDensity(bandwidth="scott").fit(
-                    self.y_train_[ind].reshape(-1, 1))
+                KernelDensity(bandwidth="scott").fit(self.y_train_[ind].reshape(-1, 1))
                 for ind in ind_X
             ]
         else:
             kernel_density_list = [
-                clone(self.kde_estimator).fit(
-                    self.y_train_[ind].reshape(-1, 1))
+                clone(self.kde_estimator).fit(self.y_train_[ind].reshape(-1, 1))
                 for ind in ind_X
             ]
         return kernel_density_list
@@ -234,6 +233,7 @@ class ConditionalNearestNeighborsKDE(BaseEstimator):
         )
 
         return individual_predictions
+
 
 # def estimate_mediator_density_kde(t, m, x, y, crossfit, interaction):
 #     """
@@ -278,6 +278,7 @@ class ConditionalNearestNeighborsKDE(BaseEstimator):
 
 #     return f_m0x, f_m1x
 
+
 def estimate_mediator_density_kde(t, m, x, y, crossfit, ckde_m, interaction):
     """
     Estimate mediator density f(M|T,X)
@@ -300,13 +301,11 @@ def estimate_mediator_density_kde(t, m, x, y, crossfit, ckde_m, interaction):
     t0 = np.zeros((n, 1))
     t1 = np.ones((n, 1))
 
-
     f_m0x, f_m1x = [np.zeros(n) for _ in range(2)]
 
     t_x = _get_interactions(interaction, t, x)
     t0_x = _get_interactions(interaction, t0, x)
     t1_x = _get_interactions(interaction, t1, x)
-
 
     # predict f(M|T=t,X)
     f_m0x = ckde_m.pdf(m, t0_x)

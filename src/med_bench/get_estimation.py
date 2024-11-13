@@ -14,6 +14,33 @@ from .mediation import (
     r_mediate,
 )
 
+from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
+from med_bench.estimation.mediation_dml import DoubleMachineLearning
+from med_bench.estimation.mediation_g_computation import GComputation
+from med_bench.estimation.mediation_ipw import ImportanceWeighting
+from med_bench.estimation.mediation_mr import MultiplyRobust
+from med_bench.nuisances.utils import _get_regularization_parameters
+from med_bench.utils.constants import CV_FOLDS
+
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LogisticRegressionCV, RidgeCV
+from sklearn.calibration import CalibratedClassifierCV
+
+def transform_outputs(causal_effects):
+    """Transforms outputs in the old format
+
+    Args:
+        causal_effects (dict): dictionary of causal effects
+
+    Returns:
+        list: list of causal effects
+    """
+    total = causal_effects['total_effect']
+    direct_treated = causal_effects['direct_effect_treated']
+    direct_control = causal_effects['direct_effect_control']
+    indirect_treated = causal_effects['indirect_effect_treated']
+    indirect_control = causal_effects['indirect_effect_control']
+    return [total, direct_treated, direct_control, indirect_treated, indirect_control, 0]
 
 def get_estimation(x, t, m, y, estimator, config):
     """Wrapper estimator fonction ; calls an estimator given mediation data
@@ -62,6 +89,13 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = raw_res_R[0, :]
     elif estimator == "coefficient_product":
         effects = mediation_coefficient_product(y, t, m, x)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = CoefficientProduct(regressor=reg, classifier=clf, regularize=True)
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
+
     elif estimator == "mediation_ipw_noreg":
         effects = mediation_IPW(
             y,
@@ -75,6 +109,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration=None,
         )
+        cs, alphas = _get_regularization_parameters(regularization=False)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_noreg_cf":
         effects = mediation_IPW(
             y,
@@ -101,6 +144,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration=None,
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_reg_cf":
         effects = mediation_IPW(
             y,
@@ -127,6 +179,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration=None,
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_reg_calibration_iso":
         effects = mediation_IPW(
             y,
@@ -140,6 +201,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration="isotonic",
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_reg_calibration_cf":
         effects = mediation_IPW(
             y,
@@ -179,6 +249,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration=None,
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_forest_cf":
         effects = mediation_IPW(
             y,
@@ -205,6 +284,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration=None,
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_forest_calibration_iso":
         effects = mediation_IPW(
             y,
@@ -218,6 +306,15 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             calibration="isotonic",
         )
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = ImportanceWeighting(
+            clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_ipw_forest_calibration_cf":
         effects = mediation_IPW(
             y,
@@ -257,6 +354,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=False,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = GComputation(regressor=reg, classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_g_computation_noreg_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -283,6 +387,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = GComputation(regressor=reg, classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_g_computation_reg_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -309,6 +420,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_g_computation_reg_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -322,6 +440,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration="isotonic",
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_g_computation_reg_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -361,6 +486,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = GComputation(regressor=reg, classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_g_computation_forest_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -387,6 +519,14 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration='sigmoid',
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
+
     elif estimator == "mediation_g_computation_forest_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -400,6 +540,14 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration="isotonic",
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
+
     elif estimator == "mediation_g_computation_forest_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_g_formula(
@@ -440,6 +588,16 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=False,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
+
     elif estimator == "mediation_multiply_robust_noreg_cf":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -468,6 +626,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=True)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_reg_cf":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -496,6 +663,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration='sigmoid',
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_reg_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -510,6 +686,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration="isotonic",
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+            reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_reg_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -552,6 +737,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration=None,
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=clf)
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_forest_cf":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -580,6 +774,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration='sigmoid',
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_forest_calibration_iso":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -594,6 +797,15 @@ def get_estimation(x, t, m, y, estimator, config):
                 regularization=True,
                 calibration="isotonic",
             )
+            cs, alphas = _get_regularization_parameters(regularization=False)
+            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = MultiplyRobust(
+            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+            classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            estimator.fit(t, m, x, y)
+            causal_effects = estimator.estimate(t, m, x, y)
+            effects = transform_outputs(causal_effects)
     elif estimator == "mediation_multiply_robust_forest_calibration_cf":
         if config in (0, 1, 2):
             effects = mediation_multiply_robust(
@@ -638,9 +850,28 @@ def get_estimation(x, t, m, y, estimator, config):
             clip=1e-6,
             regularization=False,
             calibration=None)
+        cs, alphas = _get_regularization_parameters(regularization=False)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = DoubleMachineLearning(
+            clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
+        
     elif estimator == "mediation_dml_reg":
         effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, calibration=None)
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = DoubleMachineLearning(
+            clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_dml_reg_fixed_seed":
         effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, random_state=321, calibration=None)
@@ -661,6 +892,15 @@ def get_estimation(x, t, m, y, estimator, config):
     elif estimator == "mediation_dml_reg_calibration":
         effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, crossfit=0, calibration='sigmoid')
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
+        reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
+        estimator = DoubleMachineLearning(
+            clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_dml_forest":
         effects = mediation_dml(
             y,
@@ -672,6 +912,15 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=0,
             calibration=None,
             forest=True)
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = DoubleMachineLearning(
+            clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_dml_forest_calibration":
         effects = mediation_dml(
             y,
@@ -683,6 +932,15 @@ def get_estimation(x, t, m, y, estimator, config):
             crossfit=0,
             calibration='sigmoid',
             forest=True)
+        cs, alphas = _get_regularization_parameters(regularization=True)
+        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = DoubleMachineLearning(
+            clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = transform_outputs(causal_effects)
     elif estimator == "mediation_dml_reg_calibration_cf":
         effects = mediation_dml(
             y,

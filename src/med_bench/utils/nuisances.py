@@ -2,6 +2,7 @@
 the objective of this script is to implement nuisances functions
 used in mediation estimators in causal inference
 """
+
 import numpy as np
 from sklearn.base import clone
 from sklearn.calibration import CalibratedClassifierCV
@@ -17,7 +18,7 @@ if check_r_dependencies():
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
-TINY = 1.e-12
+TINY = 1.0e-12
 
 
 def _get_train_test_lists(crossfit, n, x):
@@ -73,11 +74,11 @@ def _get_classifier(regularization, forest, calibration, random_state=42):
     cs, _ = _get_regularization_parameters(regularization)
 
     if not forest:
-        clf = LogisticRegressionCV(random_state=random_state, Cs=cs,
-                                   cv=CV_FOLDS)
+        clf = LogisticRegressionCV(random_state=random_state, Cs=cs, cv=CV_FOLDS)
     else:
-        clf = RandomForestClassifier(random_state=random_state,
-                                     n_estimators=100, min_samples_leaf=10)
+        clf = RandomForestClassifier(
+            random_state=random_state, n_estimators=100, min_samples_leaf=10
+        )
     if calibration in {"sigmoid", "isotonic"}:
         clf = CalibratedClassifierCV(clf, method=calibration)
 
@@ -98,7 +99,8 @@ def _get_regressor(regularization, forest, random_state=42):
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
     else:
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=random_state)
+            n_estimators=100, min_samples_leaf=10, random_state=random_state
+        )
 
     return reg
 
@@ -200,8 +202,7 @@ def _estimate_mediator_density(y, t, m, x, crossfit, clf_m, interaction):
     return f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x
 
 
-def _estimate_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
-                                       interaction):
+def _estimate_conditional_mean_outcome(y, t, m, x, crossfit, reg_y, interaction):
     """
     Estimate conditional mean outcome E[Y|T,M,X]
     with train test lists from crossfitting
@@ -233,8 +234,7 @@ def _estimate_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
 
     train_test_list = _get_train_test_lists(crossfit, n, x)
 
-    mu_11x, mu_10x, mu_01x, mu_00x, mu_1mx, mu_0mx = [np.zeros(n) for _ in
-                                                      range(6)]
+    mu_11x, mu_10x, mu_01x, mu_00x, mu_1mx, mu_0mx = [np.zeros(n) for _ in range(6)]
 
     x_t_mr = _get_interactions(interaction, x, t, mr)
 
@@ -264,8 +264,9 @@ def _estimate_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
     return mu_00x, mu_01x, mu_10x, mu_11x, mu_0mx, mu_1mx
 
 
-def _estimate_cross_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
-                                             reg_cross_y, f, interaction):
+def _estimate_cross_conditional_mean_outcome(
+    y, t, m, x, crossfit, reg_y, reg_cross_y, f, interaction
+):
     """
     Estimate the conditional mean outcome,
     the cross conditional mean outcome
@@ -386,8 +387,9 @@ def _estimate_cross_conditional_mean_outcome(y, t, m, x, crossfit, reg_y,
     return mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1
 
 
-def _estimate_cross_conditional_mean_outcome_nesting(y, t, m, x, crossfit,
-                                                     reg_y, reg_cross_y):
+def _estimate_cross_conditional_mean_outcome_nesting(
+    y, t, m, x, crossfit, reg_y, reg_cross_y
+):
     """
     Estimate treatment probabilities and the conditional mean outcome,
     cross conditional mean outcome

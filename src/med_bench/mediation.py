@@ -12,21 +12,34 @@ from sklearn.base import clone
 from sklearn.linear_model import RidgeCV
 
 
-from .utils.nuisances import (_estimate_conditional_mean_outcome,
-                              _estimate_cross_conditional_mean_outcome,
-                              _estimate_cross_conditional_mean_outcome_nesting,
-                              _estimate_mediator_density,
-                              _estimate_treatment_probabilities,
-                              _get_classifier, _get_regressor)
+from .utils.nuisances import (
+    _estimate_conditional_mean_outcome,
+    _estimate_cross_conditional_mean_outcome,
+    _estimate_cross_conditional_mean_outcome_nesting,
+    _estimate_mediator_density,
+    _estimate_treatment_probabilities,
+    _get_classifier,
+    _get_regressor,
+)
 from .utils.utils import r_dependency_required, _check_input
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
-TINY = 1.e-12
+TINY = 1.0e-12
 
 
-def mediation_IPW(y, t, m, x, trim=0.05, regularization=True, forest=False,
-                  crossfit=0, clip=1e-6, calibration='sigmoid'):
+def mediation_IPW(
+    y,
+    t,
+    m,
+    x,
+    trim=0.05,
+    regularization=True,
+    forest=False,
+    crossfit=0,
+    clip=1e-6,
+    calibration="sigmoid",
+):
     """
     IPW estimator presented in
     HUBER, Martin. Identifying causal mechanisms (primarily) based on inverse
@@ -91,18 +104,18 @@ def mediation_IPW(y, t, m, x, trim=0.05, regularization=True, forest=False,
             number of used observations (non trimmed)
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
     classifier_t_xm = _get_classifier(regularization, forest, calibration)
-    p_x, p_xm = _estimate_treatment_probabilities(t, m, x, crossfit,
-                                                  classifier_t_x,
-                                                  classifier_t_xm)
+    p_x, p_xm = _estimate_treatment_probabilities(
+        t, m, x, crossfit, classifier_t_x, classifier_t_xm
+    )
 
-   # trimming. Following causal weight code, not sure I understand
+    # trimming. Following causal weight code, not sure I understand
     # why we trim only on p_xm and not on p_x
-    ind = ((p_xm > trim) & (p_xm < (1 - trim)))
+    ind = (p_xm > trim) & (p_xm < (1 - trim))
     y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
 
     # note on the names, ytmt' = Y(t, M(t')), the treatment needs to be
@@ -112,23 +125,25 @@ def mediation_IPW(y, t, m, x, trim=0.05, regularization=True, forest=False,
 
     # importance weighting
     y1m1 = np.sum(y * t / p_x) / np.sum(t / p_x)
-    y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) /\
-        np.sum(t * (1 - p_xm) / (p_xm * (1 - p_x)))
-    y0m0 = np.sum(y * (1 - t) / (1 - p_x)) /\
-        np.sum((1 - t) / (1 - p_x))
-    y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) /\
-        np.sum((1 - t) * p_xm / ((1 - p_xm) * p_x))
+    y1m0 = np.sum(y * t * (1 - p_xm) / (p_xm * (1 - p_x))) / np.sum(
+        t * (1 - p_xm) / (p_xm * (1 - p_x))
+    )
+    y0m0 = np.sum(y * (1 - t) / (1 - p_x)) / np.sum((1 - t) / (1 - p_x))
+    y0m1 = np.sum(y * (1 - t) * p_xm / ((1 - p_xm) * p_x)) / np.sum(
+        (1 - t) * p_xm / ((1 - p_xm) * p_x)
+    )
 
-    return (y1m1 - y0m0,
-            y1m1 - y0m1,
-            y1m0 - y0m0,
-            y1m1 - y1m0,
-            y0m1 - y0m0,
-            np.sum(ind))
+    return (
+        y1m1 - y0m0,
+        y1m1 - y0m1,
+        y1m0 - y0m0,
+        y1m1 - y1m0,
+        y0m1 - y0m0,
+        np.sum(ind),
+    )
 
 
-def mediation_coefficient_product(y, t, m, x, interaction=False,
-                                  regularization=True):
+def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
     """
     found an R implementation https://cran.r-project.org/package=regmedint
 
@@ -184,33 +199,41 @@ def mediation_coefficient_product(y, t, m, x, interaction=False,
         alphas = [TINY]
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
 
     if len(t.shape) == 1:
         t = t.reshape(-1, 1)
 
     coef_t_m = np.zeros(m.shape[1])
     for i in range(m.shape[1]):
-        m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-            .fit(np.hstack((x, t)), m[:, i])
+        m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t)), m[:, i])
         coef_t_m[i] = m_reg.coef_[-1]
-    y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)\
-        .fit(np.hstack((x, t, m)), y.ravel())
+    y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t, m)), y.ravel())
 
     # return total, direct and indirect effect
     direct_effect = y_reg.coef_[x.shape[1]]
-    indirect_effect = sum(y_reg.coef_[x.shape[1] + 1:] * coef_t_m)
-    return (direct_effect + indirect_effect,
-            direct_effect,
-            direct_effect,
-            indirect_effect,
-            indirect_effect,
-            None)
+    indirect_effect = sum(y_reg.coef_[x.shape[1] + 1 :] * coef_t_m)
+    return (
+        direct_effect + indirect_effect,
+        direct_effect,
+        direct_effect,
+        indirect_effect,
+        indirect_effect,
+        None,
+    )
 
 
-def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
-                        crossfit=0, regularization=True,
-                        calibration='sigmoid'):
+def mediation_g_formula(
+    y,
+    t,
+    m,
+    x,
+    interaction=False,
+    forest=False,
+    crossfit=0,
+    regularization=True,
+    calibration="sigmoid",
+):
     """
     Warning : m needs to be binary
 
@@ -253,43 +276,48 @@ def mediation_g_formula(y, t, m, x, interaction=False, forest=False,
             calibration mode; for example using a sigmoid function
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    y, t, m, x = _check_input(y, t, m, x, setting="binary")
 
     # estimate mediator densities
     classifier_m = _get_classifier(regularization, forest, calibration)
-    f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(y, t, m, x,
-                                                                  crossfit,
-                                                                  classifier_m,
-                                                                  interaction)
+    f_00x, f_01x, f_10x, f_11x, _, _ = _estimate_mediator_density(
+        y, t, m, x, crossfit, classifier_m, interaction
+    )
 
     # estimate conditional mean outcomes
     regressor_y = _get_regressor(regularization, forest)
-    mu_00x, mu_01x, mu_10x, mu_11x, _, _ = (
-        _estimate_conditional_mean_outcome(y, t, m, x, crossfit, regressor_y,
-                                           interaction))
+    mu_00x, mu_01x, mu_10x, mu_11x, _, _ = _estimate_conditional_mean_outcome(
+        y, t, m, x, crossfit, regressor_y, interaction
+    )
 
     # G computation
     direct_effect_i1 = mu_11x - mu_01x
     direct_effect_i0 = mu_10x - mu_00x
     n = len(y)
-    direct_effect_treated = (direct_effect_i1 * f_11x
-                             + direct_effect_i0 * f_10x).sum() / n
-    direct_effect_control = (direct_effect_i1 * f_01x
-                             + direct_effect_i0 * f_00x).sum() / n
+    direct_effect_treated = (
+        direct_effect_i1 * f_11x + direct_effect_i0 * f_10x
+    ).sum() / n
+    direct_effect_control = (
+        direct_effect_i1 * f_01x + direct_effect_i0 * f_00x
+    ).sum() / n
     indirect_effect_i1 = f_11x - f_01x
     indirect_effect_i0 = f_10x - f_00x
-    indirect_effect_treated = (indirect_effect_i1 * mu_11x
-                               + indirect_effect_i0 * mu_10x).sum() / n
-    indirect_effect_control = (indirect_effect_i1 * mu_01x
-                               + indirect_effect_i0 * mu_00x).sum() / n
+    indirect_effect_treated = (
+        indirect_effect_i1 * mu_11x + indirect_effect_i0 * mu_10x
+    ).sum() / n
+    indirect_effect_control = (
+        indirect_effect_i1 * mu_01x + indirect_effect_i0 * mu_00x
+    ).sum() / n
     total_effect = direct_effect_control + indirect_effect_treated
 
-    return (total_effect,
-            direct_effect_treated,
-            direct_effect_control,
-            indirect_effect_treated,
-            indirect_effect_control,
-            None)
+    return (
+        total_effect,
+        direct_effect_treated,
+        direct_effect_control,
+        indirect_effect_treated,
+        indirect_effect_control,
+        None,
+    )
 
 
 def alternative_estimator(y, t, m, x, regularization=True):
@@ -328,40 +356,52 @@ def alternative_estimator(y, t, m, x, regularization=True):
         alphas = [TINY]
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
-    treated = (t == 1)
+    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
+    treated = t == 1
 
     # computation of direct effect
     y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        np.hstack((x[treated], m[treated])), y[treated])
+        np.hstack((x[treated], m[treated])), y[treated]
+    )
     y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        np.hstack((x[~treated], m[~treated])), y[~treated])
+        np.hstack((x[~treated], m[~treated])), y[~treated]
+    )
     xm = np.hstack((x, m))
-    direct_effect = np.sum(y_treated_reg_m.predict(xm)
-                           - y_ctrl_reg_m.predict(xm)) / len(y)
+    direct_effect = np.sum(
+        y_treated_reg_m.predict(xm) - y_ctrl_reg_m.predict(xm)
+    ) / len(y)
 
     # computation of total effect
-    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        x[treated], y[treated])
-    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        x[~treated], y[~treated])
-    total_effect = np.sum(y_treated_reg.predict(x)
-                          - y_ctrl_reg.predict(x)) / len(y)
+    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[treated], y[treated])
+    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[~treated], y[~treated])
+    total_effect = np.sum(y_treated_reg.predict(x) - y_ctrl_reg.predict(x)) / len(y)
 
     # computation of indirect effect
     indirect_effect = total_effect - direct_effect
 
-    return (total_effect,
-            direct_effect,
-            direct_effect,
-            indirect_effect,
-            indirect_effect,
-            None)
+    return (
+        total_effect,
+        direct_effect,
+        direct_effect,
+        indirect_effect,
+        indirect_effect,
+        None,
+    )
 
 
-def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
-                              crossfit=0, clip=1e-6, normalized=True,
-                              regularization=True, calibration="sigmoid"):
+def mediation_multiply_robust(
+    y,
+    t,
+    m,
+    x,
+    interaction=False,
+    forest=False,
+    crossfit=0,
+    clip=1e-6,
+    normalized=True,
+    regularization=True,
+    calibration="sigmoid",
+):
     """
     Presented in Eric J. Tchetgen Tchetgen. Ilya Shpitser.
     "Semiparametric theory for causal mediation analysis: Efficiency bounds,
@@ -440,29 +480,29 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         - If m is not binary.
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    y, t, m, x = _check_input(y, t, m, x, setting="binary")
 
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
-    p_x, _ = _estimate_treatment_probabilities(t, m, x, crossfit,
-                                               classifier_t_x,
-                                               clone(classifier_t_x))
+    p_x, _ = _estimate_treatment_probabilities(
+        t, m, x, crossfit, classifier_t_x, clone(classifier_t_x)
+    )
 
     # estimate mediator densities
     classifier_m = _get_classifier(regularization, forest, calibration)
-    f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x = (
-        _estimate_mediator_density(y, t, m, x, crossfit,
-                                   classifier_m, interaction))
+    f_00x, f_01x, f_10x, f_11x, f_m0x, f_m1x = _estimate_mediator_density(
+        y, t, m, x, crossfit, classifier_m, interaction
+    )
     f = f_00x, f_01x, f_10x, f_11x
 
     # estimate conditional mean outcomes
     regressor_y = _get_regressor(regularization, forest)
     regressor_cross_y = _get_regressor(regularization, forest)
     mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-        _estimate_cross_conditional_mean_outcome(y, t, m, x, crossfit,
-                                                 regressor_y,
-                                                 regressor_cross_y, f,
-                                                 interaction))
+        _estimate_cross_conditional_mean_outcome(
+            y, t, m, x, crossfit, regressor_y, regressor_cross_y, f, interaction
+        )
+    )
 
     # clipping
     p_x_clip = p_x != np.clip(p_x, clip, 1 - clip)
@@ -485,17 +525,15 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
         sum_score_t0m1 = np.mean((1 - t) / (1 - p_x) * (f_m1x / f_m0x))
 
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-        y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
-                + E_mu_t0_t0)
+        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
         y1m0 = (
             ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
             + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
             + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx))
-            / sum_score_t0m1 + t / p_x * (
-                mu_0mx - E_mu_t0_t1) / sum_score_m1
+            ((1 - t) / (1 - p_x) * (f_m1x / f_m0x) * (y - mu_0mx)) / sum_score_t0m1
+            + t / p_x * (mu_0mx - E_mu_t0_t1) / sum_score_m1
             + E_mu_t0_t1
         )
     else:
@@ -522,7 +560,7 @@ def mediation_multiply_robust(y, t, m, x, interaction=False, forest=False,
     return total, direct1, direct0, indirect1, indirect0, n_discarded
 
 
-@r_dependency_required(['mediation', 'stats', 'base'])
+@r_dependency_required(["mediation", "stats", "base"])
 def r_mediate(y, t, m, x, interaction=False):
     """
     This function calls the R function mediate from the package mediation
@@ -555,52 +593,50 @@ def r_mediate(y, t, m, x, interaction=False):
     pandas2ri.activate()
     numpy2ri.activate()
 
-    mediation = rpackages.importr('mediation')
-    Rstats = rpackages.importr('stats')
-    base = rpackages.importr('base')
+    mediation = rpackages.importr("mediation")
+    Rstats = rpackages.importr("stats")
+    base = rpackages.importr("base")
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    y, t, m, x = _check_input(y, t, m, x, setting="binary")
     m = m.ravel()
 
-    var_names = [[y, 'y'],
-                 [t, 't'],
-                 [m, 'm'],
-                 [x, 'x']]
+    var_names = [[y, "y"], [t, "t"], [m, "m"], [x, "x"]]
     df_list = list()
     for var, name in var_names:
         if len(var.shape) > 1:
             var_dim = var.shape[1]
-            col_names = ['{}_{}'.format(name, i) for i in range(var_dim)]
+            col_names = ["{}_{}".format(name, i) for i in range(var_dim)]
             sub_df = pd.DataFrame(var, columns=col_names)
         else:
             sub_df = pd.DataFrame(var, columns=[name])
         df_list.append(sub_df)
         df = pd.concat(df_list, axis=1)
-    m_features = [c for c in df.columns if ('y' not in c) and ('m' not in c)]
-    y_features = [c for c in df.columns if ('y' not in c)]
+    m_features = [c for c in df.columns if ("y" not in c) and ("m" not in c)]
+    y_features = [c for c in df.columns if ("y" not in c)]
     if not interaction:
-        m_formula = 'm ~ ' + ' + '.join(m_features)
-        y_formula = 'y ~ ' + ' + '.join(y_features)
+        m_formula = "m ~ " + " + ".join(m_features)
+        y_formula = "y ~ " + " + ".join(y_features)
     else:
-        m_formula = 'm ~ ' + ' + '.join(m_features +
-                                        [':'.join(p) for p in
-                                         combinations(m_features, 2)])
-        y_formula = 'y ~ ' + ' + '.join(y_features +
-                                        [':'.join(p) for p in
-                                         combinations(y_features, 2)])
-    robjects.globalenv['df'] = df
-    mediator_model = Rstats.lm(m_formula, data=base.as_symbol('df'))
-    outcome_model = Rstats.lm(y_formula, data=base.as_symbol('df'))
-    res = mediation.mediate(mediator_model, outcome_model, treat='t',
-                            mediator='m', boot=True, sims=1)
+        m_formula = "m ~ " + " + ".join(
+            m_features + [":".join(p) for p in combinations(m_features, 2)]
+        )
+        y_formula = "y ~ " + " + ".join(
+            y_features + [":".join(p) for p in combinations(y_features, 2)]
+        )
+    robjects.globalenv["df"] = df
+    mediator_model = Rstats.lm(m_formula, data=base.as_symbol("df"))
+    outcome_model = Rstats.lm(y_formula, data=base.as_symbol("df"))
+    res = mediation.mediate(
+        mediator_model, outcome_model, treat="t", mediator="m", boot=True, sims=1
+    )
 
-    relevant_variables = ['tau.coef', 'z1', 'z0', 'd1', 'd0']
+    relevant_variables = ["tau.coef", "z1", "z0", "d1", "d0"]
     to_return = [np.array(res.rx2(v))[0] for v in relevant_variables]
     return to_return + [None]
 
 
-@r_dependency_required(['plmed', 'base'])
+@r_dependency_required(["plmed", "base"])
 def r_mediation_g_estimator(y, t, m, x):
     """
     This function calls the R G-estimator from the package plmed
@@ -614,50 +650,51 @@ def r_mediation_g_estimator(y, t, m, x):
     pandas2ri.activate()
     numpy2ri.activate()
 
-    plmed = rpackages.importr('plmed')
-    base = rpackages.importr('base')
+    plmed = rpackages.importr("plmed")
+    base = rpackages.importr("base")
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='binary')
+    y, t, m, x = _check_input(y, t, m, x, setting="binary")
     m = m.ravel()
 
-    var_names = [[y, 'y'],
-                 [t, 't'],
-                 [m, 'm'],
-                 [x, 'x']]
+    var_names = [[y, "y"], [t, "t"], [m, "m"], [x, "x"]]
     df_list = list()
     for var, name in var_names:
         if len(var.shape) > 1:
             var_dim = var.shape[1]
-            col_names = ['{}_{}'.format(name, i) for i in range(var_dim)]
+            col_names = ["{}_{}".format(name, i) for i in range(var_dim)]
             sub_df = pd.DataFrame(var, columns=col_names)
         else:
             sub_df = pd.DataFrame(var, columns=[name])
         df_list.append(sub_df)
         df = pd.concat(df_list, axis=1)
-    m_features = [c for c in df.columns if ('x' in c)]
-    y_features = [c for c in df.columns if ('x' in c)]
-    t_features = [c for c in df.columns if ('x' in c)]
-    m_formula = 'm ~ ' + ' + '.join(m_features)
-    y_formula = 'y ~ ' + ' + '.join(y_features)
-    t_formula = 't ~ ' + ' + '.join(t_features)
-    robjects.globalenv['df'] = df
-    res = plmed.G_estimation(t_formula,
-                             m_formula,
-                             y_formula,
-                             exposure_family='binomial',
-                             data=base.as_symbol('df'))
-    direct_effect = res.rx2('coef')[0]
-    indirect_effect = res.rx2('coef')[1]
-    return (direct_effect + indirect_effect,
-            direct_effect,
-            direct_effect,
-            indirect_effect,
-            indirect_effect,
-            None)
+    m_features = [c for c in df.columns if ("x" in c)]
+    y_features = [c for c in df.columns if ("x" in c)]
+    t_features = [c for c in df.columns if ("x" in c)]
+    m_formula = "m ~ " + " + ".join(m_features)
+    y_formula = "y ~ " + " + ".join(y_features)
+    t_formula = "t ~ " + " + ".join(t_features)
+    robjects.globalenv["df"] = df
+    res = plmed.G_estimation(
+        t_formula,
+        m_formula,
+        y_formula,
+        exposure_family="binomial",
+        data=base.as_symbol("df"),
+    )
+    direct_effect = res.rx2("coef")[0]
+    indirect_effect = res.rx2("coef")[1]
+    return (
+        direct_effect + indirect_effect,
+        direct_effect,
+        direct_effect,
+        indirect_effect,
+        indirect_effect,
+        None,
+    )
 
 
-@r_dependency_required(['causalweight', 'base'])
+@r_dependency_required(["causalweight", "base"])
 def r_mediation_dml(y, t, m, x, trim=0.05, order=1):
     """
     This function calls the R Double Machine Learning estimator from the
@@ -701,23 +738,35 @@ def r_mediation_dml(y, t, m, x, trim=0.05, order=1):
     pandas2ri.activate()
     numpy2ri.activate()
 
-    causalweight = rpackages.importr('causalweight')
-    base = rpackages.importr('base')
+    causalweight = rpackages.importr("causalweight")
+    base = rpackages.importr("base")
 
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
 
-    x_r, t_r, m_r, y_r = [base.as_matrix(_convert_array_to_R(uu)) for uu in
-                          (x, t, m, y)]
+    x_r, t_r, m_r, y_r = [
+        base.as_matrix(_convert_array_to_R(uu)) for uu in (x, t, m, y)
+    ]
     res = causalweight.medDML(y_r, t_r, m_r, x_r, trim=trim, order=order)
-    raw_res_R = np.array(res.rx2('results'))
-    ntrimmed = res.rx2('ntrimmed')[0]
+    raw_res_R = np.array(res.rx2("results"))
+    ntrimmed = res.rx2("ntrimmed")[0]
     return list(raw_res_R[0, :5]) + [ntrimmed]
 
 
-def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
-                  normalized=True, regularization=True, random_state=None,
-                  calibration=None):
+def mediation_dml(
+    y,
+    t,
+    m,
+    x,
+    forest=False,
+    crossfit=0,
+    trim=0.05,
+    clip=1e-6,
+    normalized=True,
+    regularization=True,
+    random_state=None,
+    calibration=None,
+):
     """
     Python implementation of Double Machine Learning procedure, as described
     in :
@@ -800,7 +849,7 @@ def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
         - If x, t, m, or y don't have the same length.
     """
     # check input
-    y, t, m, x = _check_input(y, t, m, x, setting='multidimensional')
+    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
     n = len(y)
 
     nobs = 0
@@ -819,18 +868,19 @@ def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
     # estimate propensities
     classifier_t_x = _get_classifier(regularization, forest, calibration)
     classifier_t_xm = _get_classifier(regularization, forest, calibration)
-    p_x, p_xm = _estimate_treatment_probabilities(t, m, x, crossfit,
-                                                  classifier_t_x,
-                                                  classifier_t_xm)
+    p_x, p_xm = _estimate_treatment_probabilities(
+        t, m, x, crossfit, classifier_t_x, classifier_t_xm
+    )
 
     # estimate conditional mean outcomes
     regressor_y = _get_regressor(regularization, forest)
     regressor_cross_y = _get_regressor(regularization, forest)
 
     mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-        _estimate_cross_conditional_mean_outcome_nesting(y, t, m, x, crossfit,
-                                                         regressor_y,
-                                                         regressor_cross_y))
+        _estimate_cross_conditional_mean_outcome_nesting(
+            y, t, m, x, crossfit, regressor_y, regressor_cross_y
+        )
+    )
 
     # trimming
     not_trimmed = (
@@ -854,16 +904,14 @@ def mediation_dml(y, t, m, x, forest=False, crossfit=0, trim=0.05, clip=1e-6,
         sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
         sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-        y0m0 = (((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0
-                + E_mu_t0_t0)
+        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
         y1m0 = (
-            (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx))
-            / sum_score_t1m0 + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0))
-            / sum_score_m0 + E_mu_t1_t0
+            (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
+            + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
+            + E_mu_t1_t0
         )
         y0m1 = (
-            ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx))
-            / sum_score_t0m1
+            ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sum_score_t0m1
             + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sum_score_m1
             + E_mu_t0_t1
         )
