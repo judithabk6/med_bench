@@ -17,7 +17,7 @@ from .mediation import (
 from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
 from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
-from med_bench.estimation.mediation_ipw import ImportanceWeighting
+from med_bench.estimation.mediation_ipw import InversePropensityWeighting
 from med_bench.estimation.mediation_mr import MultiplyRobust
 from med_bench.nuisances.utils import _get_regularization_parameters
 from med_bench.utils.constants import CV_FOLDS
@@ -25,6 +25,7 @@ from med_bench.utils.constants import CV_FOLDS
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegressionCV, RidgeCV
 from sklearn.calibration import CalibratedClassifierCV
+
 
 def transform_outputs(causal_effects):
     """Transforms outputs in the old format
@@ -41,6 +42,7 @@ def transform_outputs(causal_effects):
     indirect_treated = causal_effects['indirect_effect_treated']
     indirect_control = causal_effects['indirect_effect_control']
     return [total, direct_treated, direct_control, indirect_treated, indirect_control, 0]
+
 
 def get_estimation(x, t, m, y, estimator, config):
     """Wrapper estimator fonction ; calls an estimator given mediation data
@@ -89,9 +91,12 @@ def get_estimation(x, t, m, y, estimator, config):
         effects = raw_res_R[0, :]
     elif estimator == "coefficient_product":
         effects = mediation_coefficient_product(y, t, m, x)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator = CoefficientProduct(regressor=reg, classifier=clf, regularize=True)
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = CoefficientProduct(
+            regressor=reg, classifier=clf, regularize=True)
         estimator.fit(t, m, x, y)
         causal_effects = estimator.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -112,7 +117,7 @@ def get_estimation(x, t, m, y, estimator, config):
         cs, alphas = _get_regularization_parameters(regularization=False)
         clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-        estimator = ImportanceWeighting(
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=clf
         )
         estimator.fit(t, m, x, y)
@@ -147,7 +152,7 @@ def get_estimation(x, t, m, y, estimator, config):
         cs, alphas = _get_regularization_parameters(regularization=True)
         clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-        estimator = ImportanceWeighting(
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=clf
         )
         estimator.fit(t, m, x, y)
@@ -182,7 +187,7 @@ def get_estimation(x, t, m, y, estimator, config):
         cs, alphas = _get_regularization_parameters(regularization=True)
         clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-        estimator = ImportanceWeighting(
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
         )
         estimator.fit(t, m, x, y)
@@ -204,7 +209,7 @@ def get_estimation(x, t, m, y, estimator, config):
         cs, alphas = _get_regularization_parameters(regularization=True)
         clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-        estimator = ImportanceWeighting(
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic")
         )
         estimator.fit(t, m, x, y)
@@ -250,9 +255,11 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration=None,
         )
         cs, alphas = _get_regularization_parameters(regularization=True)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator = ImportanceWeighting(
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=clf
         )
         estimator.fit(t, m, x, y)
@@ -285,9 +292,11 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration=None,
         )
         cs, alphas = _get_regularization_parameters(regularization=True)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator = ImportanceWeighting(
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
         )
         estimator.fit(t, m, x, y)
@@ -307,9 +316,11 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration="isotonic",
         )
         cs, alphas = _get_regularization_parameters(regularization=True)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator = ImportanceWeighting(
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
+        estimator = InversePropensityWeighting(
             clip=1e-6, trim=0, regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic")
         )
         estimator.fit(t, m, x, y)
@@ -423,7 +434,8 @@ def get_estimation(x, t, m, y, estimator, config):
             cs, alphas = _get_regularization_parameters(regularization=True)
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            estimator = GComputation(
+                regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -443,7 +455,8 @@ def get_estimation(x, t, m, y, estimator, config):
             cs, alphas = _get_regularization_parameters(regularization=True)
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
-            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            estimator = GComputation(
+                regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -487,8 +500,10 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=None,
             )
             cs, alphas = _get_regularization_parameters(regularization=True)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
             estimator = GComputation(regressor=reg, classifier=clf)
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
@@ -520,9 +535,12 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration='sigmoid',
             )
             cs, alphas = _get_regularization_parameters(regularization=True)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = GComputation(
+                regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -541,9 +559,12 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration="isotonic",
             )
             cs, alphas = _get_regularization_parameters(regularization=True)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
-            estimator = GComputation(regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
+            estimator = GComputation(
+                regressor=reg, classifier=CalibratedClassifierCV(clf, method="isotonic"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -592,8 +613,8 @@ def get_estimation(x, t, m, y, estimator, config):
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=clf)
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=clf)
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -630,8 +651,8 @@ def get_estimation(x, t, m, y, estimator, config):
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=clf)
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=clf)
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -667,8 +688,8 @@ def get_estimation(x, t, m, y, estimator, config):
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=CalibratedClassifierCV(clf, method="sigmoid"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -690,8 +711,8 @@ def get_estimation(x, t, m, y, estimator, config):
             clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
             reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=CalibratedClassifierCV(clf, method="isotonic"))
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=CalibratedClassifierCV(clf, method="isotonic"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -738,11 +759,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration=None,
             )
             cs, alphas = _get_regularization_parameters(regularization=False)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=clf)
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=clf)
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -775,11 +798,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration='sigmoid',
             )
             cs, alphas = _get_regularization_parameters(regularization=False)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=CalibratedClassifierCV(clf, method="sigmoid"))
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=CalibratedClassifierCV(clf, method="sigmoid"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -798,11 +823,13 @@ def get_estimation(x, t, m, y, estimator, config):
                 calibration="isotonic",
             )
             cs, alphas = _get_regularization_parameters(regularization=False)
-            clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-            reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+            clf = RandomForestClassifier(
+                random_state=42, n_estimators=100, min_samples_leaf=10)
+            reg = RandomForestRegressor(
+                n_estimators=100, min_samples_leaf=10, random_state=42)
             estimator = MultiplyRobust(
-            clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
-            classifier=CalibratedClassifierCV(clf, method="isotonic"))
+                clip=1e-6, ratio="propensities", normalized=True, regressor=reg,
+                classifier=CalibratedClassifierCV(clf, method="isotonic"))
             estimator.fit(t, m, x, y)
             causal_effects = estimator.estimate(t, m, x, y)
             effects = transform_outputs(causal_effects)
@@ -859,7 +886,7 @@ def get_estimation(x, t, m, y, estimator, config):
         estimator.fit(t, m, x, y)
         causal_effects = estimator.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-        
+
     elif estimator == "mediation_dml_reg":
         effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, calibration=None)
@@ -913,8 +940,10 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration=None,
             forest=True)
         cs, alphas = _get_regularization_parameters(regularization=True)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
         estimator = DoubleMachineLearning(
             clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=clf
         )
@@ -933,8 +962,10 @@ def get_estimation(x, t, m, y, estimator, config):
             calibration='sigmoid',
             forest=True)
         cs, alphas = _get_regularization_parameters(regularization=True)
-        clf = RandomForestClassifier(random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(n_estimators=100, min_samples_leaf=10, random_state=42)
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10)
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42)
         estimator = DoubleMachineLearning(
             clip=1e-6, trim=0, normalized=True, regressor=reg, classifier=CalibratedClassifierCV(clf, method="sigmoid")
         )

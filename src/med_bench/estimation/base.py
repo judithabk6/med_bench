@@ -156,7 +156,7 @@ class Estimator:
         return self
 
     # TODO : Enable any sklearn object as classifier or regressor
-    def _fit_mediator_nuisance(self, t, m, x):
+    def _fit_mediator_nuisance(self, t, m, x, y):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
         clf_param_grid = {}

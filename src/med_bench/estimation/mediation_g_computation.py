@@ -13,9 +13,9 @@ class GComputation(Estimator):
 
         Parameters
         ----------
-        regressor 
+        regressor
             Regressor used for mu estimation, can be any object with a fit and predict method
-        classifier 
+        classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         """
         super().__init__(**kwargs)
@@ -37,7 +37,7 @@ class GComputation(Estimator):
 
         if is_array_integer(m):
             self._fit_mediator_nuisance(t, m, x, y)
-            self._fit_conditional_mean_outcome_nuisance
+            self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
         else:
             self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
 
@@ -48,7 +48,7 @@ class GComputation(Estimator):
 
         return self
 
-    @fitted
+    @ fitted
     def estimate(self, t, m, x, y):
         """Estimates causal effect on data
 
