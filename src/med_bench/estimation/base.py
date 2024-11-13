@@ -355,25 +355,32 @@ class Estimator:
 
         Returns
         -------
-        f_t0: list
-            contains array-like, shape (n_samples) probabilities f(M=m|T=0,X)
-        f_t1, list
-            contains array-like, shape (n_samples) probabilities f(M=m|T=1,X)
+        f_00x: array-like, shape (n_samples)
+            probabilities f(M=0|T=0,X)
+        f_01x, array-like, shape (n_samples)
+            probabilities f(M=0|T=1,X)
+        f_10x, array-like, shape (n_samples)
+            probabilities f(M=1|T=0,X)
+        f_11x, array-like, shape (n_samples)
+            probabilities f(M=1|T=1,X)
         """
         n = len(y)
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
 
-        m = m.ravel()
-
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_t0 = self._classifier_m.predict_proba(t0_x)[:, 1]
-        f_t1 = self._classifier_m.predict_proba(t1_x)[:, 1]
+        # predict f(M=m|T=t,X)
+        fm_0 = self._classifier_m.predict_proba(t0_x)
+        f_00x = fm_0[:, 0]
+        f_01x = fm_0[:, 1]
+        fm_1 = self._classifier_m.predict_proba(t1_x)
+        f_10x = fm_1[:, 0]
+        f_11x = fm_1[:, 1]
 
-        return f_t0, f_t1
+        return f_00x, f_01x, f_10x, f_11x
 
     def _estimate_treatment_propensity_x(self, t, m, x):
         """
@@ -422,41 +429,33 @@ class Estimator:
 
         Returns
         -------
-        mu_t0: list
-            contains array-like, shape (n_samples) conditional mean outcome estimates E[Y|T=0,M=m,X]
-        mu_t1, list
-            contains array-like, shape (n_samples) conditional mean outcome estimates E[Y|T=1,M=m,X]
-        mu_m0x, array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=0,M,X]
-        mu_m1x, array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=1,M,X]
+        mu_00x: array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=0,X]
+        mu_01x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=1,X]
+        mu_10x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=0,X]
+        mu_11x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=1,X]
         """
         n = len(y)
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
-        intercept = np.ones((n, 1))
+        m0 = np.zeros((n, 1))
+        m1 = np.ones((n, 1))
 
-        mu_t1, mu_t0 = [], []
+        x_t1_m1 = np.hstack([x, t1.reshape(-1, 1), m1])
+        x_t1_m0 = np.hstack([x, t1.reshape(-1, 1), m0])
+        x_t0_m1 = np.hstack([x, t0.reshape(-1, 1), m1])
+        x_t0_m0 = np.hstack([x, t0.reshape(-1, 1), m0])
 
-        x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
-        x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
+        mu_00x = self._regressor_y.predict(x_t0_m0)
+        mu_01x = self._regressor_y.predict(x_t0_m1)
+        mu_10x = self._regressor_y.predict(x_t1_m0)
+        mu_11x = self._regressor_y.predict(x_t1_m1)
 
-        # predict E[Y|T=t,M,X] for all indices
-        mu_0mx = self._regressor_y.predict(x_t0_m).squeeze()
-        mu_1mx = self._regressor_y.predict(x_t1_m).squeeze()
-
-        for i, b in enumerate(np.unique(m)):
-            mb = intercept * b
-            x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
-            x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
-            # predict E[Y|T=t,M=m,X] for all indices
-            mu_0bx = self._regressor_y.predict(x_t0_mb).squeeze()
-            mu_1bx = self._regressor_y.predict(x_t1_mb).squeeze()
-            mu_t0.append(mu_0bx)
-            mu_t1.append(mu_1bx)
-
-        return mu_t0, mu_t1, mu_0mx, mu_1mx
+        return mu_00x, mu_01x, mu_10x, mu_11x
 
     def _estimate_cross_conditional_mean_outcome_nesting(self, m, x, y):
         """
