@@ -4,7 +4,7 @@ from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted
 
 
-class ImportanceWeighting(Estimator):
+class InversePropensityWeighting(Estimator):
 
     def __init__(self, clip: float, trim: float, **kwargs):
         """IPW estimator
