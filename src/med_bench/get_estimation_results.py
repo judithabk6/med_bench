@@ -77,7 +77,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
         # Class-based implementation for InversePropensityWeighting without regularization
         clf, reg = get_regularized_regressor_and_classifier(regularize=False)
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=clf)
+            clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -92,7 +92,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
         # Class-based implementation with regularization
         clf, reg = get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=clf)
+            clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -108,7 +108,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
         clf, reg = get_regularized_regressor_and_classifier(
             regularize=True, calibration=True, method="sigmoid")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=clf)
+            clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -118,7 +118,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
         clf, reg = get_regularized_regressor_and_classifier(
             regularize=True, calibration=True, method="isotonic")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=clf)
+            clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -142,7 +142,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
         reg = RandomForestRegressor(
             n_estimators=100, min_samples_leaf=10, random_state=42)
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=clf)
+            clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -161,7 +161,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
             n_estimators=100, min_samples_leaf=10, random_state=42)
         calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=calibrated_clf)
+            clip=1e-6, trim=0, classifier=calibrated_clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
@@ -174,7 +174,7 @@ def get_estimation_results(x, t, m, y, estimator, config):
             n_estimators=100, min_samples_leaf=10, random_state=42)
         calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, regressor=reg, classifier=calibrated_clf)
+            clip=1e-6, trim=0, classifier=calibrated_clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
