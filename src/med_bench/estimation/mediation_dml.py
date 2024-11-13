@@ -16,10 +16,6 @@ class DoubleMachineLearning(Estimator):
             Regressor used for mu estimation, can be any object with a fit and predict method
         classifier 
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
-        clips : float
-            Clipping value for propensity scores
-        trim : float
-            Trimming value for propensity scores
         normalized : bool
             Whether to normalize the propensity scores
         """
@@ -67,14 +63,17 @@ class DoubleMachineLearning(Estimator):
             sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
             sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
+            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / \
+                sum_score_m0 + E_mu_t0_t0
             y1m0 = (
-                (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
+                (t * (1 - p_xm) / (p_xm * (1 - p_x))
+                 * (y - mu_1mx)) / sum_score_t1m0
                 + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
                 + E_mu_t1_t0
             )
             y0m1 = (
-                ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sum_score_t0m1
+                ((1 - t) * p_xm / ((1 - p_xm) * p_x)
+                 * (y - mu_0mx)) / sum_score_t0m1
                 + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sum_score_m1
                 + E_mu_t0_t1
             )
