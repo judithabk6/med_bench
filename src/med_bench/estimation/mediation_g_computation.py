@@ -9,10 +9,28 @@ class GComputation(Estimator):
     """GComputation estimation method class
     """
 
-    def __init__(self, **kwargs):
-        """Initalization of the GComputation estimation method class
+    def __init__(self, regressor, classifier, **kwargs):
+        """Initializes GComputation estimation method
+
+        Parameters
+        ----------
+        regressor 
+            Regressor used for mu estimation, can be any object with a fit and predict method
+        classifier 
+            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         """
         super().__init__(**kwargs)
+
+        assert hasattr(
+            regressor, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, 'predict'), "The model does not have a 'predict' method."
+        assert hasattr(
+            classifier, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+        self.regressor = regressor
+        self.classifier = classifier
 
     def fit(self, t, m, x, y):
         """Fits nuisance parameters to data
@@ -36,7 +54,7 @@ class GComputation(Estimator):
 
         t, m, x, y = self._resize(t, m, x, y)
 
-        mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1 = self._estimate_cross_conditional_mean_outcome_nesting(
+        (mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1) = self._estimate_cross_conditional_mean_outcome_nesting(
             m, x, y)
 
         # mean score computing

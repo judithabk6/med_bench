@@ -7,15 +7,18 @@ from med_bench.utils.decorators import fitted
 
 
 class CoefficientProduct(Estimator):
+    """Coefficient Product estimatation method class
+    """
 
     def __init__(self, regularize: bool, **kwargs):
-        """Coefficient product estimator
+        """Initializes Coefficient product estimatation method
 
-        Attributes:
+        Parameters
+        ----------
             regularize (bool) : regularization parameter
-
         """
         super().__init__(**kwargs)
+
         self._regularize = regularize
 
     def fit(self, t, m, x, y):

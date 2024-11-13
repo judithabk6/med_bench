@@ -1,13 +1,9 @@
 from abc import ABCMeta, abstractmethod
-
 import numpy as np
-
+from sklearn import clone
 from sklearn.model_selection import GridSearchCV
-from sklearn.base import clone, RegressorMixin, ClassifierMixin
 
 from med_bench.utils.decorators import fitted
-from med_bench.utils.scores import r_risk
-from med_bench.utils.utils import _get_train_test_lists
 
 
 class Estimator:
@@ -15,31 +11,16 @@ class Estimator:
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, regressor, classifier, verbose: bool = True, crossfit: int = 0):
-        """Initialize Estimator base class
+    def __init__(self, verbose: bool = True, crossfit: int = 0):
+        """Initializes Estimator base class
 
         Parameters
         ----------
-        regressor 
-            Regressor used for mu estimation, can be any object with a fit and predict method
-        classifier 
-            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         verbose : bool
             will print some logs if True
         crossfit : int
             number of crossfit folds, if 0 no crossfit is performed
         """
-        assert hasattr(
-            regressor, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            regressor, 'predict'), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
-        self.regressor = regressor
-        self.classifier = classifier
-
         self._crossfit = crossfit
         self._crossfit_check()
 

@@ -10,25 +10,35 @@ ALPHA = 10
 
 
 class TMLE(Estimator):
-    """Implementation of targeted maximum likelihood estimator
-
-    Parameters
-    ----------
-        settings (dict): dictionnary of parameters
-        lbda (float): regularization parameter
-        support_vec_tol (float): tolerance for discarding non-supporting vectors
-            if |alpha_i| < support_vec_tol * lbda then vector is discarded
-        verbose (int): in {0, 1}
+    """Implementation of targeted maximum likelihood estimation method class
     """
 
-    def __init__(self, procedure, ratio, clip, normalized, **kwargs):
+    def __init__(self, regressor, classifier, ratio, **kwargs):
+        """_summary_
+
+        Parameters
+        ----------
+        regressor 
+            Regressor used for mu estimation, can be any object with a fit and predict method
+        classifier 
+            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
+        ratio : str
+            Ratio to use for estimation, can be either 'density' or 'propensities'
+        """
         super().__init__(**kwargs)
 
-        self._crossfit = 0
-        self._procedure = procedure
+        assert hasattr(
+            regressor, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, 'predict'), "The model does not have a 'predict' method."
+        assert hasattr(
+            classifier, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+        self.regressor = regressor
+        self.classifier = classifier
+
         self._ratio = ratio
-        self._clip = clip
-        self._normalized = normalized
 
     def _one_step_correction_direct(self, t, m, x, y):
 
@@ -129,13 +139,6 @@ class TMLE(Estimator):
 
         regressor_y = _get_regressor(self._regularize,
                                      self._use_forest)
-
-        # reg_cross.fit(x, (mu_t1_mx_star).squeeze())
-
-        # omega_t = reg_cross.predict(x)
-        # c_corrector = (2*t - 1)/p_x[:, None]
-        # reg = LinearRegression(fit_intercept=False).fit(c_corrector.reshape(-1, 1)[t==0], (mu_t1_mx_star - omega_t).squeeze())
-        # epsilon_c = reg.coef_
 
         reg_cross = clone(regressor_y)
         reg_cross.fit(x[t == 0], mu_t1_mx_star[t == 0])

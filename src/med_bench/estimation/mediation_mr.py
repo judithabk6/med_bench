@@ -6,15 +6,38 @@ from med_bench.utils.utils import is_array_integer
 
 
 class MultiplyRobust(Estimator):
-    """Implementation of multiply robust estimator
+    """Iniitializes Multiply Robust estimatation method class
     """
 
-    def __init__(self, ratio: str, clip: float, normalized, **kwargs):
+    def __init__(self, regressor, classifier, ratio: str, normalized, **kwargs):
+        """Initializes MulitplyRobust estimatation method
+
+        Parameters
+        ----------
+        regressor 
+            Regressor used for mu estimation, can be any object with a fit and predict method
+        classifier 
+            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
+        ratio : str
+            Ratio to use for estimation, can be either 'density' or 'propensities'
+        normalized : bool
+            Whether to normalize the propensity scores
+        """
         super().__init__(**kwargs)
+
+        assert hasattr(
+            regressor, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, 'predict'), "The model does not have a 'predict' method."
+        assert hasattr(
+            classifier, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+        self.regressor = regressor
+        self.classifier = classifier
 
         assert ratio in ['density', 'propensities']
         self._ratio = ratio
-        self._clip = clip
         self._normalized = normalized
 
     def fit(self, t, m, x, y):

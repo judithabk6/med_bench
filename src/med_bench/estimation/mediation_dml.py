@@ -4,20 +4,38 @@ from med_bench.estimation.base import Estimator
 
 
 class DoubleMachineLearning(Estimator):
-    """Implementation of double machine learning
-
-    Parameters
-    ----------
-        alpha (float): regularization parameter
-        support_vec_tol (float): tolerance for discarding non-supporting vectors
-            if |alpha_i| < support_vec_tol * alpha then vector is discarded
+    """Double Machine Learning estimation method class
     """
 
-    def __init__(self, clip: float, trim: float, normalized: bool, **kwargs):
+    def __init__(self, regressor, classifier, normalized: bool, **kwargs):
+        """Initializes Double Machine Learning estimation method
+
+        Parameters
+        ----------
+        regressor 
+            Regressor used for mu estimation, can be any object with a fit and predict method
+        classifier 
+            Classifier used for propensity estimation, can be any object with a fit and predict_proba method
+        clips : float
+            Clipping value for propensity scores
+        trim : float
+            Trimming value for propensity scores
+        normalized : bool
+            Whether to normalize the propensity scores
+        """
         super().__init__(**kwargs)
 
-        self._clip = clip
-        self._trim = trim
+        assert hasattr(
+            regressor, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, 'predict'), "The model does not have a 'predict' method."
+        assert hasattr(
+            classifier, 'fit'), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+        self.regressor = regressor
+        self.classifier = classifier
+
         self._normalized = normalized
 
     def fit(self, t, m, x, y):
