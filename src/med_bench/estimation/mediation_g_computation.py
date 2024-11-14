@@ -2,7 +2,7 @@ import numpy as np
 
 from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted
-from med_bench.utils.utils import is_array_integer
+from med_bench.utils.utils import is_array_binary
 
 
 class GComputation(Estimator):
@@ -35,7 +35,7 @@ class GComputation(Estimator):
         """Fits nuisance parameters to data"""
         t, m, x, y = self._resize(t, m, x, y)
 
-        if is_array_integer(m):
+        if is_array_binary(m):
             self._fit_mediator_nuisance(t, m, x, y)
             self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
         else:
@@ -55,10 +55,10 @@ class GComputation(Estimator):
         """
         t, m, x, y = self._resize(t, m, x, y)
 
-        if is_array_integer(m):
-            mu_00x, mu_01x, mu_10x, mu_11x = self._estimate_mediators_probabilities(
+        if is_array_binary(m):
+            f_00x, f_01x, f_10x, f_11x = self._estimate_mediators_probabilities(
                 t, m, x, y)
-            f_00x, f_01x, f_10x, f_11x = self._estimate_conditional_mean_outcome(
+            mu_00x, mu_01x, mu_10x, mu_11x = self._estimate_conditional_mean_outcome(
                 t, m, x, y)
 
             direct_effect_i1 = mu_11x - mu_01x

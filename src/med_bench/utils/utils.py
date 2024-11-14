@@ -1,12 +1,9 @@
+from numpy.random import default_rng
 import numpy as np
 import pandas as pd
-
-from sklearn.cluster import KMeans
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-
 import subprocess
 
+from med_bench.get_simulated_data import simulate_data
 from med_bench.utils.constants import ALPHAS, TINY
 
 
@@ -256,6 +253,12 @@ def is_array_integer(array):
     if array.shape[1] > 1:
         return False
     return all(list((array == array.astype(int)).squeeze()))
+
+
+def is_array_binary(array):
+    if len(np.unique(array)) == 2:
+        return True
+    return False
 
 
 def _get_regularization_parameters(regularization):

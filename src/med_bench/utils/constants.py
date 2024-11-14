@@ -79,7 +79,9 @@ TOLERANCE_DICT = {
     "mediation_multiply_robust_forest_calibration": LARGE_TOLERANCE,
     "simulation_based": LARGE_TOLERANCE,
     "mediation_dml": INFINITE_TOLERANCE,
-    "mediation_dml_reg_fixed_seed": INFINITE_TOLERANCE,
+    "mediation_dml_noreg": INFINITE_TOLERANCE,
+    "mediation_dml_reg": INFINITE_TOLERANCE,
+    "mediation_dml_forest": INFINITE_TOLERANCE,
     "mediation_g_estimator": LARGE_TOLERANCE,
 }
 

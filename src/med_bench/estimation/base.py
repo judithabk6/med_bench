@@ -325,9 +325,9 @@ class Estimator:
 
         Returns
         -------
-        f_m0, array-like, shape (n_samples)
+        f_m0x, array-like, shape (n_samples)
             probabilities f(M|T=0,X)
-        f_m1, array-like, shape (n_samples)
+        f_m1x, array-like, shape (n_samples)
             probabilities f(M|T=1,X)
         """
         n = len(y)
@@ -340,10 +340,10 @@ class Estimator:
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        fm_0 = self._classifier_m.predict_proba(t0_x)[:, 1]
-        fm_1 = self._classifier_m.predict_proba(t1_x)[:, 1]
+        f_m0x = self._classifier_m.predict_proba(t0_x)[:, m]
+        f_m1x = self._classifier_m.predict_proba(t1_x)[:, m]
 
-        return fm_0, fm_1
+        return f_m0x, f_m1x
 
     def _estimate_mediators_probabilities(self, t, m, x, y):
         """
