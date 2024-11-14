@@ -16,7 +16,7 @@ import pytest
 import numpy as np
 import os
 
-from med_bench.get_estimation_results import get_estimation_results
+from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
 from med_bench.utils.utils import DependencyNotInstalledError, check_r_dependencies
 from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME, R_DEPENDENT_ESTIMATORS, TOLERANCE_DICT
@@ -83,9 +83,8 @@ def config(dict_param):
 @pytest.fixture
 def effects_chap(x, t, m, y, estimator, config):
     # try whether estimator is implemented or not
-
     try:
-        res = get_estimation_results(x, t, m, y, estimator, config)[0:5]
+        res = _get_estimation_results(x, t, m, y, estimator, config)[0:5]
     except Exception as e:
         if str(e) in (
             "Estimator only supports 1D binary mediator.",
@@ -127,12 +126,12 @@ def test_total_is_direct_plus_indirect(effects_chap):
             effects_chap[2] + effects_chap[3])
 
 
-def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
+def test_robustness_to_ravel_format(data_simulated, estimator, config, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")
     assert np.all(
-        get_estimation_results(data[0], data[1], data[2],
-                               data[3], estimator, config)[0:5]
+        _get_estimation_results(data_simulated[0], data_simulated[1], data_simulated[2],
+                                data_simulated[3], estimator, config)[0:5]
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
@@ -190,8 +189,8 @@ def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true, config_tru
     # try whether estimator is implemented or not
 
     try:
-        res = get_estimation_results(x_true, t_true, m_true,
-                                     y_true, estimator_true, config_true)[0:5]
+        res = _get_estimation_results(x_true, t_true, m_true,
+                                      y_true, estimator_true, config_true)[0:5]
 
         # NaN situations
         if np.all(np.isnan(res)):

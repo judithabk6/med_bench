@@ -1,7 +1,7 @@
 import numpy as np
 
 from med_bench.get_simulated_data import simulate_data
-from med_bench.get_estimation_results import get_estimation_results
+from tests.estimation.get_estimation_results import _get_estimation_results
 
 from med_bench.utils.constants import ESTIMATORS, PARAMETER_LIST, PARAMETER_NAME
 
@@ -32,7 +32,7 @@ def _get_estimators_results(x, t, m, y, config, estimator):
     """
 
     try:
-        res = get_estimation_results(x, t, m, y, estimator, config)[0:5]
+        res = _get_estimation_results(x, t, m, y, estimator, config)[0:5]
         return res
 
     except Exception as e:
