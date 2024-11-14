@@ -143,86 +143,6 @@ def mediation_IPW(
     )
 
 
-def mediation_coefficient_product(y, t, m, x, interaction=False, regularization=True):
-    """
-    found an R implementation https://cran.r-project.org/package=regmedint
-
-    implements very simple model of mediation
-    Y ~ X + T + M
-    M ~ X + T
-    estimation method is product of coefficients
-
-    Parameters
-    ----------
-    y : array-like, shape (n_samples)
-            outcome value for each unit, continuous
-
-    t : array-like, shape (n_samples)
-            treatment value for each unit, binary
-
-    m : array-like, shape (n_samples)
-            mediator value for each unit, can be continuous or binary, and
-            is necessary in 1D
-
-    x : array-like, shape (n_samples, n_features_covariates)
-            covariates (potential confounders) values
-
-    interaction : boolean, default=False
-                whether to include interaction terms in the model
-                not implemented here, just for compatibility of signature
-                function
-
-    regularization : boolean, default=True
-                   whether to use regularized models (logistic or
-                   linear regression). If True, cross-validation is used
-                   to chose among 8 potential log-spaced values between
-                   1e-5 and 1e5
-
-    Returns
-    -------
-    float
-            total effect
-    float
-            direct effect treated (\theta(1))
-    float
-            direct effect nontreated (\theta(0))
-    float
-            indirect effect treated (\delta(1))
-    float
-            indirect effect untreated (\delta(0))
-    int
-            number of used observations (non trimmed)
-    """
-    if regularization:
-        alphas = ALPHAS
-    else:
-        alphas = [TINY]
-
-    # check input
-    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
-
-    if len(t.shape) == 1:
-        t = t.reshape(-1, 1)
-
-    coef_t_m = np.zeros(m.shape[1])
-    for i in range(m.shape[1]):
-        m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t)), m[:, i])
-        coef_t_m[i] = m_reg.coef_[-1]
-    y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t, m)), y.ravel())
-
-    # return total, direct and indirect effect
-    direct_effect = y_reg.coef_[x.shape[1]]
-    indirect_effect = sum(y_reg.coef_[x.shape[1] + 1 :] * coef_t_m)
-    return (
-        direct_effect + indirect_effect,
-        direct_effect,
-        direct_effect,
-        indirect_effect,
-        indirect_effect,
-        None,
-    )
-
-
 def mediation_g_formula(
     y,
     t,
@@ -316,75 +236,6 @@ def mediation_g_formula(
         direct_effect_control,
         indirect_effect_treated,
         indirect_effect_control,
-        None,
-    )
-
-
-def alternative_estimator(y, t, m, x, regularization=True):
-    """
-    presented in
-    HUBER, Martin, LECHNER, Michael, et MELLACE, Giovanni.
-    The finite sample performance of estimators for mediation analysis under
-    sequential conditional independence.
-    Journal of Business & Economic Statistics, 2016, vol. 34, no 1, p. 139-160.
-    section 3.2.2
-
-    Parameters
-    ----------
-    y : array-like, shape (n_samples)
-            outcome value for each unit, continuous
-
-    t : array-like, shape (n_samples)
-            treatment value for each unit, binary
-
-    m : array-like, shape (n_samples)
-            mediator value for each unit, here m is necessary binary
-            and unidimensional
-
-    x : array-like, shape (n_samples, n_features_covariates)
-            covariates (potential confounders) values
-
-    regularization : boolean, default=True
-                   whether to use regularized models (logistic or
-                   linear regression). If True, cross-validation is used
-                   to chose among 8 potential log-spaced values between
-                   1e-5 and 1e5
-    """
-    if regularization:
-        alphas = ALPHAS
-    else:
-        alphas = [TINY]
-
-    # check input
-    y, t, m, x = _check_input(y, t, m, x, setting="multidimensional")
-    treated = t == 1
-
-    # computation of direct effect
-    y_treated_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        np.hstack((x[treated], m[treated])), y[treated]
-    )
-    y_ctrl_reg_m = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-        np.hstack((x[~treated], m[~treated])), y[~treated]
-    )
-    xm = np.hstack((x, m))
-    direct_effect = np.sum(
-        y_treated_reg_m.predict(xm) - y_ctrl_reg_m.predict(xm)
-    ) / len(y)
-
-    # computation of total effect
-    y_treated_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[treated], y[treated])
-    y_ctrl_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(x[~treated], y[~treated])
-    total_effect = np.sum(y_treated_reg.predict(x) - y_ctrl_reg.predict(x)) / len(y)
-
-    # computation of indirect effect
-    indirect_effect = total_effect - direct_effect
-
-    return (
-        total_effect,
-        direct_effect,
-        direct_effect,
-        indirect_effect,
-        indirect_effect,
         None,
     )
 
@@ -525,7 +376,8 @@ def mediation_multiply_robust(
         sum_score_t0m1 = np.mean((1 - t) / (1 - p_x) * (f_m1x / f_m0x))
 
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
+        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / \
+            sum_score_m0 + E_mu_t0_t0
         y1m0 = (
             ((t / p_x) * (f_m0x / f_m1x) * (y - mu_1mx)) / sum_score_t1m0
             + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
@@ -904,7 +756,8 @@ def mediation_dml(
         sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
         sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
         y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
+        y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / \
+            sum_score_m0 + E_mu_t0_t0
         y1m0 = (
             (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
             + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0

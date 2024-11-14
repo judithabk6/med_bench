@@ -81,21 +81,6 @@ TOLERANCE_DICT = {
     "mediation_dml": INFINITE_TOLERANCE,
     "mediation_dml_reg_fixed_seed": INFINITE_TOLERANCE,
     "mediation_g_estimator": LARGE_TOLERANCE,
-    "mediation_ipw_noreg_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_calibration_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_cf": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_calibration_cf": INFINITE_TOLERANCE,
-    "mediation_g_computation_noreg_cf": SMALL_TOLERANCE,
-    "mediation_g_computation_reg_cf": LARGE_TOLERANCE,
-    "mediation_g_computation_reg_calibration_cf": LARGE_TOLERANCE,
-    "mediation_g_computation_forest_cf": INFINITE_TOLERANCE,
-    "mediation_g_computation_forest_calibration_cf": LARGE_TOLERANCE,
-    "mediation_multiply_robust_noreg_cf": MEDIUM_TOLERANCE,
-    "mediation_multiply_robust_reg_cf": LARGE_TOLERANCE,
-    "mediation_multiply_robust_reg_calibration_cf": MEDIUM_TOLERANCE,
-    "mediation_multiply_robust_forest_cf": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_forest_calibration_cf": INFINITE_TOLERANCE,
 }
 
 ESTIMATORS = list(TOLERANCE_DICT.keys())

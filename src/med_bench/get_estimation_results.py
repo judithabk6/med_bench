@@ -4,9 +4,6 @@
 import numpy as np
 
 from .mediation import (
-    mediation_IPW,
-    mediation_g_formula,
-    mediation_multiply_robust,
     mediation_dml,
     r_mediation_g_estimator,
     r_mediation_dml,
@@ -40,6 +37,7 @@ def transform_outputs(causal_effects):
     direct_control = causal_effects['direct_effect_control']
     indirect_treated = causal_effects['indirect_effect_treated']
     indirect_control = causal_effects['indirect_effect_control']
+
     return [total, direct_treated, direct_control, indirect_treated, indirect_control, 0]
 
 
@@ -82,12 +80,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    elif estimator == "mediation_ipw_noreg_cf":
-        # Legacy function for crossfit with no regularization
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=False, forest=False, crossfit=2, clip=1e-6, calibration=None
-        )
-
     elif estimator == "mediation_ipw_reg":
         # Class-based implementation with regularization
         clf, reg = get_regularized_regressor_and_classifier(regularize=True)
@@ -96,12 +88,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    elif estimator == "mediation_ipw_reg_cf":
-        # Legacy function with crossfit and regularization
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=False, crossfit=2, clip=1e-6, calibration=None
-        )
 
     elif estimator == "mediation_ipw_reg_calibration":
         # Class-based implementation with regularization and calibration (sigmoid)
@@ -123,18 +109,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    elif estimator == "mediation_ipw_reg_calibration_cf":
-        # Legacy function with crossfit and sigmoid calibration
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=False, crossfit=2, clip=1e-6, calibration="sigmoid"
-        )
-
-    elif estimator == "mediation_ipw_reg_calibration_iso_cf":
-        # Legacy function with crossfit and isotonic calibration
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=False, crossfit=2, clip=1e-6, calibration="isotonic"
-        )
-
     elif estimator == "mediation_ipw_forest":
         # Class-based implementation with forest models
         clf = RandomForestClassifier(
@@ -146,12 +120,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    elif estimator == "mediation_ipw_forest_cf":
-        # Legacy function with forest and crossfit
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=True, crossfit=2, clip=1e-6, calibration=None
-        )
 
     elif estimator == "mediation_ipw_forest_calibration":
         # Class-based implementation with forest and calibrated sigmoid
@@ -187,12 +155,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    elif estimator == "mediation_g_computation_noreg_cf":
-        # Legacy function with crossfit and no regularization
-        effects = mediation_g_formula(
-            y, t, m, x, interaction=False, forest=False, crossfit=2, regularization=False, calibration=None
-        )
-
     elif estimator == "mediation_g_computation_reg":
         # Class-based implementation of GComputation with regularization
         clf, reg = get_regularized_regressor_and_classifier(regularize=True)
@@ -200,26 +162,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    elif estimator == "mediation_g_computation_reg_cf":
-        # Legacy function with regularization and crossfit
-        effects = mediation_g_formula(
-            y, t, m, x, interaction=False, forest=False, crossfit=2, regularization=True, calibration=None
-        )
-
-    elif estimator == "mediation_g_computation_forest_cf":
-        if config in (0, 1, 2):
-            effects = mediation_g_formula(
-                y,
-                t,
-                m,
-                x,
-                interaction=False,
-                forest=True,
-                crossfit=2,
-                regularization=True,
-                calibration=None,
-            )
 
     elif estimator == "mediation_g_computation_reg_calibration":
         # Class-based implementation with regularization and calibrated sigmoid
@@ -276,30 +218,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    # Regularized, crossfitting, calibration (isotonic) for InversePropensityWeighting
-    elif estimator == "mediation_ipw_reg_calibration_iso_cf":
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=False, crossfit=2, clip=1e-6, calibration="isotonic"
-        )
-
-    # Forest and crossfit with sigmoid calibration for InversePropensityWeighting
-    elif estimator == "mediation_ipw_forest_calibration_cf":
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=True, crossfit=2, clip=1e-6, calibration="sigmoid"
-        )
-
-    # Forest and crossfit with isotonic calibration for InversePropensityWeighting
-    elif estimator == "mediation_ipw_forest_calibration_iso_cf":
-        effects = mediation_IPW(
-            y, t, m, x, trim=0, regularization=True, forest=True, crossfit=2, clip=1e-6, calibration="isotonic"
-        )
-
-    # MultiplyRobust without regularization, with crossfitting
-    elif estimator == "mediation_multiply_robust_noreg_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=False, crossfit=2, clip=1e-6, regularization=False, calibration=None
-        )
-
     # Regularized MultiplyRobust estimator
     elif estimator == "mediation_multiply_robust_reg":
         clf, reg = get_regularized_regressor_and_classifier(regularize=True)
@@ -308,12 +226,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    # Regularized MultiplyRobust with crossfitting
-    elif estimator == "mediation_multiply_robust_reg_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=False, crossfit=2, clip=1e-6, regularization=True, calibration=None
-        )
 
     # Regularized MultiplyRobust with sigmoid calibration
     elif estimator == "mediation_multiply_robust_reg_calibration":
@@ -335,18 +247,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    # Regularized MultiplyRobust with sigmoid calibration and crossfitting
-    elif estimator == "mediation_multiply_robust_reg_calibration_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=False, crossfit=2, clip=1e-6, regularization=True, calibration="sigmoid"
-        )
-
-    # Regularized MultiplyRobust with isotonic calibration and crossfitting
-    elif estimator == "mediation_multiply_robust_reg_calibration_iso_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=False, crossfit=2, clip=1e-6, regularization=True, calibration="isotonic"
-        )
-
     elif estimator == "mediation_multiply_robust_forest":
         clf = RandomForestClassifier(
             random_state=42, n_estimators=100, min_samples_leaf=10)
@@ -358,12 +258,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator.fit(t, m, x, y)
         causal_effects = estimator.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    # MultiplyRobust with forest and crossfitting
-    elif estimator == "mediation_multiply_robust_forest_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=True, crossfit=2, clip=1e-6, regularization=True, calibration=None
-        )
 
     # MultiplyRobust with forest and sigmoid calibration
     elif estimator == "mediation_multiply_robust_forest_calibration":
@@ -391,18 +285,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    # MultiplyRobust with forest, sigmoid calibration, and crossfitting
-    elif estimator == "mediation_multiply_robust_forest_calibration_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=True, crossfit=2, clip=1e-6, regularization=True, calibration="sigmoid"
-        )
-
-    # MultiplyRobust with forest, isotonic calibration, and crossfitting
-    elif estimator == "mediation_multiply_robust_forest_calibration_iso_cf":
-        effects = mediation_multiply_robust(
-            y, t, m.astype(int), x, interaction=False, forest=True, crossfit=2, clip=1e-6, regularization=True, calibration="isotonic"
-        )
-
     # Regularized Double Machine Learning
     elif estimator == "mediation_dml_reg":
         clf, reg = get_regularized_regressor_and_classifier(regularize=True)
@@ -416,16 +298,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_dml_reg_fixed_seed":
         effects = mediation_dml(
             y, t, m, x, trim=0, clip=1e-6, random_state=321, calibration=None)
-
-    # Double Machine Learning without regularization, with crossfitting
-    elif estimator == "mediation_dml_noreg_cf":
-        effects = mediation_dml(y, t, m, x, trim=0, clip=1e-6,
-                                crossfit=2, regularization=False, calibration=None)
-
-    # Regularized Double Machine Learning with crossfitting
-    elif estimator == "mediation_dml_reg_cf":
-        effects = mediation_dml(
-            y, t, m, x, trim=0, clip=1e-6, crossfit=2, calibration=None)
 
     # Regularized Double Machine Learning with sigmoid calibration
     elif estimator == "mediation_dml_reg_calibration":
@@ -462,26 +334,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
 
-    # Double Machine Learning with forest, crossfitting, and sigmoid calibration
-    elif estimator == "mediation_dml_reg_calibration_cf":
-        effects = mediation_dml(
-            y, t, m, x, trim=0, clip=1e-6, crossfit=2, calibration="sigmoid", forest=False)
-
-    # Double Machine Learning with forest and crossfitting
-    elif estimator == "mediation_dml_forest_cf":
-        effects = mediation_dml(
-            y, t, m, x, trim=0, clip=1e-6, crossfit=2, calibration=None, forest=True)
-
-    # Double Machine Learning with forest, crossfitting, and calibrated sigmoid
-    elif estimator == "mediation_dml_forest_calibration_cf":
-        effects = mediation_dml(
-            y, t, m, x, trim=0, clip=1e-6, crossfit=2, calibration="sigmoid", forest=True)
-
-    # GComputation with regularization, crossfitting, and sigmoid calibration
-    elif estimator == "mediation_g_computation_reg_calibration_cf":
-        effects = mediation_g_formula(
-            y, t, m, x, interaction=False, forest=False, crossfit=2, regularization=True, calibration="sigmoid")
-
     # GComputation with forest and sigmoid calibration
     elif estimator == "mediation_g_computation_forest_calibration":
         clf = RandomForestClassifier(
@@ -505,16 +357,6 @@ def get_estimation_results(x, t, m, y, estimator, config):
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = transform_outputs(causal_effects)
-
-    # GComputation with forest, crossfitting, and sigmoid calibration
-    elif estimator == "mediation_g_computation_forest_calibration_cf":
-        effects = mediation_g_formula(
-            y, t, m, x, interaction=False, forest=True, crossfit=2, regularization=True, calibration="sigmoid")
-
-    # GComputation with forest, crossfitting, and isotonic calibration
-    elif estimator == "mediation_g_computation_forest_calibration_iso_cf":
-        effects = mediation_g_formula(
-            y, t, m, x, interaction=False, forest=True, crossfit=2, regularization=True, calibration="isotonic")
 
     elif estimator == "mediation_g_estimator":
         if config in (0, 1, 2):
