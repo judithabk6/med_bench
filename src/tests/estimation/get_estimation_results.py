@@ -37,7 +37,7 @@ def _transform_outputs(causal_effects):
     indirect_treated = causal_effects['indirect_effect_treated']
     indirect_control = causal_effects['indirect_effect_control']
 
-    return np.array(total, direct_treated, direct_control, indirect_treated, indirect_control, 0)
+    return [total, direct_treated, direct_control, indirect_treated, indirect_control, 0]
 
 
 def _get_estimation_results(x, t, m, y, estimator, config):
