@@ -3,7 +3,6 @@ from sklearn.base import clone
 from sklearn.linear_model import LinearRegression
 
 from med_bench.estimation.base import Estimator
-from med_bench.nuisances.utils import _get_regressor
 from med_bench.utils.decorators import fitted
 
 ALPHA = 10
@@ -85,7 +84,7 @@ class TMLE(Estimator):
         mu_t0_mx_star = mu_t0_mx + epsilon_h * h_corrector_t0
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
-        regressor_y = _get_regressor(self._regularize, self._use_forest)
+        regressor_y = self.regressor
         reg_cross = clone(regressor_y)
         reg_cross.fit(
             x[t == 0], (mu_t1_mx_star[t == 0] -
@@ -143,8 +142,7 @@ class TMLE(Estimator):
         h_corrector_t1 = t1 / p_x - t1 * ratio
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
-        regressor_y = _get_regressor(self._regularize,
-                                     self._use_forest)
+        regressor_y = self.regressor
 
         reg_cross = clone(regressor_y)
         reg_cross.fit(x[t == 0], mu_t1_mx_star[t == 0])

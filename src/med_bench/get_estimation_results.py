@@ -15,7 +15,7 @@ from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
 from med_bench.estimation.mediation_ipw import InversePropensityWeighting
 from med_bench.estimation.mediation_mr import MultiplyRobust
-from med_bench.nuisances.utils import _get_regularization_parameters
+from med_bench.utils.utils import _get_regularization_parameters
 from med_bench.utils.constants import CV_FOLDS
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
