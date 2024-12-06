@@ -130,67 +130,42 @@ class Estimator:
 
         return t, m, x, y
 
-    def _input_reshape(self, t, m, x):
-        """Reshape data for the right shape"""
-        if len(t.shape) == 1:
-            t = t.reshape(-1, 1)
-        if len(m.shape) == 1:
-            m = m.reshape(-1, 1)
-        if len(x.shape) == 1:
-            x = x.reshape(-1, 1)
 
-        return t, m, x
-
-    def _fit_treatment_propensity_x_nuisance(self, t, x):
+    def _fit_treatment_propensity_x(self, t, x):
         """Fits the nuisance parameter for the propensity P(T=1|X)"""
-        classifier = clone(self.classifier)
-        self._classifier_t_x = classifier.fit(x, t)
+        self._classifier_t_x = clone(self.classifier).fit(x, t)
 
         return self
 
-    def _fit_treatment_propensity_xm_nuisance(self, t, m, x):
+    def _fit_treatment_propensity_xm(self, t, m, x):
         """Fits the nuisance parameter for the propensity P(T=1|X, M)"""
         xm = np.hstack((x, m))
-        self._classifier_t_xm = self.classifier.fit(xm, t)
+        self._classifier_t_xm = clone(self.classifier).fit(xm, t)
 
         return self
 
     # TODO : Enable any sklearn object as classifier or regressor
-    def _fit_mediator_nuisance(self, t, m, x, y):
+    def _fit_binary_mediator_probability(self, t, m, x):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
-        clf_param_grid = {}
-        classifier_m = GridSearchCV(self.classifier, clf_param_grid)
-
         t_x = np.hstack([t.reshape(-1, 1), x])
 
         # Fit classifier
-        self._classifier_m = classifier_m.fit(t_x, m.ravel())
+        self._classifier_m = clone(self.classifier).fit(t_x, m.ravel())
 
         return self
 
-    def _fit_conditional_mean_outcome_nuisance(self, t, m, x, y):
+    def _fit_conditional_mean_outcome(self, t, m, x, y):
         """Fits the nuisance for the conditional mean outcome for the density f(M=m|T, X)"""
         x_t_m = np.hstack([x, t.reshape(-1, 1), m])
-
-        reg_param_grid = {}
-
-        # estimate conditional mean outcomes
-        regressor_y = GridSearchCV(self.regressor, reg_param_grid)
-
-        self._regressor_y = regressor_y.fit(x_t_m, y)
+        self._regressor_y = clone(self.regressor).fit(x_t_m, y)
 
         return self
 
-    def _fit_cross_conditional_mean_outcome_nuisance(self, t, m, x, y):
+    def _fit_cross_conditional_mean_outcome(self, t, m, x, y):
         """Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]"""
 
         xm = np.hstack((x, m))
-
-        reg_param_grid = {}
-
-        # estimate conditional mean outcomes
-        regressor_y = GridSearchCV(self.regressor, reg_param_grid)
 
         n = t.shape[0]
         train = np.arange(n)
@@ -213,115 +188,43 @@ class Estimator:
         self.regressors = {}
 
         # predict E[Y|T=1,M,X]
-        self.regressors["y_t1_mx"] = clone(regressor_y)
+        self.regressors["y_t1_mx"] = clone(self.regressor)
         self.regressors["y_t1_mx"].fit(xm[train_mean1], y[train_mean1])
         mu_1mx_nested[train_nested] = self.regressors["y_t1_mx"].predict(
             xm[train_nested]
         )
 
         # predict E[Y|T=0,M,X]
-        self.regressors["y_t0_mx"] = clone(regressor_y)
+        self.regressors["y_t0_mx"] = clone(self.regressor)
         self.regressors["y_t0_mx"].fit(xm[train_mean0], y[train_mean0])
         mu_0mx_nested[train_nested] = self.regressors["y_t0_mx"].predict(
             xm[train_nested]
         )
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
-        self.regressors["y_t1_x_t0"] = clone(regressor_y)
+        self.regressors["y_t1_x_t0"] = clone(self.regressor)
         self.regressors["y_t1_x_t0"].fit(
             x[train_nested0], mu_1mx_nested[train_nested0])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
-        self.regressors["y_t0_x_t1"] = clone(regressor_y)
+        self.regressors["y_t0_x_t1"] = clone(self.regressor)
         self.regressors["y_t0_x_t1"].fit(
             x[train_nested1], mu_0mx_nested[train_nested1])
 
         # predict E[Y|T=1,X]
-        self.regressors["y_t1_x"] = clone(regressor_y)
+        self.regressors["y_t1_x"] = clone(self.regressor)
         self.regressors["y_t1_x"].fit(x[train1], y[train1])
 
         # predict E[Y|T=0,X]
-        self.regressors["y_t0_x"] = clone(regressor_y)
+        self.regressors["y_t0_x"] = clone(self.regressor)
         self.regressors["y_t0_x"].fit(x[train0], y[train0])
 
         return self
 
-    def _fit_cross_conditional_mean_outcome_nuisance_discrete(self, t, m, x, y):
+
+    def _estimate_binary_mediator_probability(self, x):
         """
-        Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X] discrete
-        """
-        n = len(y)
-
-        # Initialisation
-        (
-            mu_1mx,  # E[Y|T=1,M,X]
-            mu_0mx,  # E[Y|T=0,M,X]
-        ) = [np.zeros(n) for _ in range(2)]
-
-        t0, m0 = np.zeros((n, 1)), np.zeros((n, 1))
-        t1, m1 = np.ones((n, 1)), np.ones((n, 1))
-
-        x_t_m = np.hstack([x, t.reshape(-1, 1), m])
-        x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
-        x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
-
-        test_index = np.arange(n)
-        ind_t0 = t[test_index] == 0
-
-        reg_param_grid = {}
-
-        # estimate conditional mean outcomes
-        regressor_y = GridSearchCV(self.regressor, reg_param_grid)
-
-        self.regressors = {}
-
-        # mu_tm model fitting
-        self.regressors["y_t_mx"] = clone(regressor_y).fit(x_t_m, y)
-
-        # predict E[Y|T=t,M,X]
-        mu_1mx[test_index] = self.regressors["y_t_mx"].predict(
-            x_t1_m[test_index, :])
-        mu_0mx[test_index] = self.regressors["y_t_mx"].predict(
-            x_t0_m[test_index, :])
-
-        for i, b in enumerate(np.unique(m)):
-            mb = m1 * b
-
-            mu_1bx, mu_0bx = [np.zeros(n) for h in range(2)]
-
-            # predict E[Y|T=t,M=m,X]
-
-            x_t1_mb = np.hstack([x, t1.reshape(-1, 1), mb])
-            x_t0_mb = np.hstack([x, t0.reshape(-1, 1), mb])
-
-            mu_0bx[test_index] = self.regressors["y_t_mx"].predict(
-                x_t0_mb[test_index, :]
-            )
-            mu_1bx[test_index] = self.regressors["y_t_mx"].predict(
-                x_t1_mb[test_index, :]
-            )
-
-            # E[E[Y|T=1,M=m,X]|T=t,X] model fitting
-            self.regressors["reg_y_t1m{}_t0".format(i)] = clone(regressor_y).fit(
-                x[test_index, :][ind_t0, :], mu_1bx[test_index][ind_t0]
-            )
-            self.regressors["reg_y_t1m{}_t1".format(i)] = clone(regressor_y).fit(
-                x[test_index, :][~ind_t0, :], mu_1bx[test_index][~ind_t0]
-            )
-
-            # E[E[Y|T=0,M=m,X]|T=t,X] model fitting
-            self.regressors["reg_y_t0m{}_t0".format(i)] = clone(regressor_y).fit(
-                x[test_index, :][ind_t0, :], mu_0bx[test_index][ind_t0]
-            )
-            self.regressors["reg_y_t0m{}_t1".format(i)] = clone(regressor_y).fit(
-                x[test_index, :][~ind_t0, :], mu_0bx[test_index][~ind_t0]
-            )
-
-        return self
-
-    def _estimate_mediator_probability(self, t, m, x, y):
-        """
-        Estimate mediator density f(M|T,X)
+        Estimate mediator density P(M=m|T,X) for a binary M
 
         Returns
         -------
@@ -330,7 +233,7 @@ class Estimator:
         f_m1x, array-like, shape (n_samples)
             probabilities f(M|T=1,X)
         """
-        n = len(y)
+        n = x.shape[0]
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
@@ -345,7 +248,7 @@ class Estimator:
 
         return f_m0x, f_m1x
 
-    def _estimate_mediators_probabilities(self, t, m, x, y):
+    def _estimate_binary_mediator_probability_table(self, x):
         """
         Estimate mediator density f(M|T,X)
 
@@ -360,7 +263,7 @@ class Estimator:
         f_11x, array-like, shape (n_samples)
             probabilities f(M=1|T=1,X)
         """
-        n = len(y)
+        n = x.shape[0]
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
@@ -378,7 +281,7 @@ class Estimator:
 
         return f_00x, f_01x, f_10x, f_11x
 
-    def _estimate_treatment_propensity_x(self, t, m, x):
+    def _estimate_treatment_propensity_x(self, x):
         """
         Estimate treatment propensity P(T=1|X)
 
@@ -387,17 +290,12 @@ class Estimator:
         p_x : array-like, shape (n_samples)
             probabilities P(T=1|X)
         """
-        n = len(t)
-
-        # compute propensity scores
-        t, m, x = self._input_reshape(t, m, x)
-
         # predict P(T=1|X), P(T=1|X, M)
         p_x = self._classifier_t_x.predict_proba(x)[:, 1]
 
         return p_x
 
-    def _estimate_treatment_probabilities(self, t, m, x):
+    def _estimate_treatment_propensity_xm(self, m, x):
         """
         Estimate treatment probabilities P(T=1|X) and P(T=1|X, M) with train
 
@@ -408,52 +306,14 @@ class Estimator:
         p_xm : array-like, shape (n_samples)
             probabilities P(T=1|X, M)
         """
-        # compute propensity scores
-        t, m, x = self._input_reshape(t, m, x)
-
         xm = np.hstack((x, m))
 
         # predict P(T=1|X), P(T=1|X, M)
-        p_x = self._classifier_t_x.predict_proba(x)[:, 1]
         p_xm = self._classifier_t_xm.predict_proba(xm)[:, 1]
 
-        return p_x, p_xm
+        return p_xm
 
-    def _estimate_conditional_mean_outcome(self, t, m, x, y):
-        """
-        Estimate conditional mean outcome E[Y|T,M,X]
-
-        Returns
-        -------
-        mu_00x: array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=0,M=0,X]
-        mu_01x, array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=0,M=1,X]
-        mu_10x, array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=1,M=0,X]
-        mu_11x, array-like, shape (n_samples)
-            conditional mean outcome estimates E[Y|T=1,M=1,X]
-        """
-        n = len(y)
-
-        t0 = np.zeros((n, 1))
-        t1 = np.ones((n, 1))
-        m0 = np.zeros((n, 1))
-        m1 = np.ones((n, 1))
-
-        x_t1_m1 = np.hstack([x, t1.reshape(-1, 1), m1])
-        x_t1_m0 = np.hstack([x, t1.reshape(-1, 1), m0])
-        x_t0_m1 = np.hstack([x, t0.reshape(-1, 1), m1])
-        x_t0_m0 = np.hstack([x, t0.reshape(-1, 1), m0])
-
-        mu_00x = self._regressor_y.predict(x_t0_m0)
-        mu_01x = self._regressor_y.predict(x_t0_m1)
-        mu_10x = self._regressor_y.predict(x_t1_m0)
-        mu_11x = self._regressor_y.predict(x_t1_m1)
-
-        return mu_00x, mu_01x, mu_10x, mu_11x
-
-    def _estimate_cross_conditional_mean_outcome_nesting(self, m, x, y):
+    def _estimate_cross_conditional_mean_outcome(self, m, x):
         """
         Estimate the conditional mean outcome,
         the cross conditional mean outcome

@@ -45,12 +45,12 @@ class MultiplyRobust(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if self._ratio == "density" and is_array_integer(m):
-            self._fit_treatment_propensity_x_nuisance(t, x)
-            self._fit_mediator_nuisance(t, m, x)
+            self._fit_treatment_propensity_x(t, x)
+            self._fit_binary_mediator_probability(t, m, x)
 
         elif self._ratio == "propensities":
-            self._fit_treatment_propensity_x_nuisance(t, x)
-            self._fit_treatment_propensity_xm_nuisance(t, m, x)
+            self._fit_treatment_propensity_x(t, x)
+            self._fit_treatment_propensity_xm(t, m, x)
 
         elif self._ratio == "density" and not is_array_integer(m):
             raise NotImplementedError(
@@ -58,7 +58,7 @@ class MultiplyRobust(Estimator):
                                       use a discrete mediator or set the ratio to 'propensities'"""
             )
 
-        self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
+        self._fit_cross_conditional_mean_outcome(t, m, x, y)
 
         self._fitted = True
 
@@ -74,18 +74,19 @@ class MultiplyRobust(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if self._ratio == "density":
-            f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
-            p_x = self._estimate_treatment_propensity_x(t, m, x)
+            f_m0x, f_m1x = self._estimate_binary_mediator_probability(x)
+            p_x = self._estimate_treatment_propensity_x(x)
             ratio_t1_m0 = f_m0x / (p_x * f_m1x)
             ratio_t0_m1 = f_m1x / ((1 - p_x) * f_m0x)
 
         elif self._ratio == "propensities":
-            p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
+            p_x = self._estimate_treatment_propensity_x(x)
+            p_xm = self._estimate_treatment_propensity_xm(m, x)
             ratio_t1_m0 = (1 - p_xm) / ((1 - p_x) * p_xm)
             ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
         mu_0mx, mu_1mx, E_mu_t0_t0, E_mu_t0_t1, E_mu_t1_t0, E_mu_t1_t1 = (
-            self._estimate_cross_conditional_mean_outcome_nesting(m, x, y)
+            self._estimate_cross_conditional_mean_outcome(m, x)
         )
 
         # score computing

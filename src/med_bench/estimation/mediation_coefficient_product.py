@@ -44,13 +44,15 @@ class CoefficientProduct(Estimator):
             alphas = ALPHAS
         else:
             alphas = [TINY]
-        t, m, x = self._input_reshape(t, m, x)
 
+        t, m, x, y = self._resize(t, m, x, y)
         self._coef_t_m = np.zeros(m.shape[1])
         for i in range(m.shape[1]):
-            m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t)), m[:, i])
+            m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+                np.hstack((x, t.reshape(-1, 1))), m[:, i])
             self._coef_t_m[i] = m_reg.coef_[-1]
-        y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(np.hstack((x, t, m)), y.ravel())
+        y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
+            np.hstack((x, t.reshape(-1, 1), m)), y)
 
         self._coef_y = y_reg.coef_
 

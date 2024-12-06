@@ -31,15 +31,49 @@ class GComputation(Estimator):
         self.regressor = regressor
         self.classifier = classifier
 
+    def _estimate_conditional_mean_outcome_table(self, x):
+        """
+        Estimate conditional mean outcome E[Y|T,M,X]
+
+        Returns
+        -------
+        mu_00x: array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=0,X]
+        mu_01x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=1,X]
+        mu_10x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=0,X]
+        mu_11x, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=1,X]
+        """
+        n = x.shape[0]
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+        m0 = np.zeros((n, 1))
+        m1 = np.ones((n, 1))
+
+        x_t1_m1 = np.hstack([x, t1.reshape(-1, 1), m1])
+        x_t1_m0 = np.hstack([x, t1.reshape(-1, 1), m0])
+        x_t0_m1 = np.hstack([x, t0.reshape(-1, 1), m1])
+        x_t0_m0 = np.hstack([x, t0.reshape(-1, 1), m0])
+
+        mu_00x = self._regressor_y.predict(x_t0_m0)
+        mu_01x = self._regressor_y.predict(x_t0_m1)
+        mu_10x = self._regressor_y.predict(x_t1_m0)
+        mu_11x = self._regressor_y.predict(x_t1_m1)
+
+        return mu_00x, mu_01x, mu_10x, mu_11x
+
     def fit(self, t, m, x, y):
         """Fits nuisance parameters to data"""
         t, m, x, y = self._resize(t, m, x, y)
 
         if is_array_binary(m):
-            self._fit_mediator_nuisance(t, m, x, y)
-            self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
+            self._fit_binary_mediator_probability(t, m, x)
+            self._fit_conditional_mean_outcome(t, m, x, y)
         else:
-            self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
+            self._fit_cross_conditional_mean_outcome(t, m, x, y)
 
         self._fitted = True
 
@@ -56,10 +90,10 @@ class GComputation(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if is_array_binary(m):
-            f_00x, f_01x, f_10x, f_11x = self._estimate_mediators_probabilities(
-                t, m, x, y)
-            mu_00x, mu_01x, mu_10x, mu_11x = self._estimate_conditional_mean_outcome(
-                t, m, x, y)
+            f_00x, f_01x, f_10x, f_11x = \
+                self._estimate_binary_mediator_probability_table(x)
+            mu_00x, mu_01x, mu_10x, mu_11x = \
+                self._estimate_conditional_mean_outcome_table(x)
 
             direct_effect_i1 = mu_11x - mu_01x
             direct_effect_i0 = mu_10x - mu_00x
@@ -76,8 +110,8 @@ class GComputation(Estimator):
                                        + indirect_effect_i0 * mu_00x).sum() / n
             total_effect = direct_effect_control + indirect_effect_treated
         else:
-            (mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1) = self._estimate_cross_conditional_mean_outcome_nesting(
-                m, x, y)
+            (mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1) = \
+                self._estimate_cross_conditional_mean_outcome(m, x)
 
             # mean score computing
             eta_t1t1 = np.mean(y1m1)
