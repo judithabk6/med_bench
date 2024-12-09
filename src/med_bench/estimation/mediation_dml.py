@@ -4,31 +4,30 @@ from med_bench.estimation.base import Estimator
 
 
 class DoubleMachineLearning(Estimator):
-    """Double Machine Learning estimation method class
-    """
+    """Double Machine Learning estimation method class"""
 
     def __init__(self, regressor, classifier, normalized: bool, **kwargs):
         """Initializes Double Machine Learning estimation method
 
         Parameters
         ----------
-        regressor 
+        regressor
             Regressor used for mu estimation, can be any object with a fit and predict method
-        classifier 
+        classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         normalized : bool
             Whether to normalize the propensity scores
         """
         super().__init__(**kwargs)
 
+        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'fit'), "The model does not have a 'fit' method."
+            regressor, "predict"
+        ), "The model does not have a 'predict' method."
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'predict'), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+            classifier, "predict_proba"
+        ), "The model does not have a 'predict_proba' method."
         self.regressor = regressor
         self.classifier = classifier
 
@@ -63,17 +62,14 @@ class DoubleMachineLearning(Estimator):
             sum_score_t1m0 = np.mean(t * (1 - p_xm) / (p_xm * (1 - p_x)))
             sum_score_t0m1 = np.mean((1 - t) * p_xm / ((1 - p_xm) * p_x))
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / \
-                sum_score_m0 + E_mu_t0_t0
+            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
             y1m0 = (
-                (t * (1 - p_xm) / (p_xm * (1 - p_x))
-                 * (y - mu_1mx)) / sum_score_t1m0
+                (t * (1 - p_xm) / (p_xm * (1 - p_x)) * (y - mu_1mx)) / sum_score_t1m0
                 + ((1 - t) / (1 - p_x) * (mu_1mx - E_mu_t1_t0)) / sum_score_m0
                 + E_mu_t1_t0
             )
             y0m1 = (
-                ((1 - t) * p_xm / ((1 - p_xm) * p_x)
-                 * (y - mu_0mx)) / sum_score_t0m1
+                ((1 - t) * p_xm / ((1 - p_xm) * p_x) * (y - mu_0mx)) / sum_score_t0m1
                 + (t / p_x * (mu_0mx - E_mu_t0_t1)) / sum_score_m1
                 + E_mu_t0_t1
             )

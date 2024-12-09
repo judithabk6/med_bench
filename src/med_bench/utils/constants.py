@@ -62,27 +62,16 @@ INFINITE_TOLERANCE = get_tolerance_array("INFINITE")
 
 TOLERANCE_DICT = {
     "coefficient_product": LARGE_TOLERANCE,
-    "mediation_ipw_noreg": INFINITE_TOLERANCE,
     "mediation_ipw_reg": INFINITE_TOLERANCE,
     "mediation_ipw_reg_calibration": INFINITE_TOLERANCE,
-    "mediation_ipw_forest": INFINITE_TOLERANCE,
-    "mediation_ipw_forest_calibration": INFINITE_TOLERANCE,
-    "mediation_g_computation_noreg": LARGE_TOLERANCE,
     "mediation_g_computation_reg": MEDIUM_TOLERANCE,
     "mediation_g_computation_reg_calibration": LARGE_TOLERANCE,
-    "mediation_g_computation_forest": LARGE_TOLERANCE,
-    "mediation_g_computation_forest_calibration": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_noreg": INFINITE_TOLERANCE,
     "mediation_multiply_robust_reg": LARGE_TOLERANCE,
     "mediation_multiply_robust_reg_calibration": LARGE_TOLERANCE,
-    "mediation_multiply_robust_forest": INFINITE_TOLERANCE,
-    "mediation_multiply_robust_forest_calibration": LARGE_TOLERANCE,
-    "simulation_based": LARGE_TOLERANCE,
-    "mediation_dml": INFINITE_TOLERANCE,
-    "mediation_dml_noreg": INFINITE_TOLERANCE,
     "mediation_dml_reg": INFINITE_TOLERANCE,
-    "mediation_dml_forest": INFINITE_TOLERANCE,
-    "mediation_g_estimator": LARGE_TOLERANCE,
+    "mediation_dml_reg_calibration": INFINITE_TOLERANCE,
+    "mediation_tmle_propensities": INFINITE_TOLERANCE,
+    "mediation_tmle_density": INFINITE_TOLERANCE,
 }
 
 ESTIMATORS = list(TOLERANCE_DICT.keys())

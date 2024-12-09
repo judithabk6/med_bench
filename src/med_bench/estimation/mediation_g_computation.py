@@ -20,14 +20,14 @@ class GComputation(Estimator):
         """
         super().__init__(**kwargs)
 
+        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'fit'), "The model does not have a 'fit' method."
+            regressor, "predict"
+        ), "The model does not have a 'predict' method."
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'predict'), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+            classifier, "predict_proba"
+        ), "The model does not have a 'predict_proba' method."
         self.regressor = regressor
         self.classifier = classifier
 
@@ -36,7 +36,7 @@ class GComputation(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if is_array_binary(m):
-            self._fit_mediator_nuisance(t, m, x, y)
+            self._fit_mediator_nuisance(t, m, x)
             self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
         else:
             self._fit_cross_conditional_mean_outcome_nuisance(t, m, x, y)
@@ -48,36 +48,41 @@ class GComputation(Estimator):
 
         return self
 
-    @ fitted
+    @fitted
     def estimate(self, t, m, x, y):
-        """Estimates causal effect on data
-
-        """
+        """Estimates causal effect on data"""
         t, m, x, y = self._resize(t, m, x, y)
 
         if is_array_binary(m):
             f_00x, f_01x, f_10x, f_11x = self._estimate_mediators_probabilities(
-                t, m, x, y)
+                t, m, x, y
+            )
             mu_00x, mu_01x, mu_10x, mu_11x = self._estimate_conditional_mean_outcome(
-                t, m, x, y)
+                t, m, x, y
+            )
 
             direct_effect_i1 = mu_11x - mu_01x
             direct_effect_i0 = mu_10x - mu_00x
             n = len(y)
-            direct_effect_treated = (direct_effect_i1 * f_11x
-                                     + direct_effect_i0 * f_10x).sum() / n
-            direct_effect_control = (direct_effect_i1 * f_01x
-                                     + direct_effect_i0 * f_00x).sum() / n
+            direct_effect_treated = (
+                direct_effect_i1 * f_11x + direct_effect_i0 * f_10x
+            ).sum() / n
+            direct_effect_control = (
+                direct_effect_i1 * f_01x + direct_effect_i0 * f_00x
+            ).sum() / n
             indirect_effect_i1 = f_11x - f_01x
             indirect_effect_i0 = f_10x - f_00x
-            indirect_effect_treated = (indirect_effect_i1 * mu_11x
-                                       + indirect_effect_i0 * mu_10x).sum() / n
-            indirect_effect_control = (indirect_effect_i1 * mu_01x
-                                       + indirect_effect_i0 * mu_00x).sum() / n
+            indirect_effect_treated = (
+                indirect_effect_i1 * mu_11x + indirect_effect_i0 * mu_10x
+            ).sum() / n
+            indirect_effect_control = (
+                indirect_effect_i1 * mu_01x + indirect_effect_i0 * mu_00x
+            ).sum() / n
             total_effect = direct_effect_control + indirect_effect_treated
         else:
-            (mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1) = self._estimate_cross_conditional_mean_outcome_nesting(
-                m, x, y)
+            (mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1) = (
+                self._estimate_cross_conditional_mean_outcome_nesting(m, x, y)
+            )
 
             # mean score computing
             eta_t1t1 = np.mean(y1m1)

@@ -122,8 +122,7 @@ class Estimator:
             m = m.reshape(n, 1)
 
         if n != len(x) or n != len(m) or n != len(t):
-            raise ValueError(
-                "Inputs don't have the same number of observations")
+            raise ValueError("Inputs don't have the same number of observations")
 
         y = y.ravel()
         t = t.ravel()
@@ -156,7 +155,7 @@ class Estimator:
         return self
 
     # TODO : Enable any sklearn object as classifier or regressor
-    def _fit_mediator_nuisance(self, t, m, x, y):
+    def _fit_mediator_nuisance(self, t, m, x):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
         clf_param_grid = {}
@@ -228,13 +227,11 @@ class Estimator:
 
         # predict E[E[Y|T=1,M,X]|T=0,X]
         self.regressors["y_t1_x_t0"] = clone(regressor_y)
-        self.regressors["y_t1_x_t0"].fit(
-            x[train_nested0], mu_1mx_nested[train_nested0])
+        self.regressors["y_t1_x_t0"].fit(x[train_nested0], mu_1mx_nested[train_nested0])
 
         # predict E[E[Y|T=0,M,X]|T=1,X]
         self.regressors["y_t0_x_t1"] = clone(regressor_y)
-        self.regressors["y_t0_x_t1"].fit(
-            x[train_nested1], mu_0mx_nested[train_nested1])
+        self.regressors["y_t0_x_t1"].fit(x[train_nested1], mu_0mx_nested[train_nested1])
 
         # predict E[Y|T=1,X]
         self.regressors["y_t1_x"] = clone(regressor_y)
@@ -279,10 +276,8 @@ class Estimator:
         self.regressors["y_t_mx"] = clone(regressor_y).fit(x_t_m, y)
 
         # predict E[Y|T=t,M,X]
-        mu_1mx[test_index] = self.regressors["y_t_mx"].predict(
-            x_t1_m[test_index, :])
-        mu_0mx[test_index] = self.regressors["y_t_mx"].predict(
-            x_t0_m[test_index, :])
+        mu_1mx[test_index] = self.regressors["y_t_mx"].predict(x_t1_m[test_index, :])
+        mu_0mx[test_index] = self.regressors["y_t_mx"].predict(x_t0_m[test_index, :])
 
         for i, b in enumerate(np.unique(m)):
             mb = m1 * b
@@ -330,7 +325,7 @@ class Estimator:
         f_m1x, array-like, shape (n_samples)
             probabilities f(M|T=1,X)
         """
-        n = len(y)
+        n = x.shape[0]
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
@@ -340,8 +335,8 @@ class Estimator:
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_m0x = self._classifier_m.predict_proba(t0_x)[:, m]
-        f_m1x = self._classifier_m.predict_proba(t1_x)[:, m]
+        f_m0x = self._classifier_m.predict_proba(t0_x)[np.arange(m.shape[0]), m]
+        f_m1x = self._classifier_m.predict_proba(t1_x)[np.arange(m.shape[0]), m]
 
         return f_m0x, f_m1x
 

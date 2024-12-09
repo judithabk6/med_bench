@@ -4,45 +4,46 @@ from sklearn.linear_model import LinearRegression
 
 from med_bench.estimation.base import Estimator
 from med_bench.utils.decorators import fitted
+from med_bench.utils.utils import is_array_binary
 
 ALPHA = 10
 
 
 class TMLE(Estimator):
-    """Implementation of targeted maximum likelihood estimation method class
-    """
+    """Implementation of targeted maximum likelihood estimation method class"""
 
     def __init__(self, regressor, classifier, ratio, **kwargs):
         """_summary_
 
         Parameters
         ----------
-        regressor 
+        regressor
             Regressor used for mu estimation, can be any object with a fit and predict method
-        classifier 
+        classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         ratio : str
             Ratio to use for estimation, can be either 'density' or 'propensities'
         """
         super().__init__(**kwargs)
 
+        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'fit'), "The model does not have a 'fit' method."
+            regressor, "predict"
+        ), "The model does not have a 'predict' method."
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'predict'), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+            classifier, "predict_proba"
+        ), "The model does not have a 'predict_proba' method."
         self.regressor = regressor
         self.classifier = classifier
 
+        assert ratio in ["density", "propensities"]
         self._ratio = ratio
 
     def _one_step_correction_direct(self, t, m, x, y):
 
         n = t.shape[0]
-        t, m, x, y = self.resize(t, m, x, y)
+        t, m, x, y = self._resize(t, m, x, y)
         t0 = np.zeros((n))
         t1 = np.ones((n))
 
@@ -59,8 +60,7 @@ class TMLE(Estimator):
         h_corrector = t * ratio - (1 - t) / (1 - p_x)
 
         x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) ==
-             1 else var for var in [x, t, m]]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
         reg = LinearRegression(fit_intercept=False).fit(
@@ -69,12 +69,10 @@ class TMLE(Estimator):
         epsilon_h = reg.coef_
 
         x_t0_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) ==
-             1 else var for var in [x, t0, m]]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]]
         )
         x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) ==
-             1 else var for var in [x, t1, m]]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
         )
 
         mu_t0_mx = self._regressor_y.predict(x_t0_m)
@@ -87,8 +85,7 @@ class TMLE(Estimator):
         regressor_y = self.regressor
         reg_cross = clone(regressor_y)
         reg_cross.fit(
-            x[t == 0], (mu_t1_mx_star[t == 0] -
-                        mu_t0_mx_star[t == 0]).squeeze()
+            x[t == 0], (mu_t1_mx_star[t == 0] - mu_t0_mx_star[t == 0]).squeeze()
         )
 
         theta_0 = reg_cross.predict(x)
@@ -107,7 +104,7 @@ class TMLE(Estimator):
     def _one_step_correction_indirect(self, t, m, x, y):
 
         n = t.shape[0]
-        t, m, x, y = self.resize(t, m, x, y)
+        t, m, x, y = self._resize(t, m, x, y)
         t0 = np.zeros((n))
         t1 = np.ones((n))
 
@@ -124,8 +121,7 @@ class TMLE(Estimator):
         h_corrector = t / p_x - t * ratio
 
         x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) ==
-             1 else var for var in [x, t, m]]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
         reg = LinearRegression(fit_intercept=False).fit(
@@ -134,8 +130,7 @@ class TMLE(Estimator):
         epsilon_h = reg.coef_
 
         x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) ==
-             1 else var for var in [x, t1, m]]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
         )
 
         mu_t1_mx = self._regressor_y.predict(x_t1_m)
@@ -174,6 +169,11 @@ class TMLE(Estimator):
         # bucketize if needed
         t, m, x, y = self._resize(t, m, x, y)
 
+        if (not is_array_binary(m)) and (self._ratio == "density"):
+            raise ValueError(
+                "The option mediator 'density' in TMLE is supported only for 1D binary mediator"
+            )
+
         self._fit_treatment_propensity_x_nuisance(t, x)
         self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
 
@@ -196,10 +196,10 @@ class TMLE(Estimator):
         theta_0 = self._one_step_correction_direct(t, m, x, y)
         delta_1 = self._one_step_correction_indirect(t, m, x, y)
         total_effect = theta_0 + delta_1
-        direct_effect_treated = np.copy(theta_0)
+        direct_effect_treated = theta_0
         direct_effect_control = theta_0
         indirect_effect_treated = delta_1
-        indirect_effect_control = np.copy(delta_1)
+        indirect_effect_control = delta_1
 
         causal_effects = {
             "total_effect": total_effect,
