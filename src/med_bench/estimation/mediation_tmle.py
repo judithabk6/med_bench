@@ -49,12 +49,13 @@ class TMLE(Estimator):
 
         # estimate mediator densities
         if self._ratio == "density":
-            f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
-            p_x = self._estimate_treatment_propensity_x(t, m, x)
+            f_m0x, f_m1x = self._estimate_binary_mediator_probability(x, m)
+            p_x = self._estimate_treatment_propensity_x(x)
             ratio = f_m0x / (p_x * f_m1x)
 
         elif self._ratio == "propensities":
-            p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
+            p_x = self._estimate_treatment_propensity_x(x)
+            p_xm = self._estimate_treatment_propensity_xm(m, x)
             ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
         h_corrector = t * ratio - (1 - t) / (1 - p_x)
@@ -110,12 +111,13 @@ class TMLE(Estimator):
 
         # estimate mediator densities
         if self._ratio == "density":
-            f_m0x, f_m1x = self._estimate_mediator_probability(t, m, x, y)
-            p_x = self._estimate_treatment_propensity_x(t, m, x)
+            f_m0x, f_m1x = self._estimate_binary_mediator_probability(x, m)
+            p_x = self._estimate_treatment_propensity_x(x)
             ratio = f_m0x / (p_x * f_m1x)
 
         elif self._ratio == "propensities":
-            p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
+            p_x = self._estimate_treatment_propensity_x(x)
+            p_xm = self._estimate_treatment_propensity_xm(m, x)
             ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
         h_corrector = t / p_x - t * ratio
@@ -174,14 +176,14 @@ class TMLE(Estimator):
                 "The option mediator 'density' in TMLE is supported only for 1D binary mediator"
             )
 
-        self._fit_treatment_propensity_x_nuisance(t, x)
-        self._fit_conditional_mean_outcome_nuisance(t, m, x, y)
+        self._fit_treatment_propensity_x(t, x)
+        self._fit_conditional_mean_outcome(t, m, x, y)
 
         if self._ratio == "density":
-            self._fit_mediator_nuisance(t, m, x)
+            self._fit_binary_mediator_probability(t, m, x)
 
         elif self._ratio == "propensities":
-            self._fit_treatment_propensity_xm_nuisance(t, m, x)
+            self._fit_treatment_propensity_xm(t, m, x)
 
         self._fitted = True
 

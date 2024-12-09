@@ -18,13 +18,9 @@ import os
 
 from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
-from med_bench.utils.utils import DependencyNotInstalledError, check_r_dependencies
-from med_bench.utils.constants import (
-    PARAMETER_LIST,
-    PARAMETER_NAME,
-    R_DEPENDENT_ESTIMATORS,
-    TOLERANCE_DICT,
-)
+
+from med_bench.utils.utils import DependencyNotInstalledError
+from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME, TOLERANCE_DICT
 
 current_dir = os.path.dirname(__file__)
 true_estimations_file_path = os.path.join(current_dir, "tests_results.npy")
@@ -92,14 +88,6 @@ def effects_chap(x, t, m, y, estimator, config):
         res = _get_estimation_results(x, t, m, y, estimator, config)[0:5]
     except Exception as e:
         if "1D binary mediator" in str(e):
-            pytest.skip(f"{e}")
-
-        # We skip the test if an error with function from glmet rpy2 package occurs
-        elif "glmnet::glmnet" in str(e):
-            pytest.skip(f"{e}")
-
-        elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
-            assert isinstance(e, DependencyNotInstalledError) == True
             pytest.skip(f"{e}")
 
         else:
@@ -207,14 +195,6 @@ def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true, config_tru
 
     except Exception as e:
         if "1D binary mediator" in str(e):
-            pytest.skip(f"{e}")
-
-        # We skip the test if an error with function from glmet rpy2 package occurs
-        elif "glmnet::glmnet" in str(e):
-            pytest.skip(f"{e}")
-
-        elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
-            assert isinstance(e, DependencyNotInstalledError) == True
             pytest.skip(f"{e}")
 
         else:

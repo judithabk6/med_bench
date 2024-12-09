@@ -3,12 +3,6 @@
 
 import numpy as np
 
-from med_bench.r_mediation import (
-    r_mediation_g_estimator,
-    r_mediation_dml,
-    r_mediate,
-)
-
 from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
 from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
@@ -334,14 +328,6 @@ def _get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
-    elif estimator == "simulation_based":
-        # R-based function for simulation
-        effects = r_mediate(y, t, m, x, interaction=False)
-
-    elif estimator == "mediation_dml":
-        # R-based function for Double Machine Learning with legacy config
-        effects = r_mediation_dml(y, t, m, x, trim=0.0, order=1)
-
     elif estimator == "mediation_dml_noreg":
         # Class-based implementation for DoubleMachineLearning without regularization
         clf, reg = _get_regularized_regressor_and_classifier(regularize=False)
@@ -414,9 +400,6 @@ def _get_estimation_results(x, t, m, y, estimator, config):
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
-    elif estimator == "mediation_g_estimator":
-        if config in (0, 1, 2):
-            effects = r_mediation_g_estimator(y, t, m, x)
     else:
         raise ValueError("Unrecognized estimator label for {}.".format(estimator))
 

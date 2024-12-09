@@ -35,8 +35,8 @@ class InversePropensityWeighting(Estimator):
 
         t, m, x, y = self._resize(t, m, x, y)
 
-        self._fit_treatment_propensity_x_nuisance(t, x)
-        self._fit_treatment_propensity_xm_nuisance(t, m, x)
+        self._fit_treatment_propensity_x(t, x)
+        self._fit_treatment_propensity_xm(t, m, x)
 
         self._fitted = True
 
@@ -50,7 +50,8 @@ class InversePropensityWeighting(Estimator):
         """Estimates causal effect on data"""
 
         t, m, x, y = self._resize(t, m, x, y)
-        p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)
+        p_x = self._estimate_treatment_propensity_x(x)
+        p_xm = self._estimate_treatment_propensity_xm(m, x)
 
         ind = (p_xm > self._trim) & (p_xm < (1 - self._trim))
         y, t, p_x, p_xm = y[ind], t[ind], p_x[ind], p_xm[ind]
