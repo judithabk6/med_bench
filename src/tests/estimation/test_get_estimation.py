@@ -19,10 +19,15 @@ import os
 from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
 from med_bench.utils.utils import DependencyNotInstalledError, check_r_dependencies
-from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME, R_DEPENDENT_ESTIMATORS, TOLERANCE_DICT
+from med_bench.utils.constants import (
+    PARAMETER_LIST,
+    PARAMETER_NAME,
+    R_DEPENDENT_ESTIMATORS,
+    TOLERANCE_DICT,
+)
 
 current_dir = os.path.dirname(__file__)
-true_estimations_file_path = os.path.join(current_dir, 'tests_results.npy')
+true_estimations_file_path = os.path.join(current_dir, "tests_results.npy")
 TRUE_ESTIMATIONS = np.load(true_estimations_file_path, allow_pickle=True)
 
 
@@ -86,10 +91,7 @@ def effects_chap(x, t, m, y, estimator, config):
     try:
         res = _get_estimation_results(x, t, m, y, estimator, config)[0:5]
     except Exception as e:
-        if str(e) in (
-            "Estimator only supports 1D binary mediator.",
-            "Estimator does not support 1D binary mediator.",
-        ):
+        if "1D binary mediator" in str(e):
             pytest.skip(f"{e}")
 
         # We skip the test if an error with function from glmet rpy2 package occurs
@@ -119,19 +121,23 @@ def test_tolerance(effects, effects_chap, tolerance):
 
 def test_total_is_direct_plus_indirect(effects_chap):
     if not np.isnan(effects_chap[1]):
-        assert effects_chap[0] == pytest.approx(
-            effects_chap[1] + effects_chap[4])
+        assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
     if not np.isnan(effects_chap[2]):
-        assert effects_chap[0] == pytest.approx(
-            effects_chap[2] + effects_chap[3])
+        assert effects_chap[0] == pytest.approx(effects_chap[2] + effects_chap[3])
 
 
 def test_robustness_to_ravel_format(data_simulated, estimator, config, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")
     assert np.all(
-        _get_estimation_results(data_simulated[0], data_simulated[1], data_simulated[2],
-                                data_simulated[3], estimator, config)[0:5]
+        _get_estimation_results(
+            data_simulated[0],
+            data_simulated[1],
+            data_simulated[2],
+            data_simulated[3],
+            estimator,
+            config,
+        )[0:5]
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
@@ -189,8 +195,9 @@ def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true, config_tru
     # try whether estimator is implemented or not
 
     try:
-        res = _get_estimation_results(x_true, t_true, m_true,
-                                      y_true, estimator_true, config_true)[0:5]
+        res = _get_estimation_results(
+            x_true, t_true, m_true, y_true, estimator_true, config_true
+        )[0:5]
 
         # NaN situations
         if np.all(np.isnan(res)):
@@ -199,10 +206,7 @@ def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true, config_tru
             pprint("NaN found")
 
     except Exception as e:
-        if str(e) in (
-            "Estimator only supports 1D binary mediator.",
-            "Estimator does not support 1D binary mediator.",
-        ):
+        if "1D binary mediator" in str(e):
             pytest.skip(f"{e}")
 
         # We skip the test if an error with function from glmet rpy2 package occurs
@@ -220,4 +224,4 @@ def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true, config_tru
 
 
 def test_estimation_exactness(result_true, effects_chap_true):
-    assert np.all(effects_chap_true == pytest.approx(result_true, abs=1.e-3))
+    assert np.all(effects_chap_true == pytest.approx(result_true, abs=1.0e-3))

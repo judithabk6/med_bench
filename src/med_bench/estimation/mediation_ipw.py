@@ -5,15 +5,14 @@ from med_bench.utils.decorators import fitted
 
 
 class InversePropensityWeighting(Estimator):
-    """Inverse propensity weighting estimation method class
-    """
+    """Inverse propensity weighting estimation method class"""
 
     def __init__(self, classifier, clip: float, trim: float, **kwargs):
         """Initializes Inverse propensity weighting estimation method
 
         Parameters
         ----------
-        classifier 
+        classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         clips : float
             Clipping value for propensity scores
@@ -22,18 +21,17 @@ class InversePropensityWeighting(Estimator):
         """
         super().__init__(**kwargs)
 
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+            classifier, "predict_proba"
+        ), "The model does not have a 'predict_proba' method."
         self.classifier = classifier
 
         self._clip = clip
         self._trim = trim
 
     def fit(self, t, m, x, y):
-        """Fits nuisance parameters to data
-        """
+        """Fits nuisance parameters to data"""
 
         t, m, x, y = self._resize(t, m, x, y)
 
@@ -49,8 +47,7 @@ class InversePropensityWeighting(Estimator):
 
     @fitted
     def estimate(self, t, m, x, y):
-        """Estimates causal effect on data
-        """
+        """Estimates causal effect on data"""
 
         t, m, x, y = self._resize(t, m, x, y)
         p_x, p_xm = self._estimate_treatment_probabilities(t, m, x)

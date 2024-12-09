@@ -14,6 +14,7 @@ from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
 from med_bench.estimation.mediation_ipw import InversePropensityWeighting
 from med_bench.estimation.mediation_mr import MultiplyRobust
+from med_bench.estimation.mediation_tmle import TMLE
 from med_bench.utils.utils import _get_regularization_parameters
 from med_bench.utils.constants import CV_FOLDS
 
@@ -31,13 +32,20 @@ def _transform_outputs(causal_effects):
     Returns:
         list: list of causal effects
     """
-    total = causal_effects['total_effect']
-    direct_treated = causal_effects['direct_effect_treated']
-    direct_control = causal_effects['direct_effect_control']
-    indirect_treated = causal_effects['indirect_effect_treated']
-    indirect_control = causal_effects['indirect_effect_control']
+    total = causal_effects["total_effect"]
+    direct_treated = causal_effects["direct_effect_treated"]
+    direct_control = causal_effects["direct_effect_control"]
+    indirect_treated = causal_effects["indirect_effect_treated"]
+    indirect_control = causal_effects["indirect_effect_control"]
 
-    return [total, direct_treated, direct_control, indirect_treated, indirect_control, 0]
+    return [
+        total,
+        direct_treated,
+        direct_control,
+        indirect_treated,
+        indirect_control,
+        0,
+    ]
 
 
 def _get_estimation_results(x, t, m, y, estimator, config):
@@ -46,7 +54,9 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     effects = None  # Initialize variable to store the effects
 
     # Helper function for regularized regressor and classifier initialization
-    def _get_regularized_regressor_and_classifier(regularize=True, calibration=None, method="sigmoid"):
+    def _get_regularized_regressor_and_classifier(
+        regularize=True, calibration=None, method="sigmoid"
+    ):
         cs, alphas = _get_regularization_parameters(regularization=regularize)
         clf = LogisticRegressionCV(random_state=42, Cs=cs, cv=CV_FOLDS)
         reg = RidgeCV(alphas=alphas, cv=CV_FOLDS)
@@ -73,8 +83,7 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_noreg":
         # Class-based implementation for InversePropensityWeighting without regularization
         clf, reg = _get_regularized_regressor_and_classifier(regularize=False)
-        estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=clf)
+        estimator_obj = InversePropensityWeighting(clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -82,8 +91,7 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_reg":
         # Class-based implementation with regularization
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=clf)
+        estimator_obj = InversePropensityWeighting(clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -91,9 +99,9 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_reg_calibration":
         # Class-based implementation with regularization and calibration (sigmoid)
         clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="sigmoid")
-        estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=clf)
+            regularize=True, calibration=True, method="sigmoid"
+        )
+        estimator_obj = InversePropensityWeighting(clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -101,9 +109,9 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_reg_calibration_iso":
         # Class-based implementation with isotonic calibration
         clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="isotonic")
-        estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=clf)
+            regularize=True, calibration=True, method="isotonic"
+        )
+        estimator_obj = InversePropensityWeighting(clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -111,11 +119,12 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_forest":
         # Class-based implementation with forest models
         clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=clf)
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        estimator_obj = InversePropensityWeighting(clip=1e-6, trim=0, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -123,12 +132,15 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_forest_calibration":
         # Class-based implementation with forest and calibrated sigmoid
         clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
         calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=calibrated_clf)
+            clip=1e-6, trim=0, classifier=calibrated_clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -136,12 +148,15 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_ipw_forest_calibration_iso":
         # Class-based implementation with isotonic calibration
         clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
         calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
         estimator_obj = InversePropensityWeighting(
-            clip=1e-6, trim=0, classifier=calibrated_clf)
+            clip=1e-6, trim=0, classifier=calibrated_clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -165,7 +180,8 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_g_computation_reg_calibration":
         # Class-based implementation with regularization and calibrated sigmoid
         clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="sigmoid")
+            regularize=True, calibration=True, method="sigmoid"
+        )
         estimator_obj = GComputation(regressor=reg, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
@@ -174,7 +190,8 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_g_computation_reg_calibration_iso":
         # Class-based implementation with isotonic calibration
         clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="isotonic")
+            regularize=True, calibration=True, method="isotonic"
+        )
         estimator_obj = GComputation(regressor=reg, classifier=clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
@@ -183,10 +200,40 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     elif estimator == "mediation_g_computation_forest":
         # Class-based implementation with forest models
         clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
         estimator_obj = GComputation(regressor=reg, classifier=clf)
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+        # GComputation with forest and sigmoid calibration
+    elif estimator == "mediation_g_computation_forest_calibration":
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
+        estimator_obj = GComputation(regressor=reg, classifier=calibrated_clf)
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # GComputation with forest and isotonic calibration
+    elif estimator == "mediation_g_computation_forest_calibration_iso":
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
+        estimator_obj = GComputation(regressor=reg, classifier=calibrated_clf)
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -195,7 +242,94 @@ def _get_estimation_results(x, t, m, y, estimator, config):
         # Class-based implementation for MultiplyRobust without regularization
         clf, reg = _get_regularized_regressor_and_classifier(regularize=False)
         estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=clf)
+            ratio="propensities", normalized=True, regressor=reg, classifier=clf
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # Regularized MultiplyRobust estimator
+    elif estimator == "mediation_multiply_robust_reg":
+        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
+        estimator_obj = MultiplyRobust(
+            ratio="propensities", normalized=True, regressor=reg, classifier=clf
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # Regularized MultiplyRobust with sigmoid calibration
+    elif estimator == "mediation_multiply_robust_reg_calibration":
+        clf, reg = _get_regularized_regressor_and_classifier(
+            regularize=True, calibration=True, method="sigmoid"
+        )
+        estimator_obj = MultiplyRobust(
+            ratio="propensities", normalized=True, regressor=reg, classifier=clf
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # Regularized MultiplyRobust with isotonic calibration
+    elif estimator == "mediation_multiply_robust_reg_calibration_iso":
+        clf, reg = _get_regularized_regressor_and_classifier(
+            regularize=True, calibration=True, method="isotonic"
+        )
+        estimator_obj = MultiplyRobust(
+            ratio="propensities", normalized=True, regressor=reg, classifier=clf
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    elif estimator == "mediation_multiply_robust_forest":
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        estimator = MultiplyRobust(
+            ratio="propensities", normalized=True, regressor=reg, classifier=clf
+        )
+        estimator.fit(t, m, x, y)
+        causal_effects = estimator.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # MultiplyRobust with forest and sigmoid calibration
+    elif estimator == "mediation_multiply_robust_forest_calibration":
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
+        estimator_obj = MultiplyRobust(
+            ratio="propensities",
+            normalized=True,
+            regressor=reg,
+            classifier=calibrated_clf,
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # MultiplyRobust with forest and isotonic calibration
+    elif estimator == "mediation_multiply_robust_forest_calibration_iso":
+        clf = RandomForestClassifier(
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
+        reg = RandomForestRegressor(
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
+        calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
+        estimator_obj = MultiplyRobust(
+            ratio="propensities",
+            normalized=True,
+            regressor=reg,
+            classifier=calibrated_clf,
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -212,83 +346,39 @@ def _get_estimation_results(x, t, m, y, estimator, config):
         # Class-based implementation for DoubleMachineLearning without regularization
         clf, reg = _get_regularized_regressor_and_classifier(regularize=False)
         estimator_obj = DoubleMachineLearning(
-            normalized=True, regressor=reg, classifier=clf)
+            normalized=True, regressor=reg, classifier=clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
-
-    # Regularized MultiplyRobust estimator
-    elif estimator == "mediation_multiply_robust_reg":
+    # Regularized Double Machine Learning
+    elif estimator == "mediation_dml_reg":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=clf)
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    # Regularized MultiplyRobust with sigmoid calibration
-    elif estimator == "mediation_multiply_robust_reg_calibration":
-        clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="sigmoid")
-        estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=clf)
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    # Regularized MultiplyRobust with isotonic calibration
-    elif estimator == "mediation_multiply_robust_reg_calibration_iso":
-        clf, reg = _get_regularized_regressor_and_classifier(
-            regularize=True, calibration=True, method="isotonic")
-        estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=clf)
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    elif estimator == "mediation_multiply_robust_forest":
-        clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        estimator = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg,
-            classifier=clf)
-        estimator.fit(t, m, x, y)
-        causal_effects = estimator.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    # MultiplyRobust with forest and sigmoid calibration
-    elif estimator == "mediation_multiply_robust_forest_calibration":
-        clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
-        estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=calibrated_clf)
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    # MultiplyRobust with forest and isotonic calibration
-    elif estimator == "mediation_multiply_robust_forest_calibration_iso":
-        clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
-        estimator_obj = MultiplyRobust(
-            ratio="propensities", normalized=True, regressor=reg, classifier=calibrated_clf)
+        estimator_obj = DoubleMachineLearning(
+            normalized=True, regressor=reg, classifier=clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
     # Regularized Double Machine Learning
-    elif estimator == "mediation_dml_reg":
+    elif estimator == "mediation_dml_reg_calibration":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
+        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
         estimator_obj = DoubleMachineLearning(
-            normalized=True, regressor=reg, classifier=clf)
+            normalized=True, regressor=reg, classifier=calibrated_clf
+        )
+        estimator_obj.fit(t, m, x, y)
+        causal_effects = estimator_obj.estimate(t, m, x, y)
+        effects = _transform_outputs(causal_effects)
+
+    # Regularized Double Machine Learning
+    elif estimator == "mediation_dml_reg_calibration_iso":
+        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
+        calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
+        estimator_obj = DoubleMachineLearning(
+            normalized=True, regressor=reg, classifier=calibrated_clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -296,35 +386,30 @@ def _get_estimation_results(x, t, m, y, estimator, config):
     # Regularized Double Machine Learning with forest models
     elif estimator == "mediation_dml_forest":
         clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
+            random_state=42, n_estimators=100, min_samples_leaf=10
+        )
         reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
+            n_estimators=100, min_samples_leaf=10, random_state=42
+        )
         estimator_obj = DoubleMachineLearning(
-            normalized=True, regressor=reg, classifier=clf)
+            normalized=True, regressor=reg, classifier=clf
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
-    # GComputation with forest and sigmoid calibration
-    elif estimator == "mediation_g_computation_forest_calibration":
-        clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
-        estimator_obj = GComputation(regressor=reg, classifier=calibrated_clf)
+    # TMLE - ratio of propensities
+    elif estimator == "mediation_tmle_propensities":
+        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
+        estimator_obj = TMLE(regressor=reg, classifier=clf, ratio="propensities")
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
-    # GComputation with forest and isotonic calibration
-    elif estimator == "mediation_g_computation_forest_calibration_iso":
-        clf = RandomForestClassifier(
-            random_state=42, n_estimators=100, min_samples_leaf=10)
-        reg = RandomForestRegressor(
-            n_estimators=100, min_samples_leaf=10, random_state=42)
-        calibrated_clf = CalibratedClassifierCV(clf, method="isotonic")
-        estimator_obj = GComputation(regressor=reg, classifier=calibrated_clf)
+    # TMLE - ratio of propensities
+    elif estimator == "mediation_tmle_density":
+        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
+        estimator_obj = TMLE(regressor=reg, classifier=clf, ratio="density")
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -333,10 +418,11 @@ def _get_estimation_results(x, t, m, y, estimator, config):
         if config in (0, 1, 2):
             effects = r_mediation_g_estimator(y, t, m, x)
     else:
-        raise ValueError("Unrecognized estimator label.")
+        raise ValueError("Unrecognized estimator label for {}.".format(estimator))
 
     # Catch unsupported estimators and raise an error
     if effects is None:
         raise ValueError(
-            f"Estimation failed for {estimator}. Check inputs or configuration.")
+            f"Estimation failed for {estimator}. Check inputs or configuration."
+        )
     return effects

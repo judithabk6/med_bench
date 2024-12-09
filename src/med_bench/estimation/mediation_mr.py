@@ -6,17 +6,16 @@ from med_bench.utils.utils import is_array_integer
 
 
 class MultiplyRobust(Estimator):
-    """Iniitializes Multiply Robust estimatation method class
-    """
+    """Iniitializes Multiply Robust estimatation method class"""
 
     def __init__(self, regressor, classifier, ratio: str, normalized, **kwargs):
         """Initializes MulitplyRobust estimatation method
 
         Parameters
         ----------
-        regressor 
+        regressor
             Regressor used for mu estimation, can be any object with a fit and predict method
-        classifier 
+        classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         ratio : str
             Ratio to use for estimation, can be either 'density' or 'propensities'
@@ -25,18 +24,18 @@ class MultiplyRobust(Estimator):
         """
         super().__init__(**kwargs)
 
+        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'fit'), "The model does not have a 'fit' method."
+            regressor, "predict"
+        ), "The model does not have a 'predict' method."
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
-            regressor, 'predict'), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, 'fit'), "The model does not have a 'fit' method."
-        assert hasattr(
-            classifier, 'predict_proba'), "The model does not have a 'predict_proba' method."
+            classifier, "predict_proba"
+        ), "The model does not have a 'predict_proba' method."
         self.regressor = regressor
         self.classifier = classifier
 
-        assert ratio in ['density', 'propensities']
+        assert ratio in ["density", "propensities"]
         self._ratio = ratio
         self._normalized = normalized
 
@@ -96,8 +95,7 @@ class MultiplyRobust(Estimator):
             sum_score_t0m1 = np.mean((1 - t) * ratio_t0_m1)
 
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / \
-                sum_score_m0 + E_mu_t0_t0
+            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
 
             y1m0 = (
                 (t * ratio_t1_m0 * (y - mu_1mx)) / sum_score_t1m0
