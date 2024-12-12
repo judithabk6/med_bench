@@ -42,7 +42,7 @@ def _transform_outputs(causal_effects):
     ]
 
 
-def _get_estimation_results(x, t, m, y, estimator, config):
+def _get_estimation_results(x, t, m, y, estimator):
     """Dynamically selects and calls an estimator (class-based or legacy function) to estimate total, direct, and indirect effects."""
 
     effects = None  # Initialize variable to store the effects

@@ -5,76 +5,79 @@ from numpy.random import default_rng
 # CONSTANTS USED FOR TESTS
 
 # TOLERANCE THRESHOLDS
+DEFAULT_TOLERANCE = np.array([0.05, 0.05, 0.05, 0.2, 0.2])
 
-TOLERANCE_THRESHOLDS = {
-    "SMALL": {
-        "ATE": 0.05,
-        "DIRECT": 0.05,
-        "INDIRECT": 0.2,
-    },
-    "MEDIUM": {
-        "ATE": 0.10,
-        "DIRECT": 0.10,
-        "INDIRECT": 0.4,
-    },
-    "LARGE": {
-        "ATE": 0.15,
-        "DIRECT": 0.15,
-        "INDIRECT": 0.9,
-    },
-    "INFINITE": {
-        "ATE": np.inf,
-        "DIRECT": np.inf,
-        "INDIRECT": np.inf,
-    },
-}
+TOLERANCE_FACTOR_DICT = {
+    "coefficient_product-M1D_binary_1DX": np.array([1, 1, 1, 4, 4]),
+    "coefficient_product-M1D_binary_5DX": np.array([1, 1, 1, 3.5, 3.5]),
+    "coefficient_product-M5D_continuous_1DX": np.array([1, 1, 1, 1.5, 1.5]),
+    "coefficient_product-M5D_continuous_5DX": np.array([1, 1, 1, 3.5, 3.5]),
+    "mediation_ipw_reg-M1D_binary_1DX": np.array([6, 1, 1, 100, 100]),
+    "mediation_ipw_reg-M1D_binary_5DX": np.array([2, 1.2, 1.2, 10, 10]),
+    "mediation_ipw_reg-M1D_continuous_1DX": np.array([6, 1.2, 1.2, 15, 15]),
+    "mediation_ipw_reg-M5D_continuous_1DX": np.array([6, 15, 15, 20, 20]),
+    "mediation_ipw_reg-M5D_continuous_5DX": np.array([2, 5, 5, 10, 10]),
+    "mediation_ipw_reg_calibration-M1D_binary_1DX": np.array([2, 2, 2, 10, 10]),
+    "mediation_ipw_reg_calibration-M1D_binary_5DX": np.array([1, 1, 1, 5, 5]),
+    "mediation_ipw_reg_calibration-M5D_continuous_1DX": np.array([1, 4, 4, 10, 10]),
+    "mediation_ipw_reg_calibration-M1D_continuous_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_ipw_reg_calibration-M5D_continuous_5DX": np.array([1, 6, 6, 15, 15]),
+    "mediation_g_computation_reg-M1D_binary_5DX": np.array([2, 2, 2, 3, 3]),
+    "mediation_g_computation_reg-M1D_continuous_1DX": np.array([1, 1, 1, 1.5, 1.5]), 
+    "mediation_g_computation_reg-M5D_continuous_1DX": np.array([1, 1, 1, 1.5, 1.5]),
+    "mediation_g_computation_reg-M1D_continuous_5DX": np.array([2, 2, 2, 4, 4]),
+    "mediation_g_computation_reg-M5D_continuous_5DX": np.array([1, 3, 3, 6, 6]),
+    "mediation_g_computation_reg_calibration-M1D_binary_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_g_computation_reg_calibration-M1D_binary_5DX": np.array([1, 1, 1, 1.5, 1.5]),
+    "mediation_g_computation_reg_calibration-M1D_continuous_1DX": np.array([1, 2, 2, 4, 4]),
+    "mediation_g_computation_reg_calibration-M5D_continuous_1DX": np.array([1, 2, 2, 2.5, 2.5]),
+    "mediation_g_computation_reg_calibration-M1D_continuous_5DX": np.array([1, 2, 2, 5, 5]),
+    "mediation_g_computation_reg_calibration-M5D_continuous_5DX": np.array([6, 15, 15, 20, 20]),
+    "mediation_multiply_robust_reg-M1D_binary_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_multiply_robust_reg-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_multiply_robust_reg-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_multiply_robust_reg-M5D_continuous_1DX": np.array([1, 3, 3, 6, 6]),
+    "mediation_multiply_robust_reg-M1D_continuous_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_multiply_robust_reg-M5D_continuous_5DX": np.array([1, 2, 2, 4, 4]),
+    "mediation_multiply_robust_reg_calibration-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
+    "mediation_multiply_robust_reg_calibration-M1D_binary_5DX": np.array([1, 1, 1, 4, 4]),
+    "mediation_multiply_robust_reg_calibration-M1D_continuous_1DX": np.array([2, 2, 2, 3, 3]),
+    "mediation_multiply_robust_reg_calibration-M5D_continuous_1DX": np.array([2, 2, 2, 5, 5]),
+    "mediation_multiply_robust_reg_calibration-M1D_continuous_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_multiply_robust_reg_calibration-M5D_continuous_5DX": np.array([1, 3, 3, 4, 4]),
+    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 2, 2, 3, 3]),
+    "mediation_dml_reg-M1D_binary_5DX": np.array([1, 1, 1, 5, 5]),
+    "mediation_dml_reg-M5D_continuous_1DX": np.array([1, 10, 10, 20, 20]),
+    "mediation_dml_reg-M5D_continuous_5DX": np.array([1, 3, 3, 5, 5]),
+    "mediation_dml_reg_calibration-M1D_binary_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_dml_reg_calibration-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_dml_reg_calibration-M5D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_dml_reg_calibration-M1D_continuous_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_dml_reg_calibration-M5D_continuous_5DX": np.array([1, 3, 3, 6, 6]),
+    "mediation_tmle_propensities-M1D_binary_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_tmle_propensities-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_tmle_propensities-M5D_continuous_1DX": np.array([1, 2, 2, 2, 2]),
+    "mediation_tmle_propensities-M1D_continuous_5DX": np.array([1, 1, 1, 3, 3]),
+    "mediation_tmle_propensities-M5D_continuous_5DX": np.array([3, 3, 3, 15, 15]),
+    "mediation_tmle_density-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
+    "mediation_tmle_density-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
+}   
 
 
-def get_tolerance_array(tolerance_size: str) -> np.array:
-    """Get tolerance array for tolerance tests
 
-    Parameters
-    ----------
-    tolerance_size : str
-        tolerance size, can be "SMALL", "MEDIUM", "LARGE" or "INFINITE"
-
-    Returns
-    -------
-    np.array
-        array of size 5 containing the ATE, DIRECT (*2) and INDIRECT (*2) effects tolerance
-    """
-
-    return np.array(
-        [
-            TOLERANCE_THRESHOLDS[tolerance_size]["ATE"],
-            TOLERANCE_THRESHOLDS[tolerance_size]["DIRECT"],
-            TOLERANCE_THRESHOLDS[tolerance_size]["DIRECT"],
-            TOLERANCE_THRESHOLDS[tolerance_size]["INDIRECT"],
-            TOLERANCE_THRESHOLDS[tolerance_size]["INDIRECT"],
-        ]
-    )
-
-
-SMALL_TOLERANCE = get_tolerance_array("SMALL")
-MEDIUM_TOLERANCE = get_tolerance_array("MEDIUM")
-LARGE_TOLERANCE = get_tolerance_array("LARGE")
-INFINITE_TOLERANCE = get_tolerance_array("INFINITE")
-
-TOLERANCE_DICT = {
-    "coefficient_product": LARGE_TOLERANCE,
-    "mediation_ipw_reg": INFINITE_TOLERANCE,
-    "mediation_ipw_reg_calibration": INFINITE_TOLERANCE,
-    "mediation_g_computation_reg": MEDIUM_TOLERANCE,
-    "mediation_g_computation_reg_calibration": LARGE_TOLERANCE,
-    "mediation_multiply_robust_reg": LARGE_TOLERANCE,
-    "mediation_multiply_robust_reg_calibration": LARGE_TOLERANCE,
-    "mediation_dml_reg": INFINITE_TOLERANCE,
-    "mediation_dml_reg_calibration": INFINITE_TOLERANCE,
-    "mediation_tmle_propensities": INFINITE_TOLERANCE,
-    "mediation_tmle_density": INFINITE_TOLERANCE,
-}
-
-ESTIMATORS = list(TOLERANCE_DICT.keys())
+ESTIMATORS = [
+    "coefficient_product",
+    "mediation_ipw_reg",
+    "mediation_ipw_reg_calibration",
+    "mediation_g_computation_reg",
+    "mediation_g_computation_reg_calibration",
+    "mediation_multiply_robust_reg",
+    "mediation_multiply_robust_reg_calibration",
+    "mediation_dml_reg",
+    "mediation_dml_reg_calibration",
+    "mediation_tmle_propensities",
+    "mediation_tmle_density"
+]
 
 
 # PARAMETERS VALUES FOR DATA GENERATION
@@ -129,6 +132,19 @@ PARAMETER_LIST.extend(
         )
     )
 )
+
+CONFIGURATION_NAMES = ["M1D_binary_1DX",
+                       "M1D_binary_5DX",
+                       "M1D_continuous_1DX",
+                       "M5D_continuous_1DX",
+                       "M1D_continuous_5DX",
+                       "M5D_continuous_5DX"]
+
+CONFIG_DICT = {CONFIGURATION_NAMES[i]: 
+    dict(zip(PARAMETER_NAME, PARAMETER_LIST[i])) 
+        for i in range(len(CONFIGURATION_NAMES))}
+
+
 
 ALPHAS = np.logspace(-5, 5, 8)
 CV_FOLDS = 5
