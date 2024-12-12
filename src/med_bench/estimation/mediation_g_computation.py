@@ -20,11 +20,15 @@ class GComputation(Estimator):
         """
         super().__init__(**kwargs)
 
-        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             regressor, "predict"
         ), "The model does not have a 'predict' method."
-        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             classifier, "predict_proba"
         ), "The model does not have a 'predict_proba' method."

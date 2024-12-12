@@ -7,8 +7,7 @@ from med_bench.utils.decorators import fitted
 
 
 class CoefficientProduct(Estimator):
-    """Coefficient Product estimatation method class
-    """
+    """Coefficient Product estimatation method class"""
 
     def __init__(self, regularize: bool, **kwargs):
         """Initializes Coefficient product estimatation method
@@ -49,10 +48,12 @@ class CoefficientProduct(Estimator):
         self._coef_t_m = np.zeros(m.shape[1])
         for i in range(m.shape[1]):
             m_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-                np.hstack((x, t.reshape(-1, 1))), m[:, i])
+                np.hstack((x, t.reshape(-1, 1))), m[:, i]
+            )
             self._coef_t_m[i] = m_reg.coef_[-1]
         y_reg = RidgeCV(alphas=alphas, cv=CV_FOLDS).fit(
-            np.hstack((x, t.reshape(-1, 1), m)), y)
+            np.hstack((x, t.reshape(-1, 1), m)), y
+        )
 
         self._coef_y = y_reg.coef_
 
@@ -66,7 +67,9 @@ class CoefficientProduct(Estimator):
         """Estimates causal effect on data"""
         direct_effect_treated = self._coef_y[x.shape[1]]
         direct_effect_control = direct_effect_treated
-        indirect_effect_treated = sum(self._coef_y[x.shape[1] + 1 :] * self._coef_t_m)
+        indirect_effect_treated = sum(
+            self._coef_y[x.shape[1] + 1 :] * self._coef_t_m
+        )
         indirect_effect_control = indirect_effect_treated
 
         causal_effects = {

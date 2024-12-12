@@ -24,11 +24,15 @@ class MultiplyRobust(Estimator):
         """
         super().__init__(**kwargs)
 
-        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             regressor, "predict"
         ), "The model does not have a 'predict' method."
-        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             classifier, "predict_proba"
         ), "The model does not have a 'predict_proba' method."
@@ -96,7 +100,9 @@ class MultiplyRobust(Estimator):
             sum_score_t0m1 = np.mean((1 - t) * ratio_t0_m1)
 
             y1m1 = (t / p_x * (y - E_mu_t1_t1)) / sum_score_m1 + E_mu_t1_t1
-            y0m0 = ((1 - t) / (1 - p_x) * (y - E_mu_t0_t0)) / sum_score_m0 + E_mu_t0_t0
+            y0m0 = (
+                (1 - t) / (1 - p_x) * (y - E_mu_t0_t0)
+            ) / sum_score_m0 + E_mu_t0_t0
 
             y1m0 = (
                 (t * ratio_t1_m0 * (y - mu_1mx)) / sum_score_t1m0

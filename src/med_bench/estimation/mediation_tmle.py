@@ -26,11 +26,15 @@ class TMLE(Estimator):
         """
         super().__init__(**kwargs)
 
-        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            regressor, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             regressor, "predict"
         ), "The model does not have a 'predict' method."
-        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
+        assert hasattr(
+            classifier, "fit"
+        ), "The model does not have a 'fit' method."
         assert hasattr(
             classifier, "predict_proba"
         ), "The model does not have a 'predict_proba' method."
@@ -41,7 +45,11 @@ class TMLE(Estimator):
         self._ratio = ratio
 
     def _one_step_correction_direct(self, t, m, x, y):
+        """Implements the one step correction for the estimation of the natural
+        direct effect with the ratio of mediator densities or treatment
+        propensities.
 
+        """
         n = t.shape[0]
         t, m, x, y = self._resize(t, m, x, y)
         t0 = np.zeros((n))
@@ -58,24 +66,39 @@ class TMLE(Estimator):
             p_xm = self._estimate_treatment_propensity_xm(m, x)
             ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
+        # estimation of corrective features for the conditional mean outcome
         h_corrector = t * ratio - (1 - t) / (1 - p_x)
 
         x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
+            [
+                var.reshape(-1, 1) if len(var.shape) == 1 else var
+                for var in [x, t, m]
+            ]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
+
+        # regress with OLS the error of conditional mean outcome regressor on
+        # corrective features
         reg = LinearRegression(fit_intercept=False).fit(
             h_corrector.reshape(-1, 1), (y - mu_tmx).squeeze()
         )
+        # corrective coefficient epsilon
         epsilon_h = reg.coef_
 
         x_t0_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]]
+            [
+                var.reshape(-1, 1) if len(var.shape) == 1 else var
+                for var in [x, t0, m]
+            ]
         )
         x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
+            [
+                var.reshape(-1, 1) if len(var.shape) == 1 else var
+                for var in [x, t1, m]
+            ]
         )
 
+        # one step corrected conditional mean outcomes
         mu_t0_mx = self._regressor_y.predict(x_t0_m)
         h_corrector_t0 = t0 * ratio - (1 - t0) / (1 - p_x)
         mu_t1_mx = self._regressor_y.predict(x_t1_m)
@@ -83,13 +106,15 @@ class TMLE(Estimator):
         mu_t0_mx_star = mu_t0_mx + epsilon_h * h_corrector_t0
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
-        regressor_y = self.regressor
-        reg_cross = clone(regressor_y)
+        # estimation of natural direct effect
+        reg_cross = clone(self.regressor)
         reg_cross.fit(
             x[t == 0], (mu_t1_mx_star[t == 0] - mu_t0_mx_star[t == 0]).squeeze()
         )
 
         theta_0 = reg_cross.predict(x)
+
+        # one step correction of the natural direct effect
         c_corrector = (1 - t) / (1 - p_x)
         reg = LinearRegression(fit_intercept=False).fit(
             c_corrector.reshape(-1, 1)[t == 0],
@@ -103,7 +128,11 @@ class TMLE(Estimator):
         return theta_0_star
 
     def _one_step_correction_indirect(self, t, m, x, y):
+        """Implements the one step correction for the estimation of the natural
+        indirect effect with the ratio of mediator densities or treatment
+        propensities.
 
+        """
         n = t.shape[0]
         t, m, x, y = self._resize(t, m, x, y)
         t0 = np.zeros((n))
@@ -120,32 +149,45 @@ class TMLE(Estimator):
             p_xm = self._estimate_treatment_propensity_xm(m, x)
             ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
+        # estimation of corrective features for the conditional mean outcome
         h_corrector = t / p_x - t * ratio
 
         x_t_mr = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
+            [
+                var.reshape(-1, 1) if len(var.shape) == 1 else var
+                for var in [x, t, m]
+            ]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
+
+        # regress with OLS the error of conditional mean outcome regressor on
+        # corrective features
         reg = LinearRegression(fit_intercept=False).fit(
             h_corrector.reshape(-1, 1), (y - mu_tmx).squeeze()
         )
+
+        # corrective coefficient epsilon
         epsilon_h = reg.coef_
 
         x_t1_m = np.hstack(
-            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
+            [
+                var.reshape(-1, 1) if len(var.shape) == 1 else var
+                for var in [x, t1, m]
+            ]
         )
 
+        # one step corrected conditional mean outcomes
         mu_t1_mx = self._regressor_y.predict(x_t1_m)
         h_corrector_t1 = t1 / p_x - t1 * ratio
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
-        regressor_y = self.regressor
-
-        reg_cross = clone(regressor_y)
+        # cross conditional mean outcome control
+        reg_cross = clone(self.regressor)
         reg_cross.fit(x[t == 0], mu_t1_mx_star[t == 0])
         omega_t0x = reg_cross.predict(x)
-        c_corrector_t0 = (2 * t0 - 1) / p_x[:, None]
 
+        # one step corrected cross conditional mean outcome for control
+        c_corrector_t0 = (2 * t0 - 1) / p_x[:, None]
         reg = LinearRegression(fit_intercept=False).fit(
             c_corrector_t0[t == 0],
             (mu_t1_mx_star[t == 0] - omega_t0x[t == 0]).squeeze(),
@@ -153,15 +195,20 @@ class TMLE(Estimator):
         epsilon_c_t0 = reg.coef_
         omega_t0x_star = omega_t0x + epsilon_c_t0 * c_corrector_t0
 
-        reg_cross = clone(regressor_y)
+        # cross conditional mean outcome treated
+        reg_cross = clone(self.regressor)
         reg_cross.fit(x[t == 1], y[t == 1])
         omega_t1x = reg_cross.predict(x)
+
+        # one step corrected cross conditional mean outcome for treated
         c_corrector_t1 = (2 * t1 - 1) / p_x[:, None]
         reg = LinearRegression(fit_intercept=False).fit(
             c_corrector_t1[t == 1], (y[t == 1] - omega_t1x[t == 1]).squeeze()
         )
         epsilon_c_t1 = reg.coef_
         omega_t1x_star = omega_t1x + epsilon_c_t1 * c_corrector_t1
+
+        # natural indirect effect
         delta_1 = np.mean(omega_t1x_star - omega_t0x_star)
 
         return delta_1
