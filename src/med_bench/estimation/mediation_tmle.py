@@ -26,15 +26,11 @@ class TMLE(Estimator):
         """
         super().__init__(**kwargs)
 
-        assert hasattr(
-            regressor, "fit"
-        ), "The model does not have a 'fit' method."
+        assert hasattr(regressor, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
             regressor, "predict"
         ), "The model does not have a 'predict' method."
-        assert hasattr(
-            classifier, "fit"
-        ), "The model does not have a 'fit' method."
+        assert hasattr(classifier, "fit"), "The model does not have a 'fit' method."
         assert hasattr(
             classifier, "predict_proba"
         ), "The model does not have a 'predict_proba' method."
@@ -70,10 +66,7 @@ class TMLE(Estimator):
         h_corrector = t * ratio - (1 - t) / (1 - p_x)
 
         x_t_mr = np.hstack(
-            [
-                var.reshape(-1, 1) if len(var.shape) == 1 else var
-                for var in [x, t, m]
-            ]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
 
@@ -86,16 +79,10 @@ class TMLE(Estimator):
         epsilon_h = reg.coef_
 
         x_t0_m = np.hstack(
-            [
-                var.reshape(-1, 1) if len(var.shape) == 1 else var
-                for var in [x, t0, m]
-            ]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t0, m]]
         )
         x_t1_m = np.hstack(
-            [
-                var.reshape(-1, 1) if len(var.shape) == 1 else var
-                for var in [x, t1, m]
-            ]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
         )
 
         # one step corrected conditional mean outcomes
@@ -153,10 +140,7 @@ class TMLE(Estimator):
         h_corrector = t / p_x - t * ratio
 
         x_t_mr = np.hstack(
-            [
-                var.reshape(-1, 1) if len(var.shape) == 1 else var
-                for var in [x, t, m]
-            ]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
         )
         mu_tmx = self._regressor_y.predict(x_t_mr)
 
@@ -170,10 +154,7 @@ class TMLE(Estimator):
         epsilon_h = reg.coef_
 
         x_t1_m = np.hstack(
-            [
-                var.reshape(-1, 1) if len(var.shape) == 1 else var
-                for var in [x, t1, m]
-            ]
+            [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t1, m]]
         )
 
         # one step corrected conditional mean outcomes
@@ -245,10 +226,10 @@ class TMLE(Estimator):
         theta_0 = self._one_step_correction_direct(t, m, x, y)
         delta_1 = self._one_step_correction_indirect(t, m, x, y)
         total_effect = theta_0 + delta_1
-        direct_effect_treated = theta_0
+        direct_effect_treated = None
         direct_effect_control = theta_0
         indirect_effect_treated = delta_1
-        indirect_effect_control = delta_1
+        indirect_effect_control = None
 
         causal_effects = {
             "total_effect": total_effect,
