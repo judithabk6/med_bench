@@ -89,7 +89,7 @@ def tolerance(estimator, configuration_name):
 def effects_chap(x, t, m, y, estimator):
     # try whether estimator is implemented or not
     try:
-        res = _get_estimation_results(x, t, m, y, estimator)[0:5]
+        res = _get_estimation_results(x, t, m, y, estimator)
     except Exception as e:
         if "1D binary mediator" in str(e):
             pytest.skip(f"{e}")
@@ -129,7 +129,7 @@ def test_robustness_to_ravel_format(data_simulated, estimator, effects_chap):
             data_simulated[2],
             data_simulated[3],
             estimator,
-        )[0:5]
+        )
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
