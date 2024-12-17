@@ -31,7 +31,10 @@ def _transform_outputs(causal_effects):
     direct_control = causal_effects["direct_effect_control"]
     indirect_treated = causal_effects["indirect_effect_treated"]
     indirect_control = causal_effects["indirect_effect_control"]
-
+    if direct_treated is None:
+        direct_treated = np.nan
+    if indirect_control is None:
+        indirect_control = np.nan
     return [
         total,
         direct_treated,

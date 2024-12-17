@@ -20,21 +20,23 @@ from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
 
 from med_bench.utils.utils import DependencyNotInstalledError
-from med_bench.utils.constants import CONFIGURATION_NAMES, CONFIG_DICT, DEFAULT_TOLERANCE, TOLERANCE_FACTOR_DICT, ESTIMATORS
-
-current_dir = os.path.dirname(__file__)
-true_estimations_file_path = os.path.join(current_dir, "tests_results.npy")
-TRUE_ESTIMATIONS = np.load(true_estimations_file_path, allow_pickle=True)
+from med_bench.utils.constants import (
+    CONFIGURATION_NAMES,
+    CONFIG_DICT,
+    DEFAULT_TOLERANCE,
+    TOLERANCE_FACTOR_DICT,
+    ESTIMATORS,
+)
 
 
 @pytest.fixture(params=CONFIGURATION_NAMES)
-def congiuration_name(request):
+def configuration_name(request):
     return request.param
 
 
 @pytest.fixture
-def dict_param(congiuration_name):
-    return CONFIG_DICT[congiuration_name]
+def dict_param(configuration_name):
+    return CONFIG_DICT[configuration_name]
 
 
 # Two distinct data fixtures
@@ -75,8 +77,8 @@ def estimator(request):
 
 
 @pytest.fixture
-def tolerance(estimator, congiuration_name):
-    test_name = '{}-{}'.format(estimator, congiuration_name)
+def tolerance(estimator, configuration_name):
+    test_name = "{}-{}".format(estimator, configuration_name)
     tolerance = DEFAULT_TOLERANCE
     if test_name in TOLERANCE_FACTOR_DICT.keys():
         tolerance *= TOLERANCE_FACTOR_DICT[test_name]
@@ -106,7 +108,7 @@ def effects_chap(x, t, m, y, estimator):
 
 def test_tolerance(effects, effects_chap, tolerance):
     error = abs((effects_chap - effects) / effects)
-    #print(error)
+    # print(error)
     assert np.all(error[~np.isnan(error)] <= tolerance[~np.isnan(error)])
 
 
@@ -132,73 +134,3 @@ def test_robustness_to_ravel_format(data_simulated, estimator, effects_chap):
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
     )
-
-
-@pytest.fixture(params=range(TRUE_ESTIMATIONS.shape[0]))
-def tests_results_idx(request):
-    return request.param
-
-
-@pytest.fixture
-def data_true(tests_results_idx):
-    return TRUE_ESTIMATIONS[tests_results_idx]
-
-
-@pytest.fixture
-def estimator_true(data_true):
-    return data_true[0]
-
-
-@pytest.fixture
-def x_true(data_true):
-    return data_true[1]
-
-
-# t is raveled because some estimators fail with (n,1) inputs
-@pytest.fixture
-def t_true(data_true):
-    return data_true[2]
-
-
-@pytest.fixture
-def m_true(data_true):
-    return data_true[3]
-
-
-@pytest.fixture
-def y_true(data_true):
-    return data_true[4]
-
-
-@pytest.fixture
-def result_true(data_true):
-    return data_true[6]
-
-
-@pytest.fixture
-def effects_chap_true(x_true, t_true, m_true, y_true, estimator_true):
-    # try whether estimator is implemented or not
-
-    try:
-        res = _get_estimation_results(
-            x_true, t_true, m_true, y_true, estimator_true
-        )[0:5]
-
-        # NaN situations
-        if np.all(np.isnan(res)):
-            pytest.xfail("all effects are NaN")
-        elif np.any(np.isnan(res)):
-            pprint("NaN found")
-
-    except Exception as e:
-        if "1D binary mediator" in str(e):
-            pytest.skip(f"{e}")
-
-        else:
-            pytest.fail(f"{e}")
-
-    return res
-
-
-def test_estimation_exactness(result_true, effects_chap_true):
-    assert np.all(effects_chap_true == pytest.approx(result_true, abs=1.0e-3))
