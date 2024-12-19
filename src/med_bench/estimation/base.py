@@ -284,7 +284,6 @@ class Estimator:
         p_x : array-like, shape (n_samples)
             probabilities P(T=1|X)
         """
-        # predict P(T=1|X), P(T=1|X, M)
         p_x = self._classifier_t_x.predict_proba(x)[:, 1]
 
         return p_x
