@@ -302,7 +302,6 @@ class Estimator:
         """
         xm = np.hstack((x, m))
 
-        # predict P(T=1|X), P(T=1|X, M)
         p_xm = self._classifier_t_xm.predict_proba(xm)[:, 1]
 
         return p_xm
