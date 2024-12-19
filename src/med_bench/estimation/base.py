@@ -176,7 +176,6 @@ class Estimator:
         train0 = train[t[train] == 0]
 
         train_mean, train_nested = np.array_split(train, 2)
-        # train_mean = train
         # train_nested = train
         train_mean1 = train_mean[t[train_mean] == 1]
         train_mean0 = train_mean[t[train_mean] == 0]
