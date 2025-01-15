@@ -131,3 +131,13 @@ dmypy.json
 # DS_STORE files
 src/.DS_Store
 .DS_Store
+
+# Mac
+.idea/
+
+# Ignore PDFs
+*.pdf
+
+# Ignore local scripts
+
+scripts/
