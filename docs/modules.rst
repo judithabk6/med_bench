@@ -1,27 +1,53 @@
 .. toctree::
    :maxdepth: 4
-   :caption: Contents:
+   :caption: API:
 
 
-med_bench
-=================
-.. automodule:: med_bench
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 
-get_estimation
---------
 
-.. automodule:: med_bench.get_estimation
+
+Estimation
+==========
+.. automodule:: med_bench.estimation
     :members:
     :undoc-members:
     :show-inheritance:
 
 
+.. automodule:: med_bench.estimation.mediation_coefficient_product
+    :members:
+    :undoc-members:
+
+
+.. automodule:: med_bench.estimation.mediation_g_computation
+    :members:
+    :undoc-members:
+
+.. automodule:: med_bench.estimation.mediation_ipw
+    :members:
+    :undoc-members:
+
+
+.. automodule:: med_bench.estimation.mediation_mr
+    :members:
+    :undoc-members:
+
+
+.. automodule:: med_bench.estimation.mediation_dml
+    :members:
+    :undoc-members:
+
+
+
+.. automodule:: med_bench.estimation.mediation_tmle
+    :members:
+    :undoc-members:
+
+
+
 get_simulated_data
---------
+==========
 
 .. automodule:: med_bench.get_simulated_data
     :members:
@@ -29,17 +55,8 @@ get_simulated_data
     :show-inheritance:
 
 
-mediation
---------
-
-.. automodule:: med_bench.mediation
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 utils
---------
+==========
 
 .. automodule:: med_bench.utils.utils
     :members:
@@ -47,11 +64,5 @@ utils
     :show-inheritance:
 
 
-nuisances
---------
 
-.. automodule:: med_bench.utils.nuisances
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
