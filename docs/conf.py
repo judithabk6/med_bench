@@ -20,6 +20,7 @@ project = 'med_bench'
 copyright = '2025, Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh, Sami Boumaïza, Julie Josse'
 author = 'Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh, Sami Boumaïza, Julie Josse'
 
+
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
