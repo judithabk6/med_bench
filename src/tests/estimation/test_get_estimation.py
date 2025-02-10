@@ -15,6 +15,7 @@ from pprint import pprint
 import pytest
 import numpy as np
 import os
+import warnings
 
 from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
@@ -87,13 +88,22 @@ def tolerance(estimator, configuration_name):
 
 @pytest.fixture
 def effects_chap(x, t, m, y, estimator):
-    # try whether estimator is implemented or not
     try:
-        res = _get_estimation_results(x, t, m, y, estimator)
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")  # Ensure all warnings are captured
+            res = _get_estimation_results(x, t, m, y, estimator)
+
+            # Check if the specific warning is in the caught warnings
+            for w in caught_warnings:
+                if (
+                    "The explicit integration of the conditional mean outcome is strongly not advised for continuous mediators"
+                    in str(w.message)
+                ):
+                    pytest.skip(f"Skipped due to warning: {w.message}")
+
     except Exception as e:
         if "1D binary mediator" in str(e):
             pytest.skip(f"{e}")
-
         else:
             pytest.fail(f"{e}")
 

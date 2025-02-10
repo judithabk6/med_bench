@@ -12,7 +12,7 @@ ALPHA = 10
 class TMLE(Estimator):
     """Implementation of targeted maximum likelihood estimation method class"""
 
-    def __init__(self, regressor, classifier, ratio, **kwargs):
+    def __init__(self, regressor, classifier, prop_ratio, **kwargs):
         """_summary_
 
         Parameters
@@ -21,8 +21,8 @@ class TMLE(Estimator):
             Regressor used for mu estimation, can be any object with a fit and predict method
         classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
-        ratio : str
-            Ratio to use for estimation, can be either 'density' or 'propensities'
+        prop_ratio : str
+            prop_ratio to use for estimation, can be either 'mediator' or 'treatment'
         """
         super().__init__(**kwargs)
 
@@ -37,12 +37,12 @@ class TMLE(Estimator):
         self.regressor = regressor
         self.classifier = classifier
 
-        assert ratio in ["density", "propensities"]
-        self._ratio = ratio
+        assert prop_ratio in ["mediator", "treatment"]
+        self._prop_ratio = prop_ratio
 
     def _one_step_correction_direct(self, t, m, x, y):
         """Implements the one step correction for the estimation of the natural
-        direct effect with the ratio of mediator densities or treatment
+        direct effect with the prop_ratio of mediator densities or treatment
         propensities.
 
         """
@@ -52,18 +52,18 @@ class TMLE(Estimator):
         t1 = np.ones((n))
 
         # estimate mediator densities
-        if self._ratio == "density":
-            f_m0x, f_m1x = self._estimate_binary_mediator_probability(x, m)
+        if self._prop_ratio == "mediator":
+            f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
             p_x = self._estimate_treatment_propensity_x(x)
-            ratio = f_m0x / (p_x * f_m1x)
+            prop_ratio = f_m0x / (p_x * f_m1x)
 
-        elif self._ratio == "propensities":
+        elif self._prop_ratio == "treatment":
             p_x = self._estimate_treatment_propensity_x(x)
             p_xm = self._estimate_treatment_propensity_xm(m, x)
-            ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
+            prop_ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
         # estimation of corrective features for the conditional mean outcome
-        h_corrector = t * ratio - (1 - t) / (1 - p_x)
+        h_corrector = t * prop_ratio - (1 - t) / (1 - p_x)
 
         x_t_mr = np.hstack(
             [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
@@ -87,9 +87,9 @@ class TMLE(Estimator):
 
         # one step corrected conditional mean outcomes
         mu_t0_mx = self._regressor_y.predict(x_t0_m)
-        h_corrector_t0 = t0 * ratio - (1 - t0) / (1 - p_x)
+        h_corrector_t0 = t0 * prop_ratio - (1 - t0) / (1 - p_x)
         mu_t1_mx = self._regressor_y.predict(x_t1_m)
-        h_corrector_t1 = t1 * ratio - (1 - t1) / (1 - p_x)
+        h_corrector_t1 = t1 * prop_ratio - (1 - t1) / (1 - p_x)
         mu_t0_mx_star = mu_t0_mx + epsilon_h * h_corrector_t0
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
@@ -116,7 +116,7 @@ class TMLE(Estimator):
 
     def _one_step_correction_indirect(self, t, m, x, y):
         """Implements the one step correction for the estimation of the natural
-        indirect effect with the ratio of mediator densities or treatment
+        indirect effect with the prop_ratio of mediator densities or treatment
         propensities.
 
         """
@@ -126,18 +126,18 @@ class TMLE(Estimator):
         t1 = np.ones((n))
 
         # estimate mediator densities
-        if self._ratio == "density":
-            f_m0x, f_m1x = self._estimate_binary_mediator_probability(x, m)
+        if self._prop_ratio == "mediator":
+            f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
             p_x = self._estimate_treatment_propensity_x(x)
-            ratio = f_m0x / (p_x * f_m1x)
+            prop_ratio = f_m0x / (p_x * f_m1x)
 
-        elif self._ratio == "propensities":
+        elif self._prop_ratio == "treatment":
             p_x = self._estimate_treatment_propensity_x(x)
             p_xm = self._estimate_treatment_propensity_xm(m, x)
-            ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
+            prop_ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
         # estimation of corrective features for the conditional mean outcome
-        h_corrector = t / p_x - t * ratio
+        h_corrector = t / p_x - t * prop_ratio
 
         x_t_mr = np.hstack(
             [var.reshape(-1, 1) if len(var.shape) == 1 else var for var in [x, t, m]]
@@ -159,7 +159,7 @@ class TMLE(Estimator):
 
         # one step corrected conditional mean outcomes
         mu_t1_mx = self._regressor_y.predict(x_t1_m)
-        h_corrector_t1 = t1 / p_x - t1 * ratio
+        h_corrector_t1 = t1 / p_x - t1 * prop_ratio
         mu_t1_mx_star = mu_t1_mx + epsilon_h * h_corrector_t1
 
         # cross conditional mean outcome control
@@ -199,18 +199,18 @@ class TMLE(Estimator):
         # bucketize if needed
         t, m, x, y = self._resize(t, m, x, y)
 
-        if (not is_array_binary(m)) and (self._ratio == "density"):
+        if (not is_array_binary(m)) and (self._prop_ratio == "mediator"):
             raise ValueError(
-                "The option mediator 'density' in TMLE is supported only for 1D binary mediator"
+                "The option mediator 'mediator' in TMLE is supported only for 1D binary mediator"
             )
 
         self._fit_treatment_propensity_x(t, x)
         self._fit_conditional_mean_outcome(t, m, x, y)
 
-        if self._ratio == "density":
-            self._fit_binary_mediator_probability(t, m, x)
+        if self._prop_ratio == "mediator":
+            self._fit_mediator_probability(t, m, x)
 
-        elif self._ratio == "propensities":
+        elif self._prop_ratio == "treatment":
             self._fit_treatment_propensity_xm(t, m, x)
 
         self._fitted = True

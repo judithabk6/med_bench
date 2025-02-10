@@ -1,9 +1,11 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from sklearn import clone
-from sklearn.model_selection import GridSearchCV
-
+from sklearn.model_selection import KFold
+from med_bench.utils.utils import is_array_integer
 from med_bench.utils.decorators import fitted
+from med_bench.utils.density import GaussianDensityEstimation
+from sklearn.cluster import KMeans
 
 
 class Estimator:
@@ -23,10 +25,10 @@ class Estimator:
         """
         self._crossfit = crossfit
         self._crossfit_check()
-
         self._verbose = verbose
-
         self._fitted = False
+        self.discretizer = KMeans(n_clusters=10, random_state=42, n_init="auto")
+        self.mediator_bins = [0, 1]
 
     @property
     def verbose(self):
@@ -69,9 +71,8 @@ class Estimator:
         pass
 
     @abstractmethod
-    @fitted
-    def estimate(self, t, m, x, y):
-        """Estimates causal effect on data
+    def _pointwise_estimate(self, t, m, x, y):
+        """Point wise estimate of causal effect on data
 
         Parameters
         ----------
@@ -88,9 +89,116 @@ class Estimator:
         y       array-like, shape (n_samples)
                 outcome value for each unit, continuous
 
-        nuisances
+        Returns
+        -------
+        f_m0x, array-like, shape (n_samples)
+            probabilities f(M|T=0,X)
+        f_m1x, array-like, shape (n_samples)
+            probabilities f(M|T=1,X)
         """
         pass
+
+    @fitted
+    def estimate(self, t, m, x, y):
+        """Estimate causal effect on data
+
+        Parameters
+        ----------
+        t       array-like, shape (n_samples)
+                treatment value for each unit, binary
+
+        m       array-like, shape (n_samples)
+                mediator value for each unit, here m is necessary binary and uni-
+                dimensional
+
+        x       array-like, shape (n_samples, n_features_covariates)
+                covariates (potential confounders) values
+
+        y       array-like, shape (n_samples)
+                outcome value for each unit, continuous
+
+        """
+
+        y0m0, y0m1, y1m0, y1m1 = self._pointwise_estimate(t, m, x, y)
+
+        # effects computing
+        total = np.mean(y1m1 - y0m0)
+        direct1 = np.mean(y1m1 - y0m1)
+        direct0 = np.mean(y1m0 - y0m0)
+        indirect1 = np.mean(y1m1 - y1m0)
+        indirect0 = np.mean(y0m1 - y0m0)
+
+        causal_effects = {
+            "total_effect": total,
+            "direct_effect_treated": direct1,
+            "direct_effect_control": direct0,
+            "indirect_effect_treated": indirect1,
+            "indirect_effect_control": indirect0,
+        }
+        return causal_effects
+
+    def cross_fit_estimate(self, t, m, x, y, n_splits=1):
+        """Estimate causal effect on data with cross-fitting
+
+        Parameters
+        ----------
+        t       array-like, shape (n_samples)
+                treatment value for each unit, binary
+
+        m       array-like, shape (n_samples)
+                mediator value for each unit, here m is necessary binary and uni-
+                dimensional
+
+        x       array-like, shape (n_samples, n_features_covariates)
+                covariates (potential confounders) values
+
+        y       array-like, shape (n_samples)
+                outcome value for each unit, continuous
+
+        """
+
+        # Initialize KFold for sample splitting
+        kfold = KFold(n_splits=n_splits)
+
+        n = t.shape[0]
+
+        # Create placeholders for cross-fitted predictions
+        y0m0 = np.zeros(n)
+        y0m1 = np.zeros(n)
+        y1m0 = np.zeros(n)
+        y1m1 = np.zeros(n)
+
+        # Cross-Fitting
+        for train_idx, test_idx in kfold.split(x):
+
+            # Train nuisance models on one split
+            self.fit(t[train_idx], m[train_idx], x[train_idx], y[train_idx])
+
+            # Predict for the other split
+            y0m0_fold, y0m1_fold, y1m0_fold, y1m1_fold = self._pointwise_estimate(
+                t[test_idx], m[test_idx], x[test_idx], y[test_idx]
+            )
+
+            y0m0[test_idx] = y0m0_fold
+            y0m1[test_idx] = y0m1_fold
+            y1m0[test_idx] = y1m0_fold
+            y1m1[test_idx] = y1m1_fold
+
+        # effects computing
+        total = np.mean(y1m1 - y0m0)
+        direct1 = np.mean(y1m1 - y0m1)
+        direct0 = np.mean(y1m0 - y0m0)
+        indirect1 = np.mean(y1m1 - y1m0)
+        indirect0 = np.mean(y0m1 - y0m0)
+
+        causal_effects = {
+            "total_effect": total,
+            "direct_effect_treated": direct1,
+            "direct_effect_control": direct0,
+            "indirect_effect_treated": indirect1,
+            "indirect_effect_control": indirect0,
+        }
+        return causal_effects
 
     def _resize(self, t, m, x, y):
         """Resize data for the right shape
@@ -129,6 +237,11 @@ class Estimator:
 
         return t, m, x, y
 
+    def _fit_mediator_discretizer(self, m):
+        """Fits the discretization procedure of mediators"""
+        self.discretizer.fit(m)
+        self.mediator_bins = self.discretize.cluster_centers_
+
     def _fit_treatment_propensity_x(self, t, x):
         """Fits the nuisance parameter for the propensity P(T=1|X)"""
         self._classifier_t_x = clone(self.classifier).fit(x, t)
@@ -142,14 +255,29 @@ class Estimator:
 
         return self
 
-    # TODO : Enable any sklearn object as classifier or regressor
-    def _fit_binary_mediator_probability(self, t, m, x):
+    def _fit_mediator_probability(self, t, m, x):
+        if not is_array_integer(m):
+            self._fit_mediator_density(t, m, x)
+        else:
+            self._fit_discrete_mediator_probability(t, m, x)
+
+    def _fit_discrete_mediator_probability(self, t, m, x):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
         t_x = np.hstack([t.reshape(-1, 1), x])
 
         # Fit classifier
         self._classifier_m = clone(self.classifier).fit(t_x, m.ravel())
+
+        return self
+
+    def _fit_mediator_density(self, t, m, x):
+        """Fits the nuisance parameter for the density f(M=m|T, X)"""
+        # estimate mediator densities
+        t_x = np.hstack([t.reshape(-1, 1), x])
+
+        self._density_m = GaussianDensityEstimation()
+        self._density_m.fit(t_x, m.squeeze())
 
         return self
 
@@ -161,7 +289,9 @@ class Estimator:
         return self
 
     def _fit_cross_conditional_mean_outcome(self, t, m, x, y):
-        """Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]"""
+        """Fits the cross conditional mean outcome E[E[Y|T=t,M,X]|T=t',X]
+        Implicit integration
+        """
 
         xm = np.hstack((x, m))
 
@@ -215,7 +345,7 @@ class Estimator:
 
         return self
 
-    def _estimate_binary_mediator_probability(self, x, m):
+    def _estimate_discrete_mediator_probability(self, x, m):
         """
         Estimate mediator density P(M=m|T,X) for a binary M
 
@@ -241,20 +371,49 @@ class Estimator:
 
         return f_m0x, f_m1x
 
-    def _estimate_binary_mediator_probability_table(self, x):
+    def _estimate_mediator_density(self, x, m):
         """
-        Estimate mediator density f(M|T,X)
+        Estimate mediator density P(M=m|T,X) for a continuous M
 
         Returns
         -------
-        f_00x: array-like, shape (n_samples)
-            probabilities f(M=0|T=0,X)
-        f_01x, array-like, shape (n_samples)
-            probabilities f(M=0|T=1,X)
-        f_10x, array-like, shape (n_samples)
-            probabilities f(M=1|T=0,X)
-        f_11x, array-like, shape (n_samples)
-            probabilities f(M=1|T=1,X)
+        f_m0x, array-like, shape (n_samples)
+            probabilities f(M|T=0,X)
+        f_m1x, array-like, shape (n_samples)
+            probabilities f(M|T=1,X)
+        """
+        n = x.shape[0]
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+
+        m = m.squeeze()
+
+        t0_x = np.hstack([t0.reshape(-1, 1), x])
+        t1_x = np.hstack([t1.reshape(-1, 1), x])
+
+        f_m0x = self._density_m.pdf(t0_x, m)
+        f_m1x = self._density_m.pdf(t1_x, m)
+
+        return f_m0x, f_m1x
+
+    def _estimate_mediator_probability(self, x, m):
+
+        if not is_array_integer(m):
+            return self._estimate_mediator_density(x, m)
+        else:
+            return self._estimate_discrete_mediator_probability(x, m)
+
+    def _estimate_discrete_mediator_probability_table(self, x):
+        """
+        Estimate mediator discrete probability f(M|T,X)
+
+        Returns
+        -------
+        f_0x: list, list of array-like of shape (n_samples)
+            probabilities f(M=m|T=0,X) for all mediators m
+        f_1x, list, list of array-like of shape (n_samples)
+            probabilities f(M=m|T=1,X) for all mediators m
         """
         n = x.shape[0]
 
@@ -263,16 +422,18 @@ class Estimator:
 
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
+        f_0x = []
+        f_1x = []
 
         # predict f(M=m|T=t,X)
         fm_0 = self._classifier_m.predict_proba(t0_x)
-        f_00x = fm_0[:, 0]
-        f_01x = fm_0[:, 1]
         fm_1 = self._classifier_m.predict_proba(t1_x)
-        f_10x = fm_1[:, 0]
-        f_11x = fm_1[:, 1]
 
-        return f_00x, f_01x, f_10x, f_11x
+        for m in self.mediator_bins:
+            f_0x.append(fm_0[:, m])
+            f_1x.append(fm_1[:, m])
+
+        return f_0x, f_1x
 
     def _estimate_treatment_propensity_x(self, x):
         """
@@ -304,10 +465,62 @@ class Estimator:
 
         return p_xm
 
+    def _estimate_conditional_mean_outcome_table(self, x):
+        """
+        Estimate conditional mean outcome E[Y|T,M,X] for all mediators
+
+        Returns
+        -------
+        mu_0x: list, list of array-like of shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=m,X]
+            for all mediators m
+        mu_1x, list, list of array-like of shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=m,X]
+            for all mediators m
+        """
+        n = x.shape[0]
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+
+        for m in self.mediator_bins:
+            m = m * np.ones((n, 1))
+            x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
+            x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
+
+            mu_0x = self._regressor_y.predict(x_t0_m)
+            mu_1x = self._regressor_y.predict(x_t1_m)
+
+        return mu_0x, mu_1x
+
+    def _estimate_conditional_mean_outcome(self, x, m):
+        """
+        Estimate conditional mean outcome E[Y|T,M,X]
+
+        Returns
+        -------
+        mu_0mx: array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=0,M=m,X]
+        mu_1mx, array-like, shape (n_samples)
+            conditional mean outcome estimates E[Y|T=1,M=m,X]
+        """
+        n = x.shape[0]
+
+        t0 = np.zeros((n, 1))
+        t1 = np.ones((n, 1))
+
+        x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
+        x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
+
+        mu_1mx = self._regressor_y.predict(x_t1_m)
+        mu_0mx = self._regressor_y.predict(x_t0_m)
+
+        return mu_0mx, mu_1mx
+
     def _estimate_cross_conditional_mean_outcome(self, m, x):
         """
         Estimate the conditional mean outcome,
-        the cross conditional mean outcome
+        the cross conditional mean outcome with an implicit integration
 
         Returns
         -------
@@ -345,3 +558,9 @@ class Estimator:
         mu_0x = self.regressors["y_t0_x"].predict(x)
 
         return mu_0mx, mu_1mx, mu_0x, E_mu_t0_t1, E_mu_t1_t0, mu_1x
+
+    def _discretize_mediators(self, m):
+        """Discretize mediators clustering if they are not explicit."""
+        if not is_array_integer(m):
+            m = np.expand_dims(self.discretizer.predict(m), axis=-1)
+        return m
