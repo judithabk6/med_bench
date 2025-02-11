@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from sklearn import clone
-from sklearn.model_selection import GridSearchCV
 
 from med_bench.utils.decorators import fitted
 
@@ -142,7 +141,6 @@ class Estimator:
 
         return self
 
-    # TODO : Enable any sklearn object as classifier or regressor
     def _fit_binary_mediator_probability(self, t, m, x):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
