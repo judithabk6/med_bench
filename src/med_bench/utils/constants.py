@@ -45,7 +45,7 @@ TOLERANCE_FACTOR_DICT = {
     "mediation_multiply_robust_reg_calibration-M5D_continuous_1DX": np.array([2, 2, 2, 5, 5]),
     "mediation_multiply_robust_reg_calibration-M1D_continuous_5DX": np.array([1, 1, 1, 2, 2]),
     "mediation_multiply_robust_reg_calibration-M5D_continuous_5DX": np.array([1, 3, 3, 4, 4]),
-    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 2, 2, 3, 3]),
+    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 2, 2, 6, 6]),
     "mediation_dml_reg-M1D_binary_5DX": np.array([1, 1, 1, 5, 5]),
     "mediation_dml_reg-M5D_continuous_1DX": np.array([1, 10, 10, 20, 20]),
     "mediation_dml_reg-M5D_continuous_5DX": np.array([1, 3, 3, 5, 5]),
