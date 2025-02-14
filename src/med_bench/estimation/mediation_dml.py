@@ -48,7 +48,7 @@ class DoubleMachineLearning(Estimator):
 
         if self.verbose:
             print("Nuisance models fitted")
-	return self
+        return self
 
     def estimate(self, t, m, x, y):
         """Estimates causal effect on data"""
