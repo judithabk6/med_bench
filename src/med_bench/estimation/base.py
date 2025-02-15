@@ -481,14 +481,16 @@ class Estimator:
 
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
+        mu_0x = list()
+        mu_1x = list()
 
         for m in self.mediator_bins:
             m = m * np.ones((n, 1))
             x_t1_m = np.hstack([x, t1.reshape(-1, 1), m])
             x_t0_m = np.hstack([x, t0.reshape(-1, 1), m])
 
-            mu_0x = self._regressor_y.predict(x_t0_m)
-            mu_1x = self._regressor_y.predict(x_t1_m)
+            mu_0x.append(self._regressor_y.predict(x_t0_m))
+            mu_1x.append(self._regressor_y.predict(x_t1_m))
 
         return mu_0x, mu_1x
 
