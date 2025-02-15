@@ -1,4 +1,4 @@
-name: CI-without-R
+name: CI
 
 on:
   push:
