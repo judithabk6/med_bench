@@ -265,7 +265,6 @@ class Estimator:
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
         # estimate mediator densities
         t_x = np.hstack([t.reshape(-1, 1), x])
-
         # Fit classifier
         self._classifier_m = clone(self.classifier).fit(t_x, m.ravel())
 

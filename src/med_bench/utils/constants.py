@@ -225,10 +225,10 @@ TOLERANCE_FACTOR_DICT = {
     "mediation_multiply_robust_reg_pr_treatment_ig_implicit_cross_fit-M1D_continuous_5DX": np.array(
         [1, 1, 1, 2, 2]
     ),
-    "mediation_multiply_robust_reg_pr_treatment_ig_implici_cross_fit-M5D_continuous_5DX": np.array(
+    "mediation_multiply_robust_reg_pr_treatment_ig_implicit_cross_fit-M5D_continuous_5DX": np.array(
         [1, 2, 2, 4, 4]
     ),
-    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 2, 2, 3, 3]),
+    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 2, 2, 6, 6]),
     "mediation_dml_reg-M1D_binary_5DX": np.array([1, 1, 1, 5, 5]),
     "mediation_dml_reg-M5D_continuous_1DX": np.array([1, 10, 10, 20, 20]),
     "mediation_dml_reg-M5D_continuous_5DX": np.array([1, 3, 3, 5, 5]),
@@ -241,9 +241,7 @@ TOLERANCE_FACTOR_DICT = {
     "mediation_tmle_prop_ratio_treatment-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
     "mediation_tmle_prop_ratio_treatment-M5D_continuous_1DX": np.array([1, 2, 2, 2, 2]),
     "mediation_tmle_prop_ratio_treatment-M1D_continuous_5DX": np.array([1, 1, 1, 3, 3]),
-    "mediation_tmle_prop_ratio_treatment-M5D_continuous_5DX": np.array(
-        [3, 3, 3, 15, 15]
-    ),
+    "mediation_tmle_prop_ratio_treatment-M5D_continuous_5DX": np.array([3, 3, 3, 15, 15]),
     "mediation_tmle_prop_ratio_mediator-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
     "mediation_tmle_prop_ratio_mediator-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
 }

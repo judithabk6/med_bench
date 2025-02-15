@@ -80,9 +80,10 @@ def estimator(request):
 @pytest.fixture
 def tolerance(estimator, configuration_name):
     test_name = "{}-{}".format(estimator, configuration_name)
-    tolerance = DEFAULT_TOLERANCE
     if test_name in TOLERANCE_FACTOR_DICT.keys():
-        tolerance *= TOLERANCE_FACTOR_DICT[test_name]
+        tolerance = DEFAULT_TOLERANCE * TOLERANCE_FACTOR_DICT[test_name]
+    else:
+        tolerance = DEFAULT_TOLERANCE
     return tolerance
 
 
