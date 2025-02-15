@@ -13,18 +13,14 @@ class Estimator:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, verbose: bool = True, crossfit: int = 0):
+    def __init__(self, verbose: bool = True):
         """Initializes Estimator base class
 
         Parameters
         ----------
         verbose : bool
             will print some logs if True
-        crossfit : int
-            number of crossfit folds, if 0 no crossfit is performed
         """
-        self._crossfit = crossfit
-        self._crossfit_check()
         self._verbose = verbose
         self._fitted = False
         self.discretizer = KMeans(n_clusters=10, random_state=42, n_init="auto")
@@ -34,19 +30,6 @@ class Estimator:
     def verbose(self):
         return self._verbose
 
-    def _crossfit_check(self):
-        """Checks if the estimator inputs are valid"""
-        if self._crossfit > 0:
-            raise NotImplementedError(
-                """Crossfit is not implemented yet
-                                      You should perform something like this on your side : 
-                                        cf_iterator = KFold(k=5)
-                                        for data_train, data_test in cf_iterator:
-                                            result.append(DML(...., cross_fitting=False)
-                                                .fit(train_data.X, train_data.t, train_data.m, train_data.y)\
-                                                .estimate(test_data.X, test_data.t, test_data.m, test_data.y))
-                                        np.mean(result)"""
-            )
 
     @abstractmethod
     def fit(self, t, m, x, y):
