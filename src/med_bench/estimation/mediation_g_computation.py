@@ -43,10 +43,10 @@ class GComputation(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if self._integration == "explicit":
-            self.discretizer.fit(m)
-            m = self._discretize_mediators(m)
-            self._fit_discrete_mediator_probability(t, m, x)
-            self._fit_conditional_mean_outcome(t, m, x, y)
+            self._fit_mediator_discretizer(m)
+            m_label, m_discrete_value = self._discretize_mediators(m)
+            self._fit_discrete_mediator_probability(t, m_label, x)
+            self._fit_conditional_mean_outcome(t, m_discrete_value, x, y)
 
         elif self._integration == "implicit":
             self._fit_cross_conditional_mean_outcome(t, m, x, y)
@@ -56,9 +56,13 @@ class GComputation(Estimator):
         if self.verbose:
             print("Nuisance models fitted")
 
-        if self._integration == "explicit" and not is_array_integer(m):
+        if self._integration == "explicit" and not self._mediator_considered_discrete:
             warnings.warn(
-                "The explicit integration of the conditional mean outcome is strongly not advised for continuous mediators"
+                "The explicit integration of the conditional mean outcome is "+
+                "strongly not advised for continuous mediators,"+
+                "or a discrete mediator with many classes (you can increase"+
+                " the parameter `mediator_cardinality_threshold`" +
+                "to treat your discrete mediator with many classes as discrete."+
                 "It is advised to set integration to 'implicit'.",
                 UserWarning,
             )
@@ -70,7 +74,7 @@ class GComputation(Estimator):
         t, m, x, y = self._resize(t, m, x, y)
 
         if self._integration == "explicit":
-            m = self._discretize_mediators(m) if not is_array_integer(m) else m
+            m_label, m_discrete_value = self._discretize_mediators(m)
 
             f_0x, f_1x = self._estimate_discrete_mediator_probability_table(x)
             mu_0x, mu_1x = self._estimate_conditional_mean_outcome_table(x)

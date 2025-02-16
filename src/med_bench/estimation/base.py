@@ -6,6 +6,7 @@ from med_bench.utils.utils import is_array_integer
 from med_bench.utils.decorators import fitted
 from med_bench.utils.density import GaussianDensityEstimation
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import LabelEncoder
 
 
 class Estimator:
@@ -13,18 +14,26 @@ class Estimator:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, mediator_cardinality_threshold: int=10):
         """Initializes Estimator base class
 
         Parameters
         ----------
         verbose : bool
             will print some logs if True
+
+        mediator_cardinality_threshold: int
+            default 10
+            maximal number of categories in a mediator to treat it as discrete or continuous
+            if the mediator is 1-dimensional and 
+                if the number of distinct values in the mediator is lower than
+                mediator_cardinality_threshold, the mediator is going to be considered
+                discrete when estimating the mediator probability function, otherwise
+                the mediator is considered continuous, 
         """
         self._verbose = verbose
         self._fitted = False
-        self.discretizer = KMeans(n_clusters=10, random_state=42, n_init="auto")
-        self.mediator_bins = [0, 1]
+        self.mediator_cardinality_threshold = mediator_cardinality_threshold
 
     @property
     def verbose(self):
@@ -222,8 +231,16 @@ class Estimator:
 
     def _fit_mediator_discretizer(self, m):
         """Fits the discretization procedure of mediators"""
-        self.discretizer.fit(m)
-        self.mediator_bins = self.discretize.cluster_centers_
+        if (is_array_integer(m)) and (len(np.unique(m)) <= self.mediator_cardinality_threshold):
+            self.discretizer = LabelEncoder()
+            self.discretizer.fit(m.ravel())
+            self.mediator_bins = self.discretizer.classes_
+            self._mediator_considered_discrete = True
+        else:
+            self.discretizer = KMeans(n_clusters=10, random_state=42, n_init="auto")
+            self.discretizer.fit(m)
+            self.mediator_bins = self.discretizer.cluster_centers_
+            self._mediator_considered_discrete = False
 
     def _fit_treatment_propensity_x(self, t, x):
         """Fits the nuisance parameter for the propensity P(T=1|X)"""
@@ -239,10 +256,12 @@ class Estimator:
         return self
 
     def _fit_mediator_probability(self, t, m, x):
-        if not is_array_integer(m):
+        self._fit_mediator_discretizer(m)
+        if not self._mediator_considered_discrete:
             self._fit_mediator_density(t, m, x)
         else:
-            self._fit_discrete_mediator_probability(t, m, x)
+            m_label, m_discrete_value = self._discretize_mediators(m)
+            self._fit_discrete_mediator_probability(t, m_label, x)
 
     def _fit_discrete_mediator_probability(self, t, m, x):
         """Fits the nuisance parameter for the density f(M=m|T, X)"""
@@ -327,7 +346,7 @@ class Estimator:
 
         return self
 
-    def _estimate_discrete_mediator_probability(self, x, m):
+    def _estimate_discrete_mediator_probability(self, x, m_label):
         """
         Estimate mediator density P(M=m|T,X) for a binary M
 
@@ -343,13 +362,12 @@ class Estimator:
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
 
-        m = m.ravel()
 
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_m0x = self._classifier_m.predict_proba(t0_x)[np.arange(m.shape[0]), m]
-        f_m1x = self._classifier_m.predict_proba(t1_x)[np.arange(m.shape[0]), m]
+        f_m0x = self._classifier_m.predict_proba(t0_x)[np.arange(m_label.shape[0]), m_label]
+        f_m1x = self._classifier_m.predict_proba(t1_x)[np.arange(m_label.shape[0]), m_label]
 
         return f_m0x, f_m1x
 
@@ -380,11 +398,11 @@ class Estimator:
         return f_m0x, f_m1x
 
     def _estimate_mediator_probability(self, x, m):
-
-        if not is_array_integer(m):
+        if not self._mediator_considered_discrete:
             return self._estimate_mediator_density(x, m)
         else:
-            return self._estimate_discrete_mediator_probability(x, m)
+            m_label, m_discrete_value = self._discretize_mediators(m)
+            return self._estimate_discrete_mediator_probability(x, m_label)
 
     def _estimate_discrete_mediator_probability_table(self, x):
         """
@@ -411,9 +429,9 @@ class Estimator:
         fm_0 = self._classifier_m.predict_proba(t0_x)
         fm_1 = self._classifier_m.predict_proba(t1_x)
 
-        for m in self.mediator_bins:
-            f_0x.append(fm_0[:, m])
-            f_1x.append(fm_1[:, m])
+        for idx, m_anchor in enumerate(self.mediator_bins):
+            f_0x.append(fm_0[:, idx])
+            f_1x.append(fm_1[:, idx])
 
         return f_0x, f_1x
 
@@ -545,6 +563,10 @@ class Estimator:
 
     def _discretize_mediators(self, m):
         """Discretize mediators clustering if they are not explicit."""
-        if not is_array_integer(m):
-            m = np.expand_dims(self.discretizer.predict(m), axis=-1)
-        return m
+        if self._mediator_considered_discrete:
+            m_label = self.discretizer.transform(m)
+            m_discrete_value = m
+        else:
+            m_label = self.discretizer.predict(m)
+            m_discrete_value = self.discretizer.cluster_centers_[m_label, :]
+        return m_label, m_discrete_value

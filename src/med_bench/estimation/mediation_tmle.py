@@ -40,6 +40,32 @@ class TMLE(Estimator):
         assert prop_ratio in ["mediator", "treatment"]
         self._prop_ratio = prop_ratio
 
+    def fit(self, t, m, x, y):
+        """Fits nuisance parameters to data"""
+        # bucketize if needed
+        t, m, x, y = self._resize(t, m, x, y)
+
+        if (not is_array_binary(m)) and (self._prop_ratio == "mediator"):
+            raise ValueError(
+                "The option mediator 'mediator' in TMLE is supported only for 1D binary mediator"
+            )
+
+        self._fit_treatment_propensity_x(t, x)
+        self._fit_conditional_mean_outcome(t, m, x, y)
+
+        if self._prop_ratio == "mediator":
+            self._fit_mediator_probability(t, m, x)
+
+        elif self._prop_ratio == "treatment":
+            self._fit_treatment_propensity_xm(t, m, x)
+
+        self._fitted = True
+
+        if self.verbose:
+            print("Nuisance models fitted")
+
+        return self
+        
     def _one_step_correction_direct(self, t, m, x, y):
         """Implements the one step correction for the estimation of the natural
         direct effect with the prop_ratio of mediator densities or treatment
@@ -194,31 +220,6 @@ class TMLE(Estimator):
 
         return delta_1
 
-    def fit(self, t, m, x, y):
-        """Fits nuisance parameters to data"""
-        # bucketize if needed
-        t, m, x, y = self._resize(t, m, x, y)
-
-        if (not is_array_binary(m)) and (self._prop_ratio == "mediator"):
-            raise ValueError(
-                "The option mediator 'mediator' in TMLE is supported only for 1D binary mediator"
-            )
-
-        self._fit_treatment_propensity_x(t, x)
-        self._fit_conditional_mean_outcome(t, m, x, y)
-
-        if self._prop_ratio == "mediator":
-            self._fit_mediator_probability(t, m, x)
-
-        elif self._prop_ratio == "treatment":
-            self._fit_treatment_propensity_xm(t, m, x)
-
-        self._fitted = True
-
-        if self.verbose:
-            print("Nuisance models fitted")
-
-        return self
 
     @fitted
     def estimate(self, t, m, x, y):

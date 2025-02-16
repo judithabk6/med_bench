@@ -67,10 +67,11 @@ class MultiplyRobust(Estimator):
             self._fit_treatment_propensity_xm(t, m, x)
 
         if self._integration == "explicit":
-            self.discretizer.fit(m)
-            m = self._discretize_mediators(m)
-            self._fit_discrete_mediator_probability(t, m, x)
-            self._fit_conditional_mean_outcome(t, m, x, y)
+            if self._prop_ratio == "treatment":
+                self._fit_mediator_discretizer(m)
+            m_label, m_discrete_value = self._discretize_mediators(m)
+            self._fit_discrete_mediator_probability(t, m_label, x)
+            self._fit_conditional_mean_outcome(t, m_discrete_value, x, y)
 
         elif self._integration == "implicit":
             self._fit_cross_conditional_mean_outcome(t, m, x, y)
@@ -108,7 +109,7 @@ class MultiplyRobust(Estimator):
             prop_ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
         if self._integration == "explicit":
-            m = self._discretize_mediators(m) if not is_array_integer(m) else m
+            m_label, m_discrete_value = self._discretize_mediators(m)
 
             f_0x, f_1x = self._estimate_discrete_mediator_probability_table(x)
             mu_0x, mu_1x = self._estimate_conditional_mean_outcome_table(x)
@@ -132,7 +133,7 @@ class MultiplyRobust(Estimator):
             y1m0 = y1m0.mean()
             y0m1 = y0m1.mean()
 
-            mu_0mx, mu_1mx = self._estimate_conditional_mean_outcome(x, m)
+            mu_0mx, mu_1mx = self._estimate_conditional_mean_outcome(x, m_discrete_value)
 
         elif self._integration == "implicit":
             mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1 = (
