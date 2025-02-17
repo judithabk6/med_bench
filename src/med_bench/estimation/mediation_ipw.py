@@ -59,14 +59,18 @@ class InversePropensityWeighting(Estimator):
 
         t, m, x, y = self._resize(t, m, x, y)
         p_x = self._estimate_treatment_propensity_x(x)
+        p_x = np.clip(p_x, self._clip, 1 - self._clip)
 
         if self._prop_ratio == "treatment":
             p_xm = self._estimate_treatment_propensity_xm(m, x)
+            p_xm = np.clip(p_xm, self._clip, 1 - self._clip)
             prop_ratio_t1_m0 = (1 - p_xm) / ((1 - p_x) * p_xm)
             prop_ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
         elif self._prop_ratio == "mediator":
             f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
+            f_m0x = np.clip(f_m0x, self._clip, None)
+            f_m1x = np.clip(f_m1x, self._clip, None)
             prop_ratio_t1_m0 = f_m0x / (p_x * f_m1x)
             prop_ratio_t0_m1 = f_m1x / ((1 - p_x) * f_m0x)
 
@@ -78,8 +82,6 @@ class InversePropensityWeighting(Estimator):
             prop_ratio_t1_m0[ind],
             prop_ratio_t0_m1[ind],
         )
-
-        p_x = np.clip(p_x, self._clip, 1 - self._clip)
 
         # importance weighting
         y1m1 = (y * t / p_x) / np.mean(t / p_x)
