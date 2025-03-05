@@ -12,7 +12,9 @@ ALPHA = 10
 class TMLE(Estimator):
     """Implementation of targeted maximum likelihood estimation method class"""
 
-    def __init__(self, regressor, classifier, prop_ratio, **kwargs):
+    def __init__(
+        self, regressor, classifier, prop_ratio, clip: float, trim: float, **kwargs
+    ):
         """_summary_
 
         Parameters
@@ -23,6 +25,10 @@ class TMLE(Estimator):
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
         prop_ratio : str
             prop_ratio to use for estimation, can be either 'mediator' or 'treatment'
+        clip : float
+            Clipping value for propensity scores
+        trim : float
+            Trimming value for propensity scores
         """
         super().__init__(**kwargs)
 
@@ -37,6 +43,8 @@ class TMLE(Estimator):
         self.regressor = regressor
         self.classifier = classifier
 
+        self._clip = clip
+        self._trim = trim
         assert prop_ratio in ["mediator", "treatment"]
         self._prop_ratio = prop_ratio
 
@@ -65,7 +73,7 @@ class TMLE(Estimator):
             print("Nuisance models fitted")
 
         return self
-        
+
     def _one_step_correction_direct(self, t, m, x, y):
         """Implements the one step correction for the estimation of the natural
         direct effect with the prop_ratio of mediator densities or treatment
@@ -77,16 +85,30 @@ class TMLE(Estimator):
         t0 = np.zeros((n))
         t1 = np.ones((n))
 
+        p_x = self._estimate_treatment_propensity_x(x)
+        p_x = np.clip(p_x, self._clip, 1 - self._clip)
+
         # estimate mediator densities
         if self._prop_ratio == "mediator":
             f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
-            p_x = self._estimate_treatment_propensity_x(x)
+            f_m0x = np.clip(f_m0x, self._clip, None)
+            f_m1x = np.clip(f_m1x, self._clip, None)
             prop_ratio = f_m0x / (p_x * f_m1x)
 
         elif self._prop_ratio == "treatment":
-            p_x = self._estimate_treatment_propensity_x(x)
             p_xm = self._estimate_treatment_propensity_xm(m, x)
+            p_xm = np.clip(p_xm, self._clip, 1 - self._clip)
             prop_ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
+
+        ind = (p_x > self._trim) & (p_x < (1 - self._trim))
+        y, t, m, x, p_x, prop_ratio = (
+            y[ind],
+            t[ind],
+            m[ind],
+            x[ind],
+            p_x[ind],
+            prop_ratio[ind],
+        )
 
         # estimation of corrective features for the conditional mean outcome
         h_corrector = t * prop_ratio - (1 - t) / (1 - p_x)
@@ -151,17 +173,30 @@ class TMLE(Estimator):
         t0 = np.zeros((n))
         t1 = np.ones((n))
 
+        p_x = self._estimate_treatment_propensity_x(x)
+        p_x = np.clip(p_x, self._clip, 1 - self._clip)
+
         # estimate mediator densities
         if self._prop_ratio == "mediator":
             f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
-            p_x = self._estimate_treatment_propensity_x(x)
+            f_m0x = np.clip(f_m0x, self._clip, None)
+            f_m1x = np.clip(f_m1x, self._clip, None)
             prop_ratio = f_m0x / (p_x * f_m1x)
 
         elif self._prop_ratio == "treatment":
-            p_x = self._estimate_treatment_propensity_x(x)
             p_xm = self._estimate_treatment_propensity_xm(m, x)
+            p_xm = np.clip(p_xm, self._clip, 1 - self._clip)
             prop_ratio = (1 - p_xm) / ((1 - p_x) * p_xm)
 
+        ind = (p_x > self._trim) & (p_x < (1 - self._trim))
+        y, t, m, x, p_x, prop_ratio = (
+            y[ind],
+            t[ind],
+            m[ind],
+            x[ind],
+            p_x[ind],
+            prop_ratio[ind],
+        )
         # estimation of corrective features for the conditional mean outcome
         h_corrector = t / p_x - t * prop_ratio
 
@@ -219,7 +254,6 @@ class TMLE(Estimator):
         delta_1 = np.mean(omega_t1x_star - omega_t0x_star)
 
         return delta_1
-
 
     @fitted
     def estimate(self, t, m, x, y):

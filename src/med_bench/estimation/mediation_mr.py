@@ -13,6 +13,8 @@ class MultiplyRobust(Estimator):
         self,
         regressor,
         classifier,
+        clip: float,
+        trim: float,
         prop_ratio="treatment",
         integration="implicit",
         normalized=True,
@@ -26,6 +28,10 @@ class MultiplyRobust(Estimator):
             Regressor used for mu estimation, can be any object with a fit and predict method
         classifier
             Classifier used for propensity estimation, can be any object with a fit and predict_proba method
+        clip : float
+            Clipping value for propensity scores
+        trim : float
+            Trimming value for propensity scores
         prop_ratio : str
             prop_ratio to use for estimation, can be either 'mediator' or 'treatment'
         integration : str
@@ -47,6 +53,8 @@ class MultiplyRobust(Estimator):
         self.regressor = regressor
         self.classifier = classifier
 
+        self._clip = clip
+        self._trim = trim
         assert prop_ratio in ["mediator", "treatment"]
         assert integration in ["implicit", "explicit"]
         self._prop_ratio = prop_ratio
@@ -96,15 +104,19 @@ class MultiplyRobust(Estimator):
         # Format checking
         t, m, x, y = self._resize(t, m, x, y)
 
+        p_x = self._estimate_treatment_propensity_x(x)
+        p_x = np.clip(p_x, self._clip, 1 - self._clip)
+
         if self._prop_ratio == "mediator":
             f_m0x, f_m1x = self._estimate_mediator_probability(x, m)
-            p_x = self._estimate_treatment_propensity_x(x)
+            f_m0x = np.clip(f_m0x, self._clip, None)
+            f_m1x = np.clip(f_m1x, self._clip, None)
             prop_ratio_t1_m0 = f_m0x / (p_x * f_m1x)
             prop_ratio_t0_m1 = f_m1x / ((1 - p_x) * f_m0x)
 
         elif self._prop_ratio == "treatment":
-            p_x = self._estimate_treatment_propensity_x(x)
             p_xm = self._estimate_treatment_propensity_xm(m, x)
+            p_xm = np.clip(p_xm, self._clip, 1 - self._clip)
             prop_ratio_t1_m0 = (1 - p_xm) / ((1 - p_x) * p_xm)
             prop_ratio_t0_m1 = p_xm / ((1 - p_xm) * p_x)
 
@@ -133,12 +145,27 @@ class MultiplyRobust(Estimator):
             y1m0 = y1m0.mean()
             y0m1 = y0m1.mean()
 
-            mu_0mx, mu_1mx = self._estimate_conditional_mean_outcome(x, m_discrete_value)
+            mu_0mx, mu_1mx = self._estimate_conditional_mean_outcome(
+                x, m_discrete_value
+            )
 
         elif self._integration == "implicit":
             mu_0mx, mu_1mx, y0m0, y0m1, y1m0, y1m1 = (
                 self._estimate_cross_conditional_mean_outcome(m, x)
             )
+
+        ind = (p_x > self._trim) & (p_x < (1 - self._trim))
+        y, t, p_x, prop_ratio_t1_m0, prop_ratio_t0_m1 = (
+            y[ind],
+            t[ind],
+            p_x[ind],
+            prop_ratio_t1_m0[ind],
+            prop_ratio_t0_m1[ind],
+        )
+        mu_0mx, mu_1mx = (
+            mu_0mx[ind],
+            mu_1mx[ind],
+        )
 
         # score computing
         if self._normalized:

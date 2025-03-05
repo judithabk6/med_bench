@@ -70,4 +70,7 @@ class GaussianDensityEstimation:
 
         representation = self.representation(X).squeeze()
 
-        return np.prod(norm(loc=representation, scale=self.scale).pdf(Y), axis=-1)
+        pdf_values = norm(loc=representation, scale=self.scale).pdf(Y)
+        values_pdf = np.prod(pdf_values, axis=-1) if pdf_values.ndim > 1 else pdf_values
+
+        return values_pdf

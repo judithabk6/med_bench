@@ -14,7 +14,7 @@ class Estimator:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, verbose: bool = True, mediator_cardinality_threshold: int=10):
+    def __init__(self, verbose: bool = True, mediator_cardinality_threshold: int = 10):
         """Initializes Estimator base class
 
         Parameters
@@ -25,11 +25,11 @@ class Estimator:
         mediator_cardinality_threshold: int
             default 10
             maximal number of categories in a mediator to treat it as discrete or continuous
-            if the mediator is 1-dimensional and 
+            if the mediator is 1-dimensional and
                 if the number of distinct values in the mediator is lower than
                 mediator_cardinality_threshold, the mediator is going to be considered
                 discrete when estimating the mediator probability function, otherwise
-                the mediator is considered continuous, 
+                the mediator is considered continuous,
         """
         self._verbose = verbose
         self._fitted = False
@@ -38,7 +38,6 @@ class Estimator:
     @property
     def verbose(self):
         return self._verbose
-
 
     @abstractmethod
     def fit(self, t, m, x, y):
@@ -231,7 +230,9 @@ class Estimator:
 
     def _fit_mediator_discretizer(self, m):
         """Fits the discretization procedure of mediators"""
-        if (is_array_integer(m)) and (len(np.unique(m)) <= self.mediator_cardinality_threshold):
+        if (is_array_integer(m)) and (
+            len(np.unique(m)) <= self.mediator_cardinality_threshold
+        ):
             self.discretizer = LabelEncoder()
             self.discretizer.fit(m.ravel())
             self.mediator_bins = self.discretizer.classes_
@@ -362,12 +363,15 @@ class Estimator:
         t0 = np.zeros((n, 1))
         t1 = np.ones((n, 1))
 
-
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_m0x = self._classifier_m.predict_proba(t0_x)[np.arange(m_label.shape[0]), m_label]
-        f_m1x = self._classifier_m.predict_proba(t1_x)[np.arange(m_label.shape[0]), m_label]
+        f_m0x = self._classifier_m.predict_proba(t0_x)[
+            np.arange(m_label.shape[0]), m_label
+        ]
+        f_m1x = self._classifier_m.predict_proba(t1_x)[
+            np.arange(m_label.shape[0]), m_label
+        ]
 
         return f_m0x, f_m1x
 
@@ -392,8 +396,8 @@ class Estimator:
         t0_x = np.hstack([t0.reshape(-1, 1), x])
         t1_x = np.hstack([t1.reshape(-1, 1), x])
 
-        f_m0x = self._density_m.pdf(t0_x, m)
-        f_m1x = self._density_m.pdf(t1_x, m)
+        f_m0x = self._density_m.pdf(t0_x, m.squeeze())
+        f_m1x = self._density_m.pdf(t1_x, m.squeeze())
 
         return f_m0x, f_m1x
 

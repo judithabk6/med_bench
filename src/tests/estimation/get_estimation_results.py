@@ -145,6 +145,8 @@ def _get_estimation_results(x, t, m, y, estimator):
     elif estimator == "mediation_multiply_robust_reg_pr_treatment_ig_implicit":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="treatment",
             normalized=True,
             regressor=reg,
@@ -164,6 +166,8 @@ def _get_estimation_results(x, t, m, y, estimator):
             regularize=True, calibration=True, method="sigmoid"
         )
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="treatment",
             normalized=True,
             regressor=reg,
@@ -178,6 +182,8 @@ def _get_estimation_results(x, t, m, y, estimator):
     elif estimator == "mediation_multiply_robust_reg_pr_mediator_ig_implicit":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="mediator",
             normalized=True,
             regressor=reg,
@@ -192,6 +198,8 @@ def _get_estimation_results(x, t, m, y, estimator):
     elif estimator == "mediation_multiply_robust_reg_pr_treatment_ig_explicit":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="treatment",
             normalized=True,
             regressor=reg,
@@ -206,6 +214,8 @@ def _get_estimation_results(x, t, m, y, estimator):
     elif estimator == "mediation_multiply_robust_reg_pr_mediator_ig_explicit":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="mediator",
             normalized=True,
             regressor=reg,
@@ -222,6 +232,8 @@ def _get_estimation_results(x, t, m, y, estimator):
     ):
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
         estimator_obj = MultiplyRobust(
+            clip=1e-6,
+            trim=0,
             prop_ratio="treatment",
             normalized=True,
             regressor=reg,
@@ -256,7 +268,9 @@ def _get_estimation_results(x, t, m, y, estimator):
     # TMLE - ratio of treatment propensities
     elif estimator == "mediation_tmle_prop_ratio_treatment":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        estimator_obj = TMLE(regressor=reg, classifier=clf, prop_ratio="treatment")
+        estimator_obj = TMLE(
+            clip=1e-6, trim=0, regressor=reg, classifier=clf, prop_ratio="treatment"
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
@@ -264,7 +278,9 @@ def _get_estimation_results(x, t, m, y, estimator):
     # TMLE - ratio of mediator densities
     elif estimator == "mediation_tmle_prop_ratio_mediator":
         clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        estimator_obj = TMLE(regressor=reg, classifier=clf, prop_ratio="mediator")
+        estimator_obj = TMLE(
+            clip=1e-6, trim=0, regressor=reg, classifier=clf, prop_ratio="mediator"
+        )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
