@@ -229,9 +229,9 @@ class TMLE(Estimator):
         omega_t0x = reg_cross.predict(x)
 
         # one step corrected cross conditional mean outcome for control
-        c_corrector_t0 = (2 * t0 - 1) / p_x[:, None]
+        c_corrector_t0 = (2 * t0 - 1) / p_x
         reg = LinearRegression(fit_intercept=False).fit(
-            c_corrector_t0[t == 0],
+            c_corrector_t0[t == 0].reshape(-1, 1),
             (mu_t1_mx_star[t == 0] - omega_t0x[t == 0]).squeeze(),
         )
         epsilon_c_t0 = reg.coef_
@@ -243,9 +243,9 @@ class TMLE(Estimator):
         omega_t1x = reg_cross.predict(x)
 
         # one step corrected cross conditional mean outcome for treated
-        c_corrector_t1 = (2 * t1 - 1) / p_x[:, None]
+        c_corrector_t1 = (2 * t1 - 1) / p_x
         reg = LinearRegression(fit_intercept=False).fit(
-            c_corrector_t1[t == 1], (y[t == 1] - omega_t1x[t == 1]).squeeze()
+            c_corrector_t1[t == 1].reshape(-1, 1), (y[t == 1] - omega_t1x[t == 1]).squeeze()
         )
         epsilon_c_t1 = reg.coef_
         omega_t1x_star = omega_t1x + epsilon_c_t1 * c_corrector_t1
