@@ -12,6 +12,7 @@ Judith Abécassis, Julie Josse and Bertrand Thirion (2022). **Causal mediation a
 med_bench can be installed by executing
 ```
 python setup.py install
+pip install -e .
 ```
 
 Or the package can be directly installed from the GitHub repository using
