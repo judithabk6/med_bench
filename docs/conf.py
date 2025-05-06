@@ -2,16 +2,25 @@ import os
 import sys
 
 import med_bench
-import med_bench.get_estimation
 import med_bench.get_simulated_data
 import med_bench.mediation
+import med_bench.estimation
+from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
+from med_bench.estimation.mediation_dml import DoubleMachineLearning
+from med_bench.estimation.mediation_g_computation import GComputation
+from med_bench.estimation.mediation_ipw import InversePropensityWeighting
+from med_bench.estimation.mediation_mr import MultiplyRobust
+from med_bench.estimation.mediation_tmle import TMLE
+import med_bench.utils
+import med_bench.utils.utils
 
 
 sys.path.insert(0, os.path.abspath('../'))
 
 project = 'med_bench'
-copyright = '2024, Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh'
-author = 'Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh'
+copyright = '2025, Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh, Sami Boumaïza, Julie Josse'
+author = 'Judith Abecassis, Houssam Zenati, Bertrand Thirion, Hadrien Mariaccia, Mouad Zbakh, Sami Boumaïza, Julie Josse'
+
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
