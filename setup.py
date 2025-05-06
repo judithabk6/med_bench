@@ -20,7 +20,6 @@ setuptools.setup(
         'pandas>=1.2.1',
         'scikit-learn>=0.22.1',
         'numpy>=1.19.2',
-        'rpy2>=2.9.4',
         'scipy>=1.5.2',
         'seaborn>=0.11.1',
         'matplotlib>=3.3.2',

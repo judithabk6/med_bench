@@ -1,4 +1,4 @@
-name: CI-with-R
+name: CI
 
 on:
   push:
@@ -25,27 +25,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
-        
-    - name: Setup R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: '4.3.2' # Use the R version you prefer
-
-    - name: Install R packages
-      uses: r-lib/actions/setup-r-dependencies@v2
-      with:
-        cache: true
-        cache-version: 1
-        dependencies: 'NA'
-        install-pandoc: false
-        packages: |
-          grf
-          causalweight
-          mediation
-
-    - name: Install plmed package          
-      run: |    
-        R -e "pak::pkg_install('ohines/plmed')"
 
     - name: Install Pytest
       run: |

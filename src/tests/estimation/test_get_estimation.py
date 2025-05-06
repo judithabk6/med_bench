@@ -14,88 +14,97 @@ The test fails for any other unwanted behavior.
 from pprint import pprint
 import pytest
 import numpy as np
+import os
+import warnings
 
+from tests.estimation.get_estimation_results import _get_estimation_results
 from med_bench.get_simulated_data import simulate_data
-from med_bench.get_estimation import get_estimation
 
-from med_bench.utils.utils import DependencyNotInstalledError, check_r_dependencies
-from med_bench.utils.constants import PARAMETER_LIST, PARAMETER_NAME, R_DEPENDENT_ESTIMATORS, TOLERANCE_DICT
+from med_bench.utils.utils import DependencyNotInstalledError
+from med_bench.utils.constants import (
+    CONFIGURATION_NAMES,
+    CONFIG_DICT,
+    DEFAULT_TOLERANCE,
+    TOLERANCE_FACTOR_DICT,
+    ESTIMATORS,
+)
 
 
-@pytest.fixture(params=PARAMETER_LIST)
-def dict_param(request):
-    return dict(zip(PARAMETER_NAME, request.param))
+@pytest.fixture(params=CONFIGURATION_NAMES)
+def configuration_name(request):
+    return request.param
 
 
 @pytest.fixture
-def data(dict_param):
+def dict_param(configuration_name):
+    return CONFIG_DICT[configuration_name]
+
+
+# Two distinct data fixtures
+@pytest.fixture
+def data_simulated(dict_param):
     return simulate_data(**dict_param)
 
 
 @pytest.fixture
-def x(data):
-    return data[0]
+def x(data_simulated):
+    return data_simulated[0]
 
 
 # t is raveled because some estimators fail with (n,1) inputs
 @pytest.fixture
-def t(data):
-    return data[1].ravel()
+def t(data_simulated):
+    return data_simulated[1].ravel()
 
 
 @pytest.fixture
-def m(data):
-    return data[2]
+def m(data_simulated):
+    return data_simulated[2]
 
 
 @pytest.fixture
-def y(data):
-    return data[3].ravel()  # same reason as t
+def y(data_simulated):
+    return data_simulated[3].ravel()  # same reason as t
 
 
 @pytest.fixture
-def effects(data):
-    return np.array(data[4:9])
+def effects(data_simulated):
+    return np.array(data_simulated[4:9])
 
 
-@pytest.fixture(params=list(TOLERANCE_DICT.keys()))
+@pytest.fixture(params=ESTIMATORS)
 def estimator(request):
     return request.param
 
 
 @pytest.fixture
-def tolerance(estimator):
-    return TOLERANCE_DICT[estimator]
+def tolerance(estimator, configuration_name):
+    test_name = "{}-{}".format(estimator, configuration_name)
+    if test_name in TOLERANCE_FACTOR_DICT.keys():
+        tolerance = DEFAULT_TOLERANCE * TOLERANCE_FACTOR_DICT[test_name]
+    else:
+        tolerance = DEFAULT_TOLERANCE
+    return tolerance
 
 
 @pytest.fixture
-def config(dict_param):
-    if dict_param["dim_m"] == 1 and dict_param["type_m"] == "binary":
-        return 0
-    return 5
-
-
-@pytest.fixture
-def effects_chap(x, t, m, y, estimator, config):
-    # try whether estimator is implemented or not
-
+def effects_chap(x, t, m, y, estimator):
     try:
-        res = get_estimation(x, t, m, y, estimator, config)[0:5]
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")  # Ensure all warnings are captured
+            res = _get_estimation_results(x, t, m, y, estimator)
+
+            # Check if the specific warning is in the caught warnings
+            for w in caught_warnings:
+                if (
+                    "The explicit integration of the conditional mean outcome is strongly not advised for continuous mediators"
+                    in str(w.message)
+                ):
+                    pytest.skip(f"Skipped due to warning: {w.message}")
+
     except Exception as e:
-        if str(e) in (
-            "Estimator only supports 1D binary mediator.",
-            "Estimator does not support 1D binary mediator.",
-        ):
+        if "1D binary mediator" in str(e):
             pytest.skip(f"{e}")
-
-        # We skip the test if an error with function from glmet rpy2 package occurs
-        elif "glmnet::glmnet" in str(e):
-            pytest.skip(f"{e}")
-
-        elif estimator in R_DEPENDENT_ESTIMATORS and not check_r_dependencies():
-            assert isinstance(e, DependencyNotInstalledError) == True
-            pytest.skip(f"{e}")
-
         else:
             pytest.fail(f"{e}")
 
@@ -115,20 +124,22 @@ def test_tolerance(effects, effects_chap, tolerance):
 
 def test_total_is_direct_plus_indirect(effects_chap):
     if not np.isnan(effects_chap[1]):
-        assert effects_chap[0] == pytest.approx(
-            effects_chap[1] + effects_chap[4])
+        assert effects_chap[0] == pytest.approx(effects_chap[1] + effects_chap[4])
     if not np.isnan(effects_chap[2]):
-        assert effects_chap[0] == pytest.approx(
-            effects_chap[2] + effects_chap[3])
+        assert effects_chap[0] == pytest.approx(effects_chap[2] + effects_chap[3])
 
 
-@pytest.mark.xfail
-def test_robustness_to_ravel_format(data, estimator, config, effects_chap):
+def test_robustness_to_ravel_format(data_simulated, estimator, effects_chap):
     if "forest" in estimator:
         pytest.skip("Forest estimator skipped")
     assert np.all(
-        get_estimation(data[0], data[1], data[2],
-                       data[3], estimator, config)[0:5]
+        _get_estimation_results(
+            data_simulated[0],
+            data_simulated[1],
+            data_simulated[2],
+            data_simulated[3],
+            estimator,
+        )
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
