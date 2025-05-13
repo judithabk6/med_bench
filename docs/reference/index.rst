@@ -1,9 +1,10 @@
-.. toctree::
-   :maxdepth: 4
-   :caption: API:
+.. currentmodule:: med_bench
 
+###
+API
+###
 
-
+This page lists all available functions and classes of `med_bench`.
 
 
 
@@ -44,9 +45,7 @@ Estimation
     :members:
     :undoc-members:
 
-
-
-get_simulated_data
+Simulate data
 ==========
 
 .. automodule:: med_bench.get_simulated_data

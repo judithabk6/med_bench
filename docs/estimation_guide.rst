@@ -1,4 +1,4 @@
-References 
+Estimation guide 
 ==========
 
 * J. Abécassis, J. Josse and B. Thirion. `Causal mediation analysis with one or
