@@ -25,7 +25,8 @@ setuptools.setup(
         'matplotlib>=3.3.2',
         "pytest",
         "sphinx",
-        "pydata_sphinx_theme"
+        "pydata_sphinx_theme",
+        "sphinx-gallery"
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
