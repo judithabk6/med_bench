@@ -1,0 +1,19 @@
+﻿:mod:`med_bench.estimation.mediation_coefficient_product`.CoefficientProduct
+===================================================================================
+
+.. rst-class:: side_comment
+
+    Usage examples at the bottom of this page.
+
+.. currentmodule:: med_bench.estimation.mediation_coefficient_product
+
+.. autoclass:: CoefficientProduct
+   :inherited-members:
+
+   
+
+   
+
+.. raw:: html
+
+    <div class="clearer"></div>
