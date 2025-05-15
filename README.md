@@ -2,11 +2,11 @@
 
 # med_bench
 
-**med_bench** is a Python package designed to wrap the most common estimators for causal mediation analysis in a single framework. We additionally allow for some flexibility in the choice of nuisance parameters models.
+**med_bench** is a Python package that implements the most common estimators for causal mediation analysis in a single framework. We additionally allow for some flexibility in the choice of nuisance parameter models.
 
-The simulations and performances evaluations realized here are presented in the following article
+The simulations and performance evaluations realized here are presented in the following article
 
-Judith Abécassis, Julie Josse and Bertrand Thirion (2022). **Causal mediation analysis with one or multiple mediators: a comparative study.** [pdf](https://judithabk6.github.io/files/article_mediation_benchmark.pdf)
+Judith Abécassis, Houssam Zenati, Sami Boumaïza, Julie Josse, Bertrand Thirion. **Causal mediation analysis with one or multiple mediators: a comparative study.** 2025. [pdf](https://hal.science/hal-05060162v1/file/abecassis_et_al2023.pdf)
 
 ## Installation
 med_bench can be installed by executing
@@ -20,8 +20,4 @@ Or the package can be directly installed from the GitHub repository using
 pip install git+git://github.com/judithabk6/med_bench.git
 ```
 
-Installation time is a few minutes on a standard personal computer.
-
-
-## Content
-The `src` folder contains the main module with the implementation of the different estimators, the `script` folder contains the function used to simulate data and run the experiments, and the `results` folder contains all available results and code to reproduce the figures.
+A full documentation can be found at https://judithabk6.github.io/med_bench/
