@@ -29,8 +29,11 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
-    'sphinx.ext.githubpages'
+    'sphinx.ext.githubpages',
+    'sphinx.ext.autosummary',
 ]
+autosummary_generate = True
+add_module_names = False
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.venv']
@@ -40,6 +43,7 @@ sphinx_gallery_conf = {
     'examples_dirs': 'examples',
     'gallery_dirs': 'auto_examples',
     "filename_pattern": ".*",
+    'within_subsection_order': "FileNameSortKey",
 }
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

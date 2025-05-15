@@ -6,49 +6,67 @@ API
 
 This page lists all available functions and classes of `med_bench`.
 
+.. currentmodule:: med_bench
 
 
 Estimation
 ==========
-.. automodule:: med_bench.estimation
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 
-.. automodule:: med_bench.estimation.mediation_coefficient_product
-    :members:
-    :undoc-members:
+.. currentmodule:: med_bench.estimation.mediation_coefficient_product
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    :nosignatures:
+
+    CoefficientProduct
+
+.. currentmodule:: med_bench.estimation.mediation_g_computation
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    :nosignatures:
+
+    GComputation
+
+.. currentmodule:: med_bench.estimation.mediation_ipw
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    :nosignatures:
+
+    InversePropensityWeighting
 
 
-.. automodule:: med_bench.estimation.mediation_g_computation
-    :members:
-    :undoc-members:
+.. currentmodule:: med_bench.estimation.mediation_mr
 
-.. automodule:: med_bench.estimation.mediation_ipw
-    :members:
-    :undoc-members:
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    :nosignatures:
 
+    MultiplyRobust
 
-.. automodule:: med_bench.estimation.mediation_mr
-    :members:
-    :undoc-members:
+.. currentmodule:: med_bench.estimation.mediation_tmle
 
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    :nosignatures:
 
-.. automodule:: med_bench.estimation.mediation_dml
-    :members:
-    :undoc-members:
+    TMLE
 
-
-
-.. automodule:: med_bench.estimation.mediation_tmle
-    :members:
-    :undoc-members:
-
-Simulate data
+Data simulation
 ==========
 
-.. automodule:: med_bench.get_simulated_data
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. currentmodule:: med_bench.get_simulated_data
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+    :nosignatures:
+
+    simulate_data

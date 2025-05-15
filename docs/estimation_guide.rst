@@ -1,13 +1,19 @@
 Estimation guide 
 ==========
 
-* J. Abécassis, J. Josse and B. Thirion. `Causal mediation analysis with one or
-     multiple mediators: a comparative study.
-     <https://judithabk6.github.io/files/article_mediation_benchmark.pdf>`_
-     2022.
+All estimators are presented in the publication associated with this repository.
+.. admonition:: citation
 
-Coefficient Product
--------------------
+    Judith Abécassis, Houssam Zenati, Sami Boumaïza, Julie Josse, Bertrand Thirion. Causal mediation analysis with one or multiple mediators: a comparative study. 2025. `hal-05060162 <https://hal.science/hal-05060162>`_
+
+
+More details about the estimators, and how and when to use them, will come!
+
+References
+----------
+
+**Coefficient Product**
+
 
 The coefficient product method was proposed in 
 
@@ -19,17 +25,9 @@ The coefficient product method was proposed in
 * Valeri, L. and VanderWeele, T. J. `SAS Macro for Causal Mediation Analysis
   with Survival Data`_. Epidemiology 26(2), 2015. 
 
-Alternative
------------
 
-The alternative algorithm was used and presented in
+**IPW estimator**
 
-* M. Huber, M. Lechner and G. Mellace. `The Finite Sample Performance of
-     Estimators for Mediation Analysis Under Sequential Conditional
-     Independence`_. Journal of Business and Economic Statistics. 2015. 
-
-IPW estimator
--------------
 
 The Importance Weighting (IPW) method originally was introduced in 
 
@@ -39,15 +37,13 @@ and then presented in mediation analysis in
   probability weighting`_. Journal of Applied Econometrics, 29, issue 6, p.
   920-943, 2014.
 
-G-computation estimator
--------------
+**G-computation estimator**
 
 The G-computation method for the mediation was introduced in 
 
 * 
 
-DML estimator
-------------
+**Robust estimators**
 
 The Double machine learning method originally was introduced in 
 
@@ -61,9 +57,6 @@ and then adapted to the mediation task in
      mediation analysis with double machine learning`_, The Econometrics
      Journal, Volume 25, Issue 2, Pages 277–300, 2022.
 
-
-MR estimator
-------------
 
 The Multiply Robust (MR) estimator was introduced in 
 
