@@ -5,7 +5,6 @@ import med_bench
 import med_bench.get_simulated_data
 import med_bench.estimation
 from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
-from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
 from med_bench.estimation.mediation_ipw import InversePropensityWeighting
 from med_bench.estimation.mediation_mr import MultiplyRobust

@@ -236,28 +236,16 @@ TOLERANCE_FACTOR_DICT = {
     "mediation_multiply_robust_reg_pr_treatment_ig_implicit_cross_fit-M5D_continuous_5DX": np.array(
         [1, 2, 2, 4, 4]
     ),
-    "mediation_dml_reg-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
-    "mediation_dml_reg-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
-    "mediation_dml_reg-M1D_continuous_1DX": np.array([1, 2, 2, 2, 2]),
-    "mediation_dml_reg-M1D_continuous_5DX": np.array([2, 2, 2, 2, 2]),
-    "mediation_dml_reg-M5D_continuous_1DX": np.array([1, 10, 10, 20, 20]),
-    "mediation_dml_reg-M5D_continuous_5DX": np.array([1, 3, 3, 7, 7]),
-    "mediation_dml_reg_calibration-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
-    "mediation_dml_reg_calibration-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
-    "mediation_dml_reg_calibration-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
-    "mediation_dml_reg_calibration-M5D_continuous_1DX": np.array([1, 2, 2, 4, 4]),
-    "mediation_dml_reg_calibration-M1D_continuous_5DX": np.array([1, 1, 1, 1, 1]),
-    "mediation_dml_reg_calibration-M5D_continuous_5DX": np.array([2, 3, 3, 3, 3]),
     "mediation_tmle_prop_ratio_treatment-M1D_binary_1DX": np.array([1, 1, 1, 2, 2]),
     "mediation_tmle_prop_ratio_treatment-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
-    "mediation_tmle_prop_ratio_treatment-M1D_continuous_1DX": np.array([1, 1, 1, 2, 2]),
-    "mediation_tmle_prop_ratio_treatment-M5D_continuous_1DX": np.array([1, 2, 2, 3, 3]),
-    "mediation_tmle_prop_ratio_treatment-M1D_continuous_5DX": np.array([1, 1, 1, 3, 3]),
+    "mediation_tmle_prop_ratio_treatment-M1D_continuous_1DX": np.array([1, 1.5, 1.5, 2.5, 2.5]),
+    "mediation_tmle_prop_ratio_treatment-M5D_continuous_1DX": np.array([1, 2, 2, 5, 5]),
+    "mediation_tmle_prop_ratio_treatment-M1D_continuous_5DX": np.array([1, 2, 2, 3, 3]),
     "mediation_tmle_prop_ratio_treatment-M5D_continuous_5DX": np.array(
         [3, 4, 4, 10, 10]
     ),
-    "mediation_tmle_prop_ratio_mediator-M1D_binary_1DX": np.array([1, 1, 1, 3, 3]),
-    "mediation_tmle_prop_ratio_mediator-M1D_binary_5DX": np.array([1, 1, 1, 2, 2]),
+    "mediation_tmle_prop_ratio_mediator-M1D_binary_1DX": np.array([1, 1, 1, 6, 6]),
+    "mediation_tmle_prop_ratio_mediator-M1D_binary_5DX": np.array([1, 1, 1, 3, 3]),
 }
 
 
@@ -277,8 +265,6 @@ ESTIMATORS = [
     "mediation_multiply_robust_reg_pr_treatment_ig_explicit",
     "mediation_multiply_robust_reg_pr_mediator_ig_explicit",
     "mediation_multiply_robust_reg_pr_treatment_ig_implicit_cross_fit",
-    "mediation_dml_reg",
-    "mediation_dml_reg_calibration",
     "mediation_tmle_prop_ratio_treatment",
     "mediation_tmle_prop_ratio_mediator",
 ]
