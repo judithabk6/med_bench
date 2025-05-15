@@ -23,7 +23,10 @@ setuptools.setup(
         'scipy>=1.5.2',
         'seaborn>=0.11.1',
         'matplotlib>=3.3.2',
-        "pytest"
+        "pytest",
+        "sphinx",
+        "pydata_sphinx_theme",
+        "sphinx-gallery"
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

@@ -4,7 +4,6 @@
 import numpy as np
 
 from med_bench.estimation.mediation_coefficient_product import CoefficientProduct
-from med_bench.estimation.mediation_dml import DoubleMachineLearning
 from med_bench.estimation.mediation_g_computation import GComputation
 from med_bench.estimation.mediation_ipw import InversePropensityWeighting
 from med_bench.estimation.mediation_mr import MultiplyRobust
@@ -242,27 +241,6 @@ def _get_estimation_results(x, t, m, y, estimator):
         )
         estimator_obj.fit(t, m, x, y)
         causal_effects = estimator_obj.cross_fit_estimate(t, m, x, y, n_splits=2)
-        effects = _transform_outputs(causal_effects)
-
-    # Regularized Double Machine Learning
-    elif estimator == "mediation_dml_reg":
-        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        estimator_obj = DoubleMachineLearning(
-            normalized=True, regressor=reg, classifier=clf
-        )
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
-        effects = _transform_outputs(causal_effects)
-
-    # Regularized Double Machine Learning
-    elif estimator == "mediation_dml_reg_calibration":
-        clf, reg = _get_regularized_regressor_and_classifier(regularize=True)
-        calibrated_clf = CalibratedClassifierCV(clf, method="sigmoid")
-        estimator_obj = DoubleMachineLearning(
-            normalized=True, regressor=reg, classifier=calibrated_clf
-        )
-        estimator_obj.fit(t, m, x, y)
-        causal_effects = estimator_obj.estimate(t, m, x, y)
         effects = _transform_outputs(causal_effects)
 
     # TMLE - ratio of treatment propensities
