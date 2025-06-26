@@ -1,0 +1,10 @@
+﻿:mod:`med_bench.get_simulated_data`.simulate_data
+==============================================================
+
+.. currentmodule:: med_bench.get_simulated_data
+
+.. autofunction:: simulate_data
+
+.. raw:: html
+
+    <div class="clearer"></div>

@@ -1,0 +1,19 @@
+﻿:mod:`med_bench.estimation.mediation_mr`.MultiplyRobust
+==============================================================
+
+.. rst-class:: side_comment
+
+    Usage examples at the bottom of this page.
+
+.. currentmodule:: med_bench.estimation.mediation_mr
+
+.. autoclass:: MultiplyRobust
+   :inherited-members:
+
+   
+
+   
+
+.. raw:: html
+
+    <div class="clearer"></div>
