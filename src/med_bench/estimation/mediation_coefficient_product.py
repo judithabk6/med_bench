@@ -93,5 +93,10 @@ class CoefficientProduct(Estimator):
             "direct_effect_control": direct_effect_control,
             "indirect_effect_treated": indirect_effect_treated,
             "indirect_effect_control": indirect_effect_control,
+            "total_effect_variance": None,
+            "direct_effect_treated_variance": None,
+            "direct_effect_control_variance": None,
+            "indirect_effect_treated_variance": None,
+            "indirect_effect_control_variance": None,
         }
         return causal_effects
