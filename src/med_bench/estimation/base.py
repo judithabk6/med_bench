@@ -119,12 +119,23 @@ class Estimator:
         indirect1 = np.mean(y1m1 - y1m0)
         indirect0 = np.mean(y0m1 - y0m0)
 
+        total_var = np.var(y1m1 - y0m0, ddof=1)
+        direct1_var = np.var(y1m1 - y0m1, ddof=1)
+        direct0_var = np.var(y1m0 - y0m0, ddof=1)
+        indirect1_var = np.var(y1m1 - y1m0, ddof=1)
+        indirect0_var = np.var(y0m1 - y0m0, ddof=1)
+
         causal_effects = {
             "total_effect": total,
             "direct_effect_treated": direct1,
             "direct_effect_control": direct0,
             "indirect_effect_treated": indirect1,
             "indirect_effect_control": indirect0,
+            "total_effect_variance": total_var,
+            "direct_effect_treated_variance": direct1_var,
+            "direct_effect_control_variance": direct0_var,
+            "indirect_effect_treated_variance": indirect1_var,
+            "indirect_effect_control_variance": indirect0_var,
         }
         return causal_effects
 
@@ -182,12 +193,23 @@ class Estimator:
         indirect1 = np.mean(y1m1 - y1m0)
         indirect0 = np.mean(y0m1 - y0m0)
 
+        total_var = np.var(y1m1 - y0m0, ddof=1)
+        direct1_var = np.var(y1m1 - y0m1, ddof=1)
+        direct0_var = np.var(y1m0 - y0m0, ddof=1)
+        indirect1_var = np.var(y1m1 - y1m0, ddof=1)
+        indirect0_var = np.var(y0m1 - y0m0, ddof=1)
+
         causal_effects = {
             "total_effect": total,
             "direct_effect_treated": direct1,
             "direct_effect_control": direct0,
             "indirect_effect_treated": indirect1,
             "indirect_effect_control": indirect0,
+            "total_effect_variance": total_var,
+            "direct_effect_treated_variance": direct1_var,
+            "direct_effect_control_variance": direct0_var,
+            "indirect_effect_treated_variance": indirect1_var,
+            "indirect_effect_control_variance": indirect0_var,
         }
         return causal_effects
 
@@ -568,7 +590,7 @@ class Estimator:
     def _discretize_mediators(self, m):
         """Discretize mediators clustering if they are not explicit."""
         if self._mediator_considered_discrete:
-            m_label = self.discretizer.transform(m)
+            m_label = self.discretizer.transform(m.ravel())
             m_discrete_value = m
         else:
             m_label = self.discretizer.predict(m)
