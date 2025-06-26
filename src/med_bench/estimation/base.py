@@ -568,7 +568,7 @@ class Estimator:
     def _discretize_mediators(self, m):
         """Discretize mediators clustering if they are not explicit."""
         if self._mediator_considered_discrete:
-            m_label = self.discretizer.transform(m)
+            m_label = self.discretizer.transform(m.ravel())
             m_discrete_value = m
         else:
             m_label = self.discretizer.predict(m)
