@@ -26,7 +26,8 @@ setuptools.setup(
         "pytest",
         "sphinx",
         "pydata_sphinx_theme",
-        "sphinx-gallery"
+        "sphinx-gallery",
+        "tqdm"
     ],
     classifiers=[
         'Programming Language :: Python :: 3',

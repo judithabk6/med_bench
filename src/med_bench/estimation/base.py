@@ -7,6 +7,8 @@ from med_bench.utils.decorators import fitted
 from med_bench.utils.density import GaussianDensityEstimation
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 
 class Estimator:
@@ -128,7 +130,7 @@ class Estimator:
         }
         return causal_effects
 
-    def cross_fit_estimate(self, t, m, x, y, n_splits=1):
+    def cross_fit_estimate(self, t, m, x, y, n_splits=1, n_jobs=1):
         """Estimate causal effect on data with cross-fitting
 
         Parameters
@@ -146,34 +148,36 @@ class Estimator:
         y       array-like, shape (n_samples)
                 outcome value for each unit, continuous
 
+        n_splits: int
+                number of splits for cross-fitting
+
+        n_jobs: int
+                number of parallel jobs for cross-fitting. Parallelization is done over
+                splits.
         """
 
         # Initialize KFold for sample splitting
         kfold = KFold(n_splits=n_splits)
 
-        n = t.shape[0]
-
-        # Create placeholders for cross-fitted predictions
-        y0m0 = np.zeros(n)
-        y0m1 = np.zeros(n)
-        y1m0 = np.zeros(n)
-        y1m1 = np.zeros(n)
-
-        # Cross-Fitting
-        for train_idx, test_idx in kfold.split(x):
-
+        def _joblib_fit_pointwise_estimate(train_idx, test_idx):
             # Train nuisance models on one split
             self.fit(t[train_idx], m[train_idx], x[train_idx], y[train_idx])
 
             # Predict for the other split
-            y0m0_fold, y0m1_fold, y1m0_fold, y1m1_fold = self._pointwise_estimate(
+            return self._pointwise_estimate(
                 t[test_idx], m[test_idx], x[test_idx], y[test_idx]
             )
 
-            y0m0[test_idx] = y0m0_fold
-            y0m1[test_idx] = y0m1_fold
-            y1m0[test_idx] = y1m0_fold
-            y1m1[test_idx] = y1m1_fold
+        # Cross-Fitting
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(_joblib_fit_pointwise_estimate)(train_idx, test_idx)
+            for train_idx, test_idx in tqdm(kfold.split(x), total=n_splits)
+        )
+        y0m0, y0m1, y1m0, y1m1 = zip(*results)
+        y0m0 = np.concatenate(y0m0)
+        y0m1 = np.concatenate(y0m1)
+        y1m0 = np.concatenate(y1m0)
+        y1m1 = np.concatenate(y1m1)
 
         # effects computing
         total = np.mean(y1m1 - y0m0)

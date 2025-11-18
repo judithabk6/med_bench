@@ -28,6 +28,8 @@ from med_bench.utils.constants import (
     TOLERANCE_FACTOR_DICT,
     ESTIMATORS,
 )
+from med_bench.estimation.mediation_mr import MultiplyRobust
+from sklearn.linear_model import LogisticRegression, LinearRegression
 
 
 @pytest.fixture(params=CONFIGURATION_NAMES)
@@ -143,4 +145,48 @@ def test_robustness_to_ravel_format(data_simulated, estimator, effects_chap):
         == pytest.approx(
             effects_chap, nan_ok=True
         )  # effects_chap is obtained with data[1].ravel() and data[3].ravel()
+    )
+
+
+def test_cross_fit_estimate(data_simulated):
+    estimator = MultiplyRobust(
+        clip=1e-6,
+        trim=0,
+        prop_ratio="treatment",
+        normalized=True,
+        regressor=LinearRegression(),
+        classifier=LogisticRegression(),
+        integration="implicit",
+    )
+    res = estimator.cross_fit_estimate(
+        t=data_simulated[1],
+        m=data_simulated[2],
+        y=data_simulated[3],
+        x=data_simulated[0],
+        n_splits=3,
+    )
+    res_n_jobs = estimator.cross_fit_estimate(
+        t=data_simulated[1],
+        m=data_simulated[2],
+        y=data_simulated[3],
+        x=data_simulated[0],
+        n_splits=3,
+        n_jobs=2,
+    )
+
+    tol = 1e-9
+    assert abs(res["total_effect"] - res_n_jobs["total_effect"]) <= tol
+    assert (
+        abs(res["direct_effect_treated"] - res_n_jobs["direct_effect_treated"]) <= tol
+    )
+    assert (
+        abs(res["direct_effect_control"] - res_n_jobs["direct_effect_control"]) <= tol
+    )
+    assert (
+        abs(res["indirect_effect_treated"] - res_n_jobs["indirect_effect_treated"])
+        <= tol
+    )
+    assert (
+        abs(res["indirect_effect_control"] - res_n_jobs["indirect_effect_control"])
+        <= tol
     )
